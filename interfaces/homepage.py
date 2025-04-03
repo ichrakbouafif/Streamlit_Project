@@ -3,10 +3,44 @@ import os
 import base64
 
 def show():
-    # Get the absolute path of the image (move up one level)
-    image_path = os.path.join(os.path.dirname(__file__), "..", "banking-ffinance.jpg")
+    # --- HEADER ---
+    col_logo, col_title, col_help = st.columns([1, 5, 0.5])
 
-    # Apply CSS styling
+    with col_logo:
+        st.image("assets/PwC_logo.jpg", width=100)
+    
+    with col_title:
+        st.markdown('<h1 style="color:#E0301E;">Outil de Stress Test Bancaire</h1>', unsafe_allow_html=True)
+        st.markdown('<h4 style="color:#000000;">Simulation conforme aux exigences de la BCT et de la BCE – Développé par PwC</h4>', unsafe_allow_html=True)
+    
+    with col_help:
+        if st.button("❓", help="Afficher le guide d’utilisation"):
+            st.session_state["show_guide"] = not st.session_state.get("show_guide", False)
+
+# --- GUIDE ---
+    if st.session_state.get("show_guide", False):
+        # Guide content
+        st.markdown("### Guide d'utilisation")
+        st.markdown("""
+        **Étapes du processus** :
+        
+        1. Importation des fichiers Excel : Bilan, COREP, Capital Planning  
+        
+        2. Calcul des ratios réglementaires (Référence & Baseline)  
+        
+        3. Simulation 1 : scénario idiosyncratique ou macroéconomique  
+        
+        4. Simulation 2 : scénario complémentaire  
+        
+        5. Simulation combinée (automatique)
+        """)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # Get the absolute path of the image (move up one level)
+    image_path = os.path.join(os.path.dirname(__file__), "../assets", "home_page.png")
+
+    # Apply CSS styling for header and image
     st.markdown(
         """
         <style>
@@ -48,6 +82,7 @@ def show():
                 text-align: center;
                 text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.7);
             }
+
             /* Icon styling */
             .icon {
                 font-size: 24px;
@@ -58,16 +93,16 @@ def show():
     """,
     unsafe_allow_html=True)
 
-    # Check if the image exists and encode it as a base64 string for embedding
+    # Check if the image exists and encode it as base64 string for embedding
     if os.path.exists(image_path):
         # Read the image and encode it as base64
         with open(image_path, "rb") as image_file:
             encoded_image = base64.b64encode(image_file.read()).decode()
 
         # Hero Image with Text Overlay (blurred image with bottom margin)
-        st.markdown(f'<div class="hero-image-container" style="background-image: url(\'data:image/jpeg;base64,{encoded_image}\');"></div><div class="hero-text">Optimisez la Résilience de Votre Institution Financière avec notre Outil de Stress Testing Avancé</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="hero-image-container" style="background-image: url(\'data:image/jpeg;base64,{encoded_image}\');"></div><div class="hero-text">Optimisez la Résilience de Votre Institution Financière avec l\'Outil de Stress Test</div>', unsafe_allow_html=True)
     else:
-        st.error("L'image 'banking-ffinance.jpg' est introuvable. Assurez-vous qu'elle est bien placée au bon endroit.")
+        st.error("L'image est introuvable. Assurez-vous qu'elle est bien placée au bon endroit.")
 
     # Explanation Section with professional icons
     st.write(
@@ -77,23 +112,16 @@ def show():
         #### Ce que notre outil vous permet de faire :
         
         <ul>
-            <li><span class="icon">📊</span><strong>Simuler des scénarios de stress</strong>: Analysez la résistance de votre banque face à différents événements économiques et géopolitiques.</li>
-            <li><span class="icon">📜</span><strong>Évaluer la conformité réglementaire</strong>: Assurez-vous que vos résultats respectent les normes définies par la <strong>BCE</strong> et la <strong>BCT</strong>.</li>
-            <li><span class="icon">📉</span><strong>Visualiser l'impact sur les ratios financiers</strong>: Interprétez facilement les effets des scénarios sur vos <strong>ratios de liquidité</strong> et autres indicateurs essentiels.</li>
-            <li><span class="icon">📈</span><strong>Tableau de bord interactif</strong>: Accédez à des graphiques détaillés pour mieux comprendre les résultats et ajuster vos stratégies financières.</li>
+            <li><strong>Simuler des scénarios de stress</strong>: Analysez la résistance de votre banque face à différents événements économiques et géopolitiques.</li>
+            <li><strong>Évaluer la conformité réglementaire</strong>: Assurez-vous que vos résultats respectent les normes définies par la <strong>BCE</strong> et la <strong>BCT</strong>.</li>
+            <li><strong>Visualiser l'impact sur les ratios financiers</strong>: Interprétez facilement les effets des scénarios sur vos <strong>ratios de liquidité</strong> et autres indicateurs essentiels.</li>
+            <li><strong>Tableau de bord interactif</strong>: Accédez à des graphiques détaillés pour mieux comprendre les résultats et ajuster vos stratégies financières.</li>
         </ul>
-
-        #### Pourquoi utiliser notre solution ?
-        - **Conformité réglementaire** : Conformez-vous aux standards de la **Banque Centrale Européenne (BCE)** et de la **Banque Centrale de Tunisie (BCT)**.
-        - **Prédiction des risques financiers** : Préparez-vous aux défis économiques imprévus grâce à une analyse précise et fiable.
-        - **Interface utilisateur intuitive** : Utilisez une plateforme facile à naviguer, conçue pour les professionnels de la finance.
-        
-        ### Commencez à analyser la stabilité financière de votre institution dès aujourd'hui et préparez-vous pour l’avenir avec notre outil de stress testing avancé.
         """
     , unsafe_allow_html=True)
 
+    
     # Call-to-action button to redirect to "Importation des Données"
     if st.button("Commencer l'Analyse"):
         # Set session state to navigate to the "Importation des Données" page
         st.session_state.selected_page = "Importation des Données"
-        

@@ -5,9 +5,14 @@ st.set_page_config(page_title="Application de Stress Testing Bancaire", layout="
 
 # Définir la palette de couleurs
 LIGHT_BG = "#F8F9FA"  # Light background
-NAVY_BLUE = "#002244"  # Navy blue for text, border, and hover
-WHITE = "#FFFFFF"  # White text for active button
+ROSE = "#D93954"  # Dark red for titles, borders 
+
+ORANGE_YELLOW = "#FFB600"  # Hover effect
+DARK_GREEN = "#175C2C"  # Text color
+BRIGHT_RED = "#E0301E"  # Bright red for active buttons
 FONT_FAMILY = "Roboto, sans-serif"  # Professional banking font
+
+
 
 # CSS pour styliser l'application
 st.markdown(f"""
@@ -17,21 +22,23 @@ st.markdown(f"""
         /* Appliquer Tinos pour les titres et Roboto pour le texte */
         body {{
             font-family: 'Roboto', sans-serif;
+            background-color: {LIGHT_BG};
         }}
 
         h1, h2, h3, h4, h5, h6 {{
             font-family: 'Tinos', serif;
+            color: {ROSE};
         }}
 
         [data-testid=stSidebar] {{
             background-color: {LIGHT_BG} !important; 
-            border-right: 2px solid {NAVY_BLUE}; 
+            border-right: 2px solid {ROSE}; 
             font-family: {FONT_FAMILY};
-            padding-top: 20px;
+            
         }}
 
         .sidebar-title {{
-            color: {NAVY_BLUE}; 
+            color: {ROSE}; 
             font-size: 22px;
             margin-bottom: 25px;
             font-weight: bold;
@@ -39,9 +46,8 @@ st.markdown(f"""
         }}
 
         .sidebar-footer {{
-            color: {NAVY_BLUE}; 
+            color: {ROSE}; 
             font-size: 12px;
-            margin-top: 30px;
             text-align: center;
         }}
 
@@ -57,10 +63,10 @@ st.markdown(f"""
             text-align: center;
             padding: 12px;
             margin: 8px auto; /* Centrage horizontal */
-            color: {NAVY_BLUE}; 
+            color: {ROSE}; 
             font-size: 16px;
             font-weight: 500;
-            border: 2px solid {NAVY_BLUE}; 
+            border: 2px solid {ROSE}; 
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -69,8 +75,8 @@ st.markdown(f"""
         }}
 
         div.stButton > button:hover {{
-            background-color: {NAVY_BLUE}; 
-            color: {WHITE} !important;
+            background-color: {ROSE}; 
+            color: #FFFFFF !important;
         }}
     </style>
 """, unsafe_allow_html=True)
@@ -87,20 +93,20 @@ pages = {
 # Barre latérale avec navigation
 with st.sidebar:
     st.markdown('<h1 class="sidebar-title">Menu de Navigation</h1>', unsafe_allow_html=True)
-
+    
     # Conteneur pour centrer les boutons
     st.markdown('<div class="sidebar-container">', unsafe_allow_html=True)
-
+    
     # Initialisation de l'état de la page
     if "selected_page" not in st.session_state:
         st.session_state.selected_page = "Accueil"
-
+    
     # Boutons de navigation
     for page_name in pages.keys():
         if st.button(page_name, key=page_name):
             st.session_state.selected_page = page_name
             st.rerun()
-
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
