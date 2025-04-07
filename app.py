@@ -3,23 +3,16 @@ from interfaces import homepage, importation_donnees, calcul_ratios, choix_scena
 
 st.set_page_config(page_title="Application de Stress Testing Bancaire", layout="wide")
 
-# Définir la palette de couleurs
-LIGHT_BG = "#F8F9FA"  # Light background
-ROSE = "#D93954"  # Dark red for titles, borders 
-
-ORANGE_YELLOW = "#FFB600"  # Hover effect
-DARK_GREEN = "#175C2C"  # Text color
-BRIGHT_RED = "#E0301E"  # Bright red for active buttons
-FONT_FAMILY = "Roboto, sans-serif"  # Professional banking font
-
-
+# Couleurs
+LIGHT_BG = "#F8F9FA"
+ROSE = "#D93954"
+FONT_FAMILY = "Roboto, sans-serif"
 
 # CSS pour styliser l'application
 st.markdown(f"""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Tinos&family=Roboto:wght@400;500;700&display=swap');
 
-        /* Appliquer Tinos pour les titres et Roboto pour le texte */
         body {{
             font-family: 'Roboto', sans-serif;
             background-color: {LIGHT_BG};
@@ -34,7 +27,6 @@ st.markdown(f"""
             background-color: {LIGHT_BG} !important; 
             border-right: 2px solid {ROSE}; 
             font-family: {FONT_FAMILY};
-            
         }}
 
         .sidebar-title {{
@@ -51,18 +43,18 @@ st.markdown(f"""
             text-align: center;
         }}
 
-        /* Centrer les boutons */
         .sidebar-container {{
             display: flex;
             flex-direction: column;
-            align-items: center; /* Centre les éléments horizontalement */
+            align-items: center;
         }}
 
+        /* Boutons actifs et cliquables */
         div.stButton > button {{
             width: 250px; 
             text-align: center;
             padding: 12px;
-            margin: 8px auto; /* Centrage horizontal */
+            margin: 8px auto;
             color: {ROSE}; 
             font-size: 16px;
             font-weight: 500;
@@ -78,10 +70,32 @@ st.markdown(f"""
             background-color: {ROSE}; 
             color: #FFFFFF !important;
         }}
+
+        /* Bouton actif (page sélectionnée) */
+        div.stButton > button.active {{
+            background-color: {ROSE}; 
+            color: white !important;
+        }}
+
+        /* Boutons désactivés */
+        .disabled-btn {{
+            width: 250px;
+            text-align: center;
+            padding: 12px;
+            margin: 8px auto;
+            font-size: 16px;
+            font-weight: 500;
+            border: 2px solid #CCCCCC;
+            border-radius: 8px;
+            background-color: #E0E0E0;
+            color: #888;
+            cursor: not-allowed;
+            pointer-events: none;
+        }}
     </style>
 """, unsafe_allow_html=True)
 
-# Définir les pages
+# Dictionnaire des pages
 pages = {
     "Accueil": homepage,
     "Importation des Données": importation_donnees,
@@ -90,30 +104,55 @@ pages = {
     "Résultats & Graphiques": resultats_graphiques,
 }
 
-# Barre latérale avec navigation
+# Logique des pages accessibles
+disabled_rules = {
+    "Accueil": [],
+    "Importation des Données": ["Calcul des Ratios Baseline", "Choix du Scénario", "Résultats & Graphiques"],
+    "Calcul des Ratios Baseline": ["Importation des Données", "Choix du Scénario", "Résultats & Graphiques"],
+    "Choix du Scénario": ["Importation des Données", "Calcul des Ratios Baseline", "Résultats & Graphiques"],
+    "Résultats & Graphiques": []
+}
+
+# Initialisation
+if "selected_page" not in st.session_state:
+    st.session_state.selected_page = "Accueil"
+
+# Barre latérale
 with st.sidebar:
     st.markdown('<h1 class="sidebar-title">Menu de Navigation</h1>', unsafe_allow_html=True)
-    
-    # Conteneur pour centrer les boutons
     st.markdown('<div class="sidebar-container">', unsafe_allow_html=True)
-    
-    # Initialisation de l'état de la page
-    if "selected_page" not in st.session_state:
-        st.session_state.selected_page = "Accueil"
-    
-    # Boutons de navigation
-    for page_name in pages.keys():
-        if st.button(page_name, key=page_name):
-            st.session_state.selected_page = page_name
-            st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
 
+    for page_name in pages:
+        is_active = page_name == st.session_state.selected_page
+        is_disabled = page_name in disabled_rules.get(st.session_state.selected_page, [])
+
+        if is_disabled:
+            # Bouton non-cliquable avec tooltip
+            st.markdown(
+                f'<div class="disabled-btn" title="Veuillez terminer l\'étape précédente">{page_name}</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            # Bouton normal ou actif
+            if st.button(page_name, key=page_name):
+                st.session_state.selected_page = page_name
+                st.rerun()
+
+            if is_active:
+                st.markdown(f"""
+                    <script>
+                        const buttons = parent.document.querySelectorAll('button[kind="secondary"]');
+                        buttons.forEach(btn => {{
+                            if (btn.innerText === "{page_name}") {{
+                                btn.classList.add("active");
+                            }}
+                        }});
+                    </script>
+                """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
     st.markdown("---")
     st.markdown('<p class="sidebar-footer">© 2025 Stress Testing Bancaire</p>', unsafe_allow_html=True)
 
-# Charger la page sélectionnée
-page = pages[st.session_state.selected_page]
-
-# Supposant que chaque module a une fonction `show()` qui affiche la page
-page.show()
+# Affichage de la page sélectionnée
+pages[st.session_state.selected_page].show()
