@@ -106,11 +106,11 @@ pages = {
 
 # Logique des pages accessibles
 disabled_rules = {
-    "Accueil": [],
+    "Accueil": ["Importation des Données","Calcul des Ratios Baseline", "Choix du Scénario", "Résultats & Graphiques"],
     "Importation des Données": ["Calcul des Ratios Baseline", "Choix du Scénario", "Résultats & Graphiques"],
     "Calcul des Ratios Baseline": ["Importation des Données", "Choix du Scénario", "Résultats & Graphiques"],
     "Choix du Scénario": ["Importation des Données", "Calcul des Ratios Baseline", "Résultats & Graphiques"],
-    "Résultats & Graphiques": []
+    "Résultats & Graphiques": ["Importation des Données","Calcul des Ratios Baseline", "Choix du Scénario"]
 }
 
 # Initialisation

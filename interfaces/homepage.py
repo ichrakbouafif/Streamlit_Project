@@ -11,7 +11,6 @@ def show():
     
     with col_title:
         st.markdown('<h1 style="color:#E0301E;">Outil de Stress Test Bancaire</h1>', unsafe_allow_html=True)
-        st.markdown('<h4 style="color:#000000;">Simulation conforme aux exigences de la BCT et de la BCE – Développé par PwC</h4>', unsafe_allow_html=True)
     
     with col_help:
         if st.button("❓", help="Afficher le guide d’utilisation"):
