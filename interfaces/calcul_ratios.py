@@ -11,7 +11,7 @@ def show():
     data = {
         "Catégorie": [
             '<span style="color: #175C2C;"><b>ACTIFS</b></span>',
-            "Caisse et avoirs auprès de la BCT, CCP et TGT",
+            "Caisse et avoirs auprès de la BC, CCP et TGT",
             "Créances sur les établissements bancaires et financiers",
             "Créances sur la clientèle",
             "Portefeuille-titres commercial",
@@ -129,7 +129,7 @@ def show():
             with st.expander(f"Ratio {ratio}", expanded=False):
                 st.write(f"**Définition:** {details['definition']}")
                 st.latex(details["formule"])
-                st.write("**Composants:**")
+                st.write("**Composantes:**")
                 for comp in details["composants"]:
                     st.write(f"- {comp}")
                 st.write(f"**Interprétation:** {details['interpretation']}")

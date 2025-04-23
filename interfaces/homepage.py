@@ -112,7 +112,7 @@ def show():
         
         <ul>
             <li><strong>Simuler des scénarios de stress</strong>: Analysez la résistance de votre banque face à différents événements économiques et géopolitiques.</li>
-            <li><strong>Évaluer la conformité réglementaire</strong>: Assurez-vous que vos résultats respectent les normes définies par la <strong>BCE</strong> et la <strong>BCT</strong>.</li>
+            <li><strong>Évaluer la conformité réglementaire</strong>: Assurez-vous que vos résultats respectent les normes définies par la <strong>BCE</strong>.</li>
             <li><strong>Visualiser l'impact sur les ratios financiers</strong>: Interprétez facilement les effets des scénarios sur vos <strong>ratios de liquidité</strong> et autres indicateurs essentiels.</li>
             <li><strong>Tableau de bord interactif</strong>: Accédez à des graphiques détaillés pour mieux comprendre les résultats et ajuster vos stratégies financières.</li>
         </ul>
