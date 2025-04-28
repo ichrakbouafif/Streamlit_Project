@@ -1,4 +1,4 @@
-import streamlit as st
+""" import streamlit as st
 import pandas as pd
 
 def show():
@@ -48,7 +48,40 @@ def show():
         ]
     }
     df = pd.DataFrame(data)
-    st.markdown(df.to_html(escape=False, index=False), unsafe_allow_html=True)
+    st.markdown(df.to_html(escape=False, index=False), unsafe_allow_html=True) """
+
+import streamlit as st
+import pandas as pd
+import os
+
+def show():
+    st.title("Calcul des Ratios Baseline")
+
+    # ====================== BILAN DE RÉFÉRENCE ======================
+    st.subheader("Bilan de Référence")
+    st.markdown('<style>table{width: 100% !important;}</style>', unsafe_allow_html=True)
+
+    # Chemin relatif
+    bilan_path = os.path.join("data", "bilan.xlsx")
+
+    if os.path.exists(bilan_path):
+        try:
+            # Lire le fichier Excel
+            df = pd.read_excel(bilan_path)
+
+            # Supprimer les lignes complètement vides
+            df.dropna(how='all', inplace=True)
+
+            # Réinitialiser les index après suppression
+            df.reset_index(drop=True, inplace=True)
+
+            # Affichage du DataFrame de manière élégante
+            st.dataframe(df, use_container_width=True)
+
+        except Exception as e:
+            st.error(f"Erreur lors de la lecture du fichier : {e}")
+    else:
+        st.error("Aucun bilan importé. Veuillez retourner à l'étape d'importation.")
 
     # ====================== HORIZON DE STRESS TEST ======================
     st.subheader("Horizon de Stress Test")
