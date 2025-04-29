@@ -1,13 +1,21 @@
 import streamlit as st
 import pandas as pd
 import os
+
+###importation des modules nécessaires pour le LCR
 from backend.lcr.feuille_72 import charger_feuille_72
 from backend.lcr.feuille_73 import charger_feuille_73
 from backend.lcr.feuille_74 import charger_feuille_74
 from backend.lcr.utils import affiche_LB_lcr
 from backend.lcr.utils import affiche_outflow_lcr
 from backend.lcr.utils import affiche_inflow_lcr
-from backend.lcr.utils import extraire_lignes_non_vides
+from backend.nsfr.utils import extraire_lignes_non_vides
+
+###importation des modules nécessaires pour le NSFR
+from backend.nsfr.feuille_80 import charger_feuille_80
+from backend.nsfr.feuille_81 import charger_feuille_81
+from backend.nsfr.utils import affiche_RSF
+from backend.nsfr.utils import affiche_ASF
 
 
 def show():
@@ -181,6 +189,36 @@ def show():
                             st.info("Aucune ligne non vide trouvée dans la feuille 74.")
                     except Exception as e:
                         st.error(f"Erreur lors de l'extraction des lignes de la feuille 74 : {e}")
+
+                if ratio == "NSFR":
+
+                    # ====================== DÉTAIL DU CALCUL NSFR : FEUILLE 80 ======================
+                    st.subheader("Détail du calcul du NSFR – Required Stable Funding (Feuille 80)")
+                    try:
+                        feuille_80_path = os.path.join("data", "NSFR.csv")
+                        df_feuille_80 = charger_feuille_80(feuille_80_path)
+                        lignes_non_vides = affiche_RSF(df_feuille_80)
+
+                        if not lignes_non_vides.empty:
+                            st.dataframe(lignes_non_vides, use_container_width=True)
+                        else:
+                            st.info("Aucune ligne non vide trouvée dans la feuille 80.")
+                    except Exception as e:
+                        st.error(f"Erreur lors de l'extraction des lignes de la feuille 80 : {e}")
+
+                    # ====================== DÉTAIL DU CALCUL NSFR : FEUILLE 81 ======================
+                    st.subheader("Détail du calcul du NSFR – Available Stable Funding (Feuille 81)")
+                    try:
+                        feuille_81_path = os.path.join("data", "NSFR.csv")
+                        df_feuille_81 = charger_feuille_81(feuille_81_path)
+                        lignes_non_vides = affiche_ASF(df_feuille_81)
+
+                        if not lignes_non_vides.empty:
+                            st.dataframe(lignes_non_vides, use_container_width=True)
+                        else:
+                            st.info("Aucune ligne non vide trouvée dans la feuille 81.")
+                    except Exception as e:
+                        st.error(f"Erreur lors de l'extraction des lignes de la feuille 81 : {e}")
 
         
         # Tableau récapitulatif (original version)
