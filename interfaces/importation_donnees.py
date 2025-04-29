@@ -57,11 +57,8 @@ def show():
 
     st.markdown("---")
     if st.button("Suivant"):
-            if bilan:
-                st.session_state.selected_page = "Calcul des Ratios Baseline"
-            else:
-                st.error("Erreur : Veuillez importer tous les fichiers requis avant de continuer.")
-
+        st.session_state.selected_page = "Calcul des Ratios Baseline"
+            
 
     # Bouton suivant
 """     if st.button("Suivant"):

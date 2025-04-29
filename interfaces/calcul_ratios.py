@@ -1,58 +1,14 @@
-""" import streamlit as st
-import pandas as pd
-
-def show():
-    st.title("Calcul des Ratios Baseline")
-
-    # ====================== BILAN DE RÉFÉRENCE ======================
-    st.subheader("Bilan de Référence")
-    st.markdown('<style>table{width: 100% !important;}</style>', unsafe_allow_html=True)
-
-    data = {
-        "Catégorie": [
-            '<span style="color: #175C2C;"><b>ACTIFS</b></span>',
-            "Caisse et avoirs auprès de la BC, CCP et TGT",
-            "Créances sur les établissements bancaires et financiers",
-            "Créances sur la clientèle",
-            "Portefeuille-titres commercial",
-            "Portefeuille d'investissement",
-            "Titres mis en équivalence",
-            "Valeurs immobilisées",
-            "Ecart d'acquisition net (GoodWill)",
-            "Autres actifs",
-            '<span style="background-color: #175C2C; color: white; padding: 7px;"><b>Total des actifs</b></span>',
-            '<span style="color: #175C2C;"><b>PASSIFS</b></span>',
-            "Banque Centrale et CCP",
-            "Dépôts et avoirs des établissements bancaires et financiers",
-            "Dépôts et avoirs de la clientèle",
-            "Emprunts et ressources spéciales",
-            "Autres passifs",
-            '<span style="background-color: #175C2C; color: white; padding: 7px;"><b>Total des passifs</b></span>',
-            '<span style="color: #175C2C;"><b>INTERETS MINORITAIRES</b></span>',
-            "Part des minoritaires dans les réserves consolidées",
-            "Part des minoritaires dans le résultat consolidé",
-            '<span style="background-color: #175C2C; color: white; padding: 7px;"><b>Total des intérêts minoritaires</b></span>',
-            '<span style="color: #175C2C;"><b>CAPITAUX PROPRES</b></span>',
-            "Capital",
-            "Réserves consolidées",
-            "Autres capitaux propres",
-            "Résultat consolidé de l'exercice",
-            '<span style="background-color: #175C2C; color: white; padding: 7px;"><b>Total des capitaux propres</b></span>',
-            '<span style="background-color: #175C2C; color: white; padding: 7px;"><b>Total des passifs et des capitaux propres</b></span>'
-        ],
-        "Montant (TND)": [
-            "", 332882, 4634310, 12354692, 1040106, 3895501, 10428, 694439, 44199, 656627, 23663184,
-            "", 3951, 605858, 18069080, 561865, 1392496, 20633250,
-            "", 823988, 47191, 871179,
-            "", 178500, 1621661, 3, 358591, 2158755, 23663184
-        ]
-    }
-    df = pd.DataFrame(data)
-    st.markdown(df.to_html(escape=False, index=False), unsafe_allow_html=True) """
-
 import streamlit as st
 import pandas as pd
 import os
+from backend.lcr.feuille_72 import charger_feuille_72
+from backend.lcr.feuille_73 import charger_feuille_73
+from backend.lcr.feuille_74 import charger_feuille_74
+from backend.lcr.utils import affiche_LB_lcr
+from backend.lcr.utils import affiche_outflow_lcr
+from backend.lcr.utils import affiche_inflow_lcr
+from backend.lcr.utils import extraire_lignes_non_vides
+
 
 def show():
     st.title("Calcul des Ratios Baseline")
@@ -82,6 +38,7 @@ def show():
             st.error(f"Erreur lors de la lecture du fichier : {e}")
     else:
         st.error("Aucun bilan importé. Veuillez retourner à l'étape d'importation.")
+        
 
     # ====================== HORIZON DE STRESS TEST ======================
     st.subheader("Horizon de Stress Test")
@@ -158,6 +115,7 @@ def show():
         st.subheader("Ratios Réglementaires")
         
         for ratio, details in ratios.items():
+            st.subheader(f"Ratio {ratio}")
             # Use expander for ratio details (no help button needed)
             with st.expander(f"Ratio {ratio}", expanded=False):
                 st.write(f"**Définition:** {details['definition']}")
@@ -175,6 +133,55 @@ def show():
                 details["column"][1]: [details["denominator"][0]] + details["denominator"][:horizon]
             })
             st.table(ratio_table)
+
+            # Use expander for calculation details 
+            with st.expander(f"Afficher le détail du calcul du ratio {ratio}", expanded=False):
+                if ratio == "LCR":
+
+                    # ====================== DÉTAIL DU CALCUL LCR : FEUILLE 72 ======================
+                    st.subheader("Détail du calcul du LCR – Liquidity Buffer (Feuille 72)")
+                    try:
+                        feuille_72_path = os.path.join("data", "LCR.csv")
+                        df_feuille_72 = charger_feuille_72(feuille_72_path)
+                        lignes_non_vides = affiche_LB_lcr(df_feuille_72)
+
+                        if not lignes_non_vides.empty:
+                            st.dataframe(lignes_non_vides, use_container_width=True)
+                        else:
+                            st.info("Aucune ligne non vide trouvée dans la feuille 72.")
+                    except Exception as e:
+                        st.error(f"Erreur lors de l'extraction des lignes de la feuille 72 : {e}")
+
+                    
+
+                # ====================== DÉTAIL DU CALCUL LCR : FEUILLE 73 ======================
+                    st.subheader("Détail du calcul du LCR – Outflows (Feuille 73)")
+                    try:
+                        feuille_73_path = os.path.join("data", "LCR.csv")  
+                        df_feuille_73 = charger_feuille_73(feuille_73_path)  
+                        lignes_non_vides = affiche_outflow_lcr(df_feuille_73)  
+
+                        if not lignes_non_vides.empty:
+                            st.dataframe(lignes_non_vides, use_container_width=True)  
+                        else:
+                            st.info("Aucune ligne non vide trouvée dans la feuille 73.")
+                    except Exception as e:
+                        st.error(f"Erreur lors de l'extraction des lignes de la feuille 73 : {e}")
+
+                # ====================== DÉTAIL DU CALCUL LCR : FEUILLE 74 ======================
+                    st.subheader("Détail du calcul du LCR – Inflows (Feuille 74)")
+                    try:
+                        feuille_74_path = os.path.join("data", "LCR.csv")  
+                        df_feuille_74 = charger_feuille_74(feuille_74_path)  
+                        lignes_non_vides = affiche_inflow_lcr(df_feuille_74)  
+
+                        if not lignes_non_vides.empty:
+                            st.dataframe(lignes_non_vides, use_container_width=True)  
+                        else:
+                            st.info("Aucune ligne non vide trouvée dans la feuille 74.")
+                    except Exception as e:
+                        st.error(f"Erreur lors de l'extraction des lignes de la feuille 74 : {e}")
+
         
         # Tableau récapitulatif (original version)
         st.subheader("Résumé des Résultats")
@@ -211,3 +218,5 @@ def show():
 
     if st.button("Procéder aux choix du scénario"):
         st.session_state.selected_page = "Choix du Scénario"
+
+
