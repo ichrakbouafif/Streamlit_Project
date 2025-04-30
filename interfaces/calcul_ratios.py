@@ -20,6 +20,13 @@ from backend.nsfr.feuille_81 import charger_feuille_81
 from backend.nsfr.utils import affiche_RSF
 from backend.nsfr.utils import affiche_ASF
 
+from backend.bilan.bilan import get_capital_planning
+from backend.bilan.bilan import add_capital_planning_df
+from backend.bilan.bilan import get_mapping_df_row
+
+
+ 
+
 
 def show():
     st.title("Calcul des Ratios Baseline")
@@ -241,3 +248,60 @@ def show():
         st.session_state.selected_page = "Choix du Scénario"
 
 ################################        TEST     #######################################
+    # ====================== TEST DE CAPITAL PLANNING ======================
+    ## charger COREP LCR 
+    LCR_path = os.path.join("data", "LCR.csv")  
+    df_72 = charger_feuille_72(LCR_path) 
+    df_73 = charger_feuille_73(LCR_path) 
+    df_74 = charger_feuille_74(LCR_path) 
+
+    ## charger COREP NSFR
+    NSFR_path = os.path.join("data", "NSFR.csv")  
+    df_80 = charger_feuille_80(NSFR_path) 
+    df_81 = charger_feuille_81(NSFR_path)
+
+    st.subheader("Test Extraction Capital Planning")
+
+    poste_selectionne = "Depots clients (passif)"
+    valeur_capital = get_capital_planning(bilan, poste_selectionne, "2025")
+    print("Valeur de capital planning : ", valeur_capital)
+    mapping = get_mapping_df_row(poste_selectionne)
+
+    for row, df_name in mapping:
+        #if df_name == "df_72":
+            #df_72 = add_capital_planning_df(df_72, 3, 111111111)
+        if df_name == "df_72":
+            df_72 = add_capital_planning_df(df_72, row, valeur_capital)
+        elif df_name == "df_73":
+            df_73 = add_capital_planning_df(df_73, row, valeur_capital)
+        elif df_name == "df_74":
+            df_74 = add_capital_planning_df(df_74, row, valeur_capital)
+
+    from backend.lcr.utils import extraire_lignes_non_vides
+    from backend.lcr.feuille_72 import calcul_HQLA
+    from backend.lcr.feuille_73 import calcul_outflow
+    from backend.lcr.feuille_74 import calcul_inflow
+    from backend.lcr.utils import Calcul_LCR
+
+    #LB = affiche_LB_lcr(df_72)
+
+    HQLA = calcul_HQLA(df_72)
+    OUTFLOWS = calcul_outflow(df_73)
+    inflow = calcul_inflow(df_74)
+    LCR = Calcul_LCR(inflow,OUTFLOWS,HQLA)
+    st.write("LCR : ", LCR)
+    st.write("HQLA : ", HQLA)
+    st.write("OUTFLOWS : ", OUTFLOWS)
+    st.write("inflow : ", inflow)
+
+
+    OUT = affiche_outflow_lcr(df_73)
+    IN = affiche_inflow_lcr(df_74) 
+    LB = affiche_LB_lcr(df_72)
+    if not LB.empty:
+        st.dataframe(LB, use_container_width=True)
+        st.dataframe(IN, use_container_width=True)
+        st.dataframe(OUT, use_container_width=True)
+        
+                       
+    

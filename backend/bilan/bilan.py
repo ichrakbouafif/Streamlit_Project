@@ -71,7 +71,6 @@ mapping_bilan_LCR_NSFR = {
         ("row_0070", "C72.00"),
         ("row_0080", "C72.00"),
         ("row_0090", "C72.00"),
-        ("row_0800", "C74.00"),
     ],
     "Portefeuille (titres)": [
         ("row_0190", "C72.00"),
@@ -95,7 +94,7 @@ mapping_bilan_LCR_NSFR = {
         ("row_1350", "C73.00"),
         ("row_0270", "C74.00"),
     ],
-    "Dépôts clients (Corpo & Retail)": [
+    "Depots clients (passif)": [
         ("row_0030", "C73.00"),
         ("row_0110", "C73.00"),
         ("row_0240", "C73.00"),
@@ -136,3 +135,79 @@ mapping_bilan_LCR_NSFR = {
     ],
 }
 
+""" def add_capital_planning_df(df, row_number, value_to_add):
+
+    # Si row_number est une chaîne, essayer de l'interpréter comme un index de ligne.
+    if isinstance(row_number, str):
+        # Vérifier si la chaîne correspond à un format comme "row_150" et extraire le numéro.
+        if row_number.startswith("row_"):
+            row_number = int(row_number.replace("row_", ""))
+        else:
+            raise ValueError(f"Format de row_number invalide: {row_number}")
+
+    # Vérification que la colonne '0010' existe
+    if '0010' not in df.columns:
+        raise ValueError("La colonne '0010' n'existe pas dans le DataFrame.")
+    
+    # Vérifier que row_number ne dépasse pas la taille du DataFrame
+    if row_number < 0 or row_number >= len(df):
+        print(f"Avertissement: row_number {row_number} hors des limites du DataFrame. Taille actuelle: {len(df)}")
+        return df  # Ne rien ajouter et renvoyer le DataFrame inchangé.
+    
+    # Ajouter la valeur à la ligne spécifiée
+    current_value = df.at[row_number, '0010']
+    current_value = current_value if pd.notnull(current_value) else 0
+    df.at[row_number, '0010'] = current_value + value_to_add
+
+    return df """
+
+def add_capital_planning_df(df, row_number, value_to_add):
+    if 'row' not in df.columns:
+        print("⚠️ Colonne 'row' introuvable dans le DataFrame.")
+        return df
+
+    row_index = df[df['row'] == row_number].index
+    if row_index.empty:
+        print(f"⚠️ Ligne avec 'row' == {row_number} non trouvée.")
+        return df
+    
+    idx = row_index[0]
+    current_value = df.at[idx, '0010']
+    df.at[idx, '0010'] = (current_value if pd.notnull(current_value) else 0) + value_to_add
+    return df
+
+
+def get_mapping_df_row(post_bilan):
+    """
+    À partir d’un poste du bilan, retourne les lignes correspondantes et les DataFrames associées.
+
+    Args:
+        post_bilan (str): Le nom du poste du bilan (clé du dictionnaire `mapping_bilan_LCR_NSFR`).
+
+    Returns:
+        List[Tuple[int, str]]: Liste des tuples (row_number, df_name) où df_name ∈ {'df_72', 'df_73', 'df_74'}.
+    """
+    result = []
+    if post_bilan not in mapping_bilan_LCR_NSFR:
+        raise ValueError(f"Poste '{post_bilan}' non trouvé dans le mapping.")
+    
+    for row_str, feuille in mapping_bilan_LCR_NSFR[post_bilan]:
+        if row_str == "row_X":
+            continue  # ignorer les lignes non mappées
+        try:
+            row_number = int(row_str.replace("row_", ""))
+        except ValueError:
+            continue  # ignorer les erreurs de conversion de ligne
+
+        if feuille == "C72.00":
+            df_name = "df_72"
+        elif feuille == "C73.00":
+            df_name = "df_73"
+        elif feuille == "C74.00":
+            df_name = "df_74"
+        else:
+            continue  # feuille non reconnue
+
+        result.append((row_number, df_name))
+
+    return result

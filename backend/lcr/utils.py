@@ -42,7 +42,7 @@ def affiche_outflow_lcr(df):
         "Montant (0010)",           # colonne montant
         "Standard weight (0040)",   # Cinquième colonne
         "Applicable weight (0050)", # Sixième colonne
-        "Outflow (0060)"             # Septième colonne
+        "Outflow (0060)" ,""            # Septième colonne
     ]
 
     # Appliquer le format 100% au lieu de 1.0 dans "Applicable weight (0030)"
@@ -102,9 +102,9 @@ df_72 = charger_feuille_72(path)
 df_73 = charger_feuille_73(path)
 df_74 = charger_feuille_74(path)
 
-HQLA = calcul_HQLA(df_72)
+""" HQLA = calcul_HQLA(df_72)
 OUTFLOWS = calcul_outflow(df_73)
-inflows = calcul_inflow(df_74)
+inflows = calcul_inflow(df_74) """
 
 def Calcul_LCR(inflow,OUTFLOWS,HQLA):
 
