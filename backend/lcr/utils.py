@@ -88,3 +88,28 @@ def affiche_inflow_lcr(df):
     df.drop(columns=["Standard weight (0070)"], inplace=True)
 
     return df
+
+from backend.lcr.feuille_72 import calcul_HQLA
+from backend.lcr.feuille_73 import calcul_outflows
+from backend.lcr.feuille_74 import calcul_inflows
+
+HQLA = calcul_HQLA()
+OUTFLOWS = calcul_outflows()
+inflows = calcul_inflows()
+
+def Calcul_LCR(inflow,OUTFLOWS,HQLA):
+
+    # Limiter les inflows à 75% des outflows
+    inflow_limit = min(inflow, 0.75 * OUTFLOWS)
+
+    # Sorties nettes ajustées
+    net_outflows = OUTFLOWS - inflow_limit
+
+    # Calcul du LCR
+    if net_outflows == 0:
+        return float('inf') if HQLA > 0 else 0.0  # éviter division par zéro
+
+    lcr = (HQLA / net_outflows)*100
+    print("LCR=",lcr,"%")
+    return lcr
+

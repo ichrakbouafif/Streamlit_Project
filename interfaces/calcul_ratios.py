@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import os
 
+###importation des modules nécessaires pour le bilan
+from backend.bilan.bilan import charger_bilan
+
 ###importation des modules nécessaires pour le LCR
 from backend.lcr.feuille_72 import charger_feuille_72
 from backend.lcr.feuille_73 import charger_feuille_73
@@ -9,7 +12,7 @@ from backend.lcr.feuille_74 import charger_feuille_74
 from backend.lcr.utils import affiche_LB_lcr
 from backend.lcr.utils import affiche_outflow_lcr
 from backend.lcr.utils import affiche_inflow_lcr
-from backend.nsfr.utils import extraire_lignes_non_vides
+#from backend.nsfr.utils import extraire_lignes_non_vides
 
 ###importation des modules nécessaires pour le NSFR
 from backend.nsfr.feuille_80 import charger_feuille_80
@@ -25,29 +28,9 @@ def show():
     st.subheader("Bilan de Référence")
     st.markdown('<style>table{width: 100% !important;}</style>', unsafe_allow_html=True)
 
-    # Chemin relatif
-    bilan_path = os.path.join("data", "bilan.xlsx")
-
-    if os.path.exists(bilan_path):
-        try:
-            # Lire le fichier Excel
-            df = pd.read_excel(bilan_path)
-
-            # Supprimer les lignes complètement vides
-            df.dropna(how='all', inplace=True)
-
-            # Réinitialiser les index après suppression
-            df.reset_index(drop=True, inplace=True)
-
-            # Affichage du DataFrame de manière élégante
-            st.dataframe(df, use_container_width=True)
-
-        except Exception as e:
-            st.error(f"Erreur lors de la lecture du fichier : {e}")
-    else:
-        st.error("Aucun bilan importé. Veuillez retourner à l'étape d'importation.")
-        
-
+    bilan = charger_bilan()
+    st.dataframe(bilan)
+    
     # ====================== HORIZON DE STRESS TEST ======================
     st.subheader("Horizon de Stress Test")
     horizon = st.number_input("Durée de l'horizon de stress test (en années)", min_value=1, max_value=10, value=3)
@@ -114,7 +97,7 @@ def show():
 
     # ====================== MAIN CALCULATION LOGIC ======================
     if 'show_ratios' not in st.session_state:
-        st.session_state.show_ratios = False
+        st.session_state.show_ratios = True
 
     if st.button("Calculer les Ratios"):
         st.session_state.show_ratios = not st.session_state.show_ratios
