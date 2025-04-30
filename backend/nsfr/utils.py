@@ -69,3 +69,18 @@ def affiche_ASF(df):
         )
 
     return df
+
+from backend.nsfr.feuille_80 import calcul_RSF
+from backend.nsfr.feuille_81 import calcul_ASF
+
+ASF = calcul_ASF(df)
+RSF = calcul_RSF(df)
+
+def calcul_NSFR(ASF, RSF):
+    # Calculer le NSFR
+    if RSF == 0:
+        return 0
+    else:
+        NSFR = (ASF / RSF)*100
+        print ("NSFR =",NSFR,"%")
+        return NSFR
