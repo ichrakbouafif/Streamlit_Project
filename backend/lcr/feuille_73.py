@@ -18,7 +18,10 @@ def charger_feuille_73(file_path, sheet_name='C7300_TOTAL'):
         for col in target_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-
+        # Rename the first column
+        df.rename(columns={'Unnamed: 1': 'item'}, inplace=True)
+        # Rename the second column
+        df.rename(columns={'Unnamed: 2': 'row'}, inplace=True)
         return df
 
     except Exception as e:
@@ -579,7 +582,7 @@ def calcul_row_010(df):
     df.loc[df['row'] == 10, '0060'] = total
     return total
 
-def calcul_outflows(df):
+def calcul_outflow(df):
     OUTFLOWS = calcul_row_010(df)
     print("OUTFLOW = ", OUTFLOWS)
     return OUTFLOWS

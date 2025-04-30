@@ -14,11 +14,26 @@ def charger_feuille_72(file_path, sheet_name='C7200_TOTAL'):
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
 
+        # Rename the first column
+        df.rename(columns={'Unnamed: 1': 'item'}, inplace=True)
+        # Rename the second column
+        df.rename(columns={'Unnamed: 2': 'row'}, inplace=True)
         return df
 
     except Exception as e:
         print(f"Erreur lors du chargement : {e}")
         return pd.DataFrame()
+    
+def calcul_liquid_assets(df, row_number):
+    """Calcule les liquid assets pondérés pour une ligne donnée."""
+    row = df[df['row'] == row_number]
+    liquid_assets = 0
+    montant = row['0010'].values[0] if '0010' in row else 0  # montant brut
+    poids = row['0030'].values[0] if '0030' in row else 0    # poids réglementaire
+    if pd.notna(montant) and pd.notna(poids):
+        liquid_assets = montant * poids
+    df.loc[df['row'] == row_number, '0040'] = liquid_assets
+    return liquid_assets
 
 def calcul_row_0040(df):
     """Calcule les liquid assets pondérés de la ligne 0040 (Coins and banknotes)."""

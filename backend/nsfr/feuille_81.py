@@ -22,7 +22,11 @@ def charger_feuille_81(file_path):
         for col in target_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-
+        # Rename the first column
+        df.rename(columns={'Unnamed: 1': 'item'}, inplace=True)
+        # Rename the second column
+        df.rename(columns={'Unnamed: 2': 'row'}, inplace=True)
+        
         return df
 
     except Exception as e:
@@ -303,6 +307,6 @@ def calcul_row_0010(df):
     return asf_10
 
 def calcul_ASF(df):
-    ASF = calcul_row_0010(df_81)
+    ASF = calcul_row_0010(df)
     print(ASF)
     return

@@ -72,6 +72,12 @@ def affiche_ASF(df):
 
 from backend.nsfr.feuille_80 import calcul_RSF
 from backend.nsfr.feuille_81 import calcul_ASF
+from backend.nsfr.feuille_80 import charger_feuille_80
+from backend.nsfr.feuille_81 import charger_feuille_81
+import os
+path = os.path.join("data", "NSFR.csv")
+df = charger_feuille_80(path)
+df = charger_feuille_81(path)
 
 ASF = calcul_ASF(df)
 RSF = calcul_RSF(df)

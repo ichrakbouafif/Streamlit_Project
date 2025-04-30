@@ -18,6 +18,10 @@ def charger_feuille_74(file_path, sheet_name='C7400_TOTAL'):
         for col in target_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
+        # Rename the first column
+        df.rename(columns={'Unnamed: 1': 'item'}, inplace=True)
+        # Rename the second column
+        df.rename(columns={'Unnamed: 2': 'row'}, inplace=True)
 
         return df
 
@@ -333,7 +337,7 @@ def calcul_row_010(df):
     df.loc[df['row'] == 10, '0140'] = total
     return total
 
-def calcul_inflows(df):
+def calcul_inflow(df):
     inflow = calcul_row_010(df)
     print(inflow)
     return inflow

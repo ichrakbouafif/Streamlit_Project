@@ -33,7 +33,7 @@ def charger_bilan():
     return bilan
 
 #Récupérer la valeur de capital planning
-def get_capital_planning_below(bilan_df, poste_bilan, annee="2025"):
+def get_capital_planning(bilan_df, poste_bilan, annee="2025"):
     bilan_df = bilan_df.reset_index(drop=True)
     index_poste = bilan_df[bilan_df["Poste du Bilan"].astype(str).str.strip() == poste_bilan].index
 
@@ -135,51 +135,4 @@ mapping_bilan_LCR_NSFR = {
         ("row_0030", "C74.00"),
     ],
 }
-
-
-#Modifier le fichier COREP
-def maj_valeur_corep(fichier_corep, feuille, ligne, colonne, nouvelle_valeur):
-    """
-    Met à jour une cellule dans une feuille du fichier COREP Excel.
-    """
-    df = pd.read_excel(fichier_corep, sheet_name=feuille)
-
-    df.loc[ligne, colonne] = nouvelle_valeur
-
-    with pd.ExcelWriter(fichier_corep, mode='a', if_sheet_exists='replace', engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name=feuille, index=False)
-
-
-# Fonction principale de mise à jour du bilan dans le COREP et recalcul des ratios
-def update_and_calculate_ratios(poste_bilan, fichier_bilan="data/bilan.xlsx", fichier_corep="data/corep.xlsx"):
-    # Charger le bilan
-    bilan_df = charger_bilan()
-
-    # Récupérer la valeur du capital planning dans le bilan
-    valeur_capital = get_capital_planning_below(bilan_df, poste_bilan)
-    if valeur_capital is None:
-        raise ValueError(f"La valeur pour {poste_bilan} n'a pas été trouvée dans le bilan.")
-
-    # Mapper la valeur dans le fichier COREP selon la configuration
-    if poste_bilan in mapping_bilan_LCR_NSFR:
-        for ligne, colonne in mapping_bilan_LCR_NSFR[poste_bilan]:
-            # Mettre à jour la valeur dans la feuille COREP
-            maj_valeur_corep(fichier_corep, ligne, colonne, valeur_capital)
-
-        # Recalculer les ratios après la mise à jour (ajoutez vos fonctions de calcul ici)
-        recalculer_ratios(fichier_corep)
-
-    return "Mise à jour réussie et ratios recalculés."
-
-def recalculer_ratios(fichier_corep):
-    """
-    Cette fonction doit recalculer les ratios LCR et NSFR après la mise à jour du fichier COREP.
-    """
-    lcr = 1
-    nsfr = 1
-
-
-    print(f"LCR recalculé : {lcr}")
-    print(f"NSFR recalculé : {nsfr}")
-
 

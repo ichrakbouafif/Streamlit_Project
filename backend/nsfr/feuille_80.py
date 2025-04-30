@@ -27,6 +27,10 @@ def charger_feuille_80(file_path):
         for col in target_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
+        # Rename the first column
+        df.rename(columns={'Unnamed: 1': 'item'}, inplace=True)
+        # Rename the second column
+        df.rename(columns={'Unnamed: 2': 'row'}, inplace=True)
 
         return df
 
@@ -35,8 +39,8 @@ def charger_feuille_80(file_path):
         return None
 import pandas as pd
 
-def calcul_rsf_pondere(df, row_number):
-    """Calcule le RSF pondéré pour une ligne donnée."""
+""" def calcul_rsf_pondere(df, row_number):
+    
     row = df[df['row'] == row_number]
     rsf = 0
     for amt_col, wgt_col in zip(['0010', '0020', '0030', '0040'], ['0090', '0100', '0110', '0120']):
@@ -45,7 +49,38 @@ def calcul_rsf_pondere(df, row_number):
         if pd.notna(amt) and pd.notna(wgt):
             rsf += amt * wgt
     df.loc[df['row'] == row_number, '0130'] = rsf
-    return rsf
+    return rsf """
+
+def calcul_rsf_pondere(df, row_number):
+    """Calcule le RSF pondéré pour une ligne donnée."""
+    try:
+        # Look for the row - use string comparison if needed
+        row = df[df['row'].astype(str).str.strip() == str(row_number)]
+        
+        if row.empty:
+            print(f"Warning: Row {row_number} not found in DataFrame")
+            return 0
+        
+        rsf = 0
+        for amt_col, wgt_col in zip(['0010', '0020', '0030', '0040'], 
+                                  ['0090', '0100', '0110', '0120']):
+            # Safely get values with default 0 if column doesn't exist
+            amt = row[amt_col].iloc[0] if amt_col in row.columns else 0
+            wgt = row[wgt_col].iloc[0] if wgt_col in row.columns else 0
+            
+            if pd.notna(amt) and pd.notna(wgt):
+                rsf += amt * wgt
+        
+        # Update the value in DataFrame if row exists
+        if not row.empty:
+            df.loc[df['row'].astype(str).str.strip() == str(row_number), '0130'] = rsf
+            
+        return rsf
+        
+    except Exception as e:
+        print(f"Error calculating RSF for row {row_number}: {str(e)}")
+        return 0
+    
 #RSF from Central Bank assets
 import pandas as pd
 

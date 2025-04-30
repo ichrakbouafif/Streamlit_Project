@@ -88,14 +88,23 @@ def affiche_inflow_lcr(df):
     df.drop(columns=["Standard weight (0070)"], inplace=True)
 
     return df
-
+import os
+import pandas as pd
 from backend.lcr.feuille_72 import calcul_HQLA
-from backend.lcr.feuille_73 import calcul_outflows
-from backend.lcr.feuille_74 import calcul_inflows
+from backend.lcr.feuille_73 import calcul_outflow
+from backend.lcr.feuille_74 import calcul_inflow
+from backend.lcr.feuille_72 import charger_feuille_72
+from backend.lcr.feuille_73 import charger_feuille_73
+from backend.lcr.feuille_74 import charger_feuille_74
 
-HQLA = calcul_HQLA()
-OUTFLOWS = calcul_outflows()
-inflows = calcul_inflows()
+path = os.path.join("data", "LCR.csv")
+df_72 = charger_feuille_72(path)
+df_73 = charger_feuille_73(path)
+df_74 = charger_feuille_74(path)
+
+HQLA = calcul_HQLA(df_72)
+OUTFLOWS = calcul_outflow(df_73)
+inflows = calcul_inflow(df_74)
 
 def Calcul_LCR(inflow,OUTFLOWS,HQLA):
 
