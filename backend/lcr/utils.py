@@ -34,32 +34,39 @@ def affiche_LB_lcr(df):
     return df
 
 def affiche_outflow_lcr(df):
+    import pandas as pd
+
+    # Ne garder que les 6 premières colonnes
+    df = df.iloc[:, :6]
 
     # Renommer les colonnes
     df.columns = [
-        "Item",                     # colonne (Unnamed: 1)
-        "Row",                      # colonne (Unnamed: 2)
-        "Montant (0010)",           # colonne montant
-        "Standard weight (0040)",   # Cinquième colonne
-        "Applicable weight (0050)", # Sixième colonne
-        "Outflow (0060)" ,""            # Septième colonne
+        "Item",                     # 1ère colonne
+        "Row",                      # 2ème colonne
+        "Montant (0010)",           # 3ème colonne
+        "Standard weight (0040)",   # 4ème colonne
+        "Applicable weight (0050)", # 5ème colonne
+        "Outflow (0060)"            # 6ème colonne
     ]
 
-    # Appliquer le format 100% au lieu de 1.0 dans "Applicable weight (0030)"
+    # Appliquer le format 100% au lieu de 1.0 dans "Applicable weight (0050)"
     df["Applicable weight (0050)"] = df["Applicable weight (0050)"].apply(
         lambda x: f"{int(float(x)*100)}%" if pd.notnull(x) and x != 'None' else ""
     )
 
-    # Convertir la colonne "Outflow (0060)" en float (en supprimant les virgules et caractères non numériques)
-    df["Outflow (0060)"] = pd.to_numeric(df["Outflow (0060)"].astype(str).str.replace(",", ""), errors="coerce")
+    # Convertir "Outflow (0060)" en float
+    df["Outflow (0060)"] = pd.to_numeric(
+        df["Outflow (0060)"].astype(str).str.replace(",", ""), errors="coerce"
+    )
 
-    # Ne garder que les lignes où "Outflow (0060)" est différente de 0
+    # Filtrer les lignes où Outflow != 0
     df = df[df["Outflow (0060)"].fillna(0) != 0]
 
-    # Supprimer la colonne "Standard weight (0040)"
+    # Supprimer la colonne inutile
     df.drop(columns=["Standard weight (0040)"], inplace=True)
 
     return df
+
 
 def affiche_inflow_lcr(df):
 
