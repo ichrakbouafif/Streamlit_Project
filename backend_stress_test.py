@@ -40,14 +40,19 @@ def charger_lcr():
     """
     Charge le fichier LCR situé dans le dossier 'data/'.
     """
+    from backend.lcr.feuille_72 import charger_feuille_72
+    from backend.lcr.feuille_73 import charger_feuille_73
+    from backend.lcr.feuille_74 import charger_feuille_74
+    
     lcr_path = os.path.join("data", "LCR.csv")
     
     if not os.path.exists(lcr_path):
         raise FileNotFoundError(f"Le fichier {lcr_path} est introuvable.")
     
-    df_72 = pd.read_excel(lcr_path, sheet_name="C7200_TOTAL")
-    df_73 = pd.read_excel(lcr_path, sheet_name="C7300_TOTAL")
-    df_74 = pd.read_excel(lcr_path, sheet_name="C7400_TOTAL")
+    df_72 = charger_feuille_72(lcr_path)
+    df_73 = charger_feuille_73(lcr_path)
+    df_74 = charger_feuille_74(lcr_path)
+
     
     return df_72, df_73, df_74
 
