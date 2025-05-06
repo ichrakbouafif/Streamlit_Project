@@ -10,7 +10,7 @@ def affiche_LB_lcr(df):
     # Renommer les colonnes
     df.columns = [
         "Item",                     # Deuxième colonne (Unnamed: 1)
-        "Row",                      # Troisième colonne (Unnamed: 2)
+        "row",                      # Troisième colonne (Unnamed: 2)
         "Montant (0010)",           # Quatrième colonne
         "Standard weight (0020)",   # Cinquième colonne
         "Applicable weight (0030)", # Sixième colonne
@@ -29,7 +29,7 @@ def affiche_LB_lcr(df):
     df = df[df["Valeur (0040)"].fillna(0) != 0]
 
     # Supprimer la colonne "Standard weight (0020)"
-    df.drop(columns=["Standard weight (0020)"], inplace=True)
+    df = df.drop(columns=["Standard weight (0020)"])
 
     return df
 
@@ -42,7 +42,7 @@ def affiche_outflow_lcr(df):
     # Renommer les colonnes
     df.columns = [
         "Item",                     # 1ère colonne
-        "Row",                      # 2ème colonne
+        "row",                      # 2ème colonne
         "Montant (0010)",           # 3ème colonne
         "Standard weight (0040)",   # 4ème colonne
         "Applicable weight (0050)", # 5ème colonne
@@ -63,7 +63,8 @@ def affiche_outflow_lcr(df):
     df = df[df["Outflow (0060)"].fillna(0) != 0]
 
     # Supprimer la colonne inutile
-    df.drop(columns=["Standard weight (0040)"], inplace=True)
+    df = df.drop(columns=["Standard weight (0040)"])
+
 
     return df
 
@@ -73,7 +74,7 @@ def affiche_inflow_lcr(df):
     # Renommer les colonnes
     df.columns = [
         "Item",                     #  colonne (Unnamed: 1)
-        "Row",                      #  colonne (Unnamed: 2)
+        "row",                      #  colonne (Unnamed: 2)
         "Montant (0010)",           #  colonne
         "Standard weight (0070)",   # Cinquième colonne
         "Applicable weight (0080)", # Sixième colonne
@@ -92,7 +93,8 @@ def affiche_inflow_lcr(df):
     df = df[df["Inflow (0140)"].fillna(0) != 0]
 
     # Supprimer la colonne "Standard weight (0070)"
-    df.drop(columns=["Standard weight (0070)"], inplace=True)
+    df = df.drop(columns=["Standard weight (0070)"])
+
 
     return df
 import os
@@ -125,7 +127,7 @@ def Calcul_LCR(inflow,OUTFLOWS,HQLA):
     if net_outflows == 0:
         return float('inf') if HQLA > 0 else 0.0  # éviter division par zéro
 
-    lcr = (HQLA / net_outflows)*100
+    lcr = (HQLA / net_outflows)
     print("LCR=",lcr,"%")
     return lcr
 

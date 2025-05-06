@@ -724,5 +724,5 @@ def calcul_row_20(df):
 
 def calcul_RSF(df):
     RSF =calcul_row_20(df)
-    print(RSF)
+    print("RSF = ", RSF)
     return RSF

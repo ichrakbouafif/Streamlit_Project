@@ -308,5 +308,5 @@ def calcul_row_0010(df):
 
 def calcul_ASF(df):
     ASF = calcul_row_0010(df)
-    print(ASF)
-    return
+    print("ASF =" , ASF)
+    return ASF

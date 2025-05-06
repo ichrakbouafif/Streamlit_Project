@@ -70,7 +70,7 @@ def affiche_ASF(df):
 
     return df
 
-from backend.nsfr.feuille_80 import calcul_RSF
+""" from backend.nsfr.feuille_80 import calcul_RSF
 from backend.nsfr.feuille_81 import calcul_ASF
 from backend.nsfr.feuille_80 import charger_feuille_80
 from backend.nsfr.feuille_81 import charger_feuille_81
@@ -80,13 +80,15 @@ df = charger_feuille_80(path)
 df = charger_feuille_81(path)
 
 ASF = calcul_ASF(df)
-RSF = calcul_RSF(df)
+RSF = calcul_RSF(df) """
 
-def calcul_NSFR(ASF, RSF):
-    # Calculer le NSFR
-    if RSF == 0:
+def Calcul_NSFR(ASF, RSF):
+    """Calculate NSFR ratio with error handling"""
+    try:
+        if RSF == 0:
+            print("Warning: RSF is zero in NSFR calculation")
+            return 0
+        return (ASF / RSF)
+    except Exception as e:
+        print(f"NSFR calculation error: {str(e)}")
         return 0
-    else:
-        NSFR = (ASF / RSF)*100
-        print ("NSFR =",NSFR,"%")
-        return NSFR
