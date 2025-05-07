@@ -77,7 +77,7 @@ def afficher_parametres_retrait_depots():
     st.subheader("Paramètres du retrait massif des dépôts")
 
 
-    pourcentage = st.slider("Pourcentage de diminution des dépôts (%)", 5, 100, 15, 5) / 100.0
+    pourcentage = st.slider("Pourcentage de diminution des dépôts (%)", 0, 100, 15, 5) / 100.0
     horizon = st.slider("Horizon d'absorption du choc (années)", 1, 5, 1, 1)
 
     

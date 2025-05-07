@@ -88,7 +88,7 @@ def Calcul_NSFR(ASF, RSF):
         if RSF == 0:
             print("Warning: RSF is zero in NSFR calculation")
             return 0
-        return (ASF / RSF)
+        return (ASF / RSF) * 100
     except Exception as e:
         print(f"NSFR calculation error: {str(e)}")
         return 0
