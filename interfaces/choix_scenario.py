@@ -11,6 +11,9 @@ from backend.lcr.utils import Calcul_LCR
 from backend.nsfr.utils import Calcul_NSFR, affiche_RSF, affiche_ASF
 from backend.nsfr.feuille_80 import calcul_RSF
 from backend.nsfr.feuille_81 import calcul_ASF
+# Import additional modules for leverage and solvency
+from backend.levier.calcul_ratio_levier import charger_donnees_levier, calculer_ratio_levier_double_etape
+from backend.solvabilite.calcul_ratios_capital_stressé import charger_donnees, calculer_ratios_solva_double_etape
 
 def show():
     st.title("Choix des scénarios")
@@ -128,13 +131,13 @@ def executer_retrait_depots():
                 # Store stressed version
                 st.session_state.bilan_stresse = bilan_stresse
                 st.success("Stress test exécuté avec succès!")
-                afficher_resultats_retrait_depots(bilan_stresse)
+                afficher_resultats_retrait_depots(bilan_stresse, params)
                 
             except Exception as e:
                 st.error(f"Erreur lors de l'exécution du stress test: {str(e)}")
 
 
-def afficher_resultats_retrait_depots(bilan_stresse):
+def afficher_resultats_retrait_depots(bilan_stresse, params):
     st.subheader("Impact sur le bilan")
     postes_concernes = ["Depots clients (passif)", "Portefeuille", "Créances banques autres"]
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes)
@@ -147,6 +150,14 @@ def afficher_resultats_retrait_depots(bilan_stresse):
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
     afficher_resultats_nsfr(bilan_stresse, postes_concernes)
+    
+    # Section Ratio de Solvabilité
+    st.subheader("Impact sur le ratio de solvabilité")
+    afficher_resultats_solva(bilan_stresse, postes_concernes, params)
+    
+    # Section Ratio de Levier
+    st.subheader("Impact sur le ratio de levier")
+    afficher_resultats_levier(bilan_stresse, postes_concernes, params)
 
 def afficher_resultats_lcr(bilan_stresse, postes_concernes):
     try:
@@ -221,8 +232,123 @@ def afficher_resultats_nsfr(bilan_stresse, postes_concernes):
     except Exception as e:
         st.error(f"Erreur lors du calcul du NSFR: {e}")
 
+def afficher_resultats_solva(bilan_stresse, postes_concernes, params):
+    try:
+        # Charger les données nécessaires pour le calcul de solvabilité
+        bilan, df_c01, df_c02, df_bloc = charger_donnees()
+        annees = ["2024", "2025", "2026", "2027"]
+        recap_data = []
+        
+        # Pour chaque poste concerné, calculer l'impact sur le ratio de solvabilité
+        for poste in postes_concernes:
+            # On utilise le paramètre de stress défini par l'utilisateur
+            stress_pct = params['pourcentage'] * 100  # Convertir en pourcentage
+            horizon = params['horizon']
+            
+            # Stocker le paramètre de stress dans session_state pour référence future
+            stress_key = f"Retrait massif des dépôts_Dépôts et avoirs de la clientèle_{poste}"
+            st.session_state[stress_key] = stress_pct
+            
+            # Calculer les ratios de solvabilité pour chaque année
+            df_resultats = calculer_ratios_solva_double_etape(
+                bilan=bilan_stresse,
+                poste_cible=poste,
+                stress_pct=stress_pct,
+                horizon=horizon,
+                df_bloc_base=df_bloc,
+                df_c01=df_c01,
+                df_c02=df_c02
+            )
+            
+            # Ajouter les résultats pour chaque année
+            for _, row in df_resultats.iterrows():
+                annee = row["Année"]
+                recap_data.append({
+                    "Année": annee,
+                    "Fonds propres": row["Fonds propres"],
+                    "RWA total": row["RWA total"],
+                    "Ratio de solvabilité (%)": row["Ratio de solvabilité"],
+                    "Poste": poste
+                })
+        
+        # Créer le dataframe récapitulatif
+        if recap_data:
+            # Garder seulement une entrée par année (éviter les doublons)
+            unique_recap = []
+            for annee in annees:
+                annee_data = [d for d in recap_data if d["Année"] == annee]
+                if annee_data:
+                    unique_recap.append(annee_data[0])
+            
+            # Afficher le tableau récapitulatif
+            afficher_tableau_recapitulatif(unique_recap, "Solvabilité")
+        else:
+            st.warning("Aucune donnée de solvabilité disponible.")
+        
+    except Exception as e:
+        st.error(f"Erreur lors du calcul de la solvabilité: {e}")
+        import traceback
+        st.error(traceback.format_exc())
+
+def afficher_resultats_levier(bilan_stresse, postes_concernes, params):
+    try:
+        # Charger les données nécessaires pour le calcul du ratio de levier
+        bilan, df_c01, df_c4700 = charger_donnees_levier()
+        annees = ["2024", "2025", "2026", "2027"]
+        recap_data = []
+        
+        # Pour chaque poste concerné, calculer l'impact sur le ratio de levier
+        for poste in postes_concernes:
+            # On utilise le paramètre de stress défini par l'utilisateur
+            stress_pct = params['pourcentage'] * 100  # Convertir en pourcentage
+            horizon = params['horizon']
+            
+            # Stocker le paramètre de stress dans session_state pour référence future
+            stress_key = f"Retrait massif des dépôts_Dépôts et avoirs de la clientèle_{poste}"
+            st.session_state[stress_key] = stress_pct
+            
+            # Calculer les ratios de levier pour chaque année
+            df_resultats = calculer_ratio_levier_double_etape(
+                bilan=bilan_stresse,
+                postes_cibles=[poste],
+                stress_pct=stress_pct,
+                horizon=horizon,
+                df_c4700=df_c4700,
+                df_c01=df_c01
+            )
+            
+            # Ajouter les résultats au tableau récapitulatif
+            for _, row in df_resultats.iterrows():
+                annee = row["Année"]
+                recap_data.append({
+                    "Année": annee,
+                    "Fonds propres": row["Fonds propres"],
+                    "Exposition totale": row["Exposition totale"],
+                    "Ratio de levier (%)": row["Ratio de levier"],
+                    "Poste": poste
+                })
+        
+        # Créer le dataframe récapitulatif
+        if recap_data:
+            # Garder seulement une entrée par année (éviter les doublons)
+            unique_recap = []
+            for annee in annees:
+                annee_data = [d for d in recap_data if d["Année"] == annee]
+                if annee_data:
+                    unique_recap.append(annee_data[0])
+            
+            # Afficher le tableau récapitulatif
+            afficher_tableau_recapitulatif(unique_recap, "Levier")
+        else:
+            st.warning("Aucune donnée de ratio de levier disponible.")
+        
+    except Exception as e:
+        st.error(f"Erreur lors du calcul du ratio de levier: {e}")
+        import traceback
+        st.error(traceback.format_exc())
+
 def afficher_tableau_recapitulatif(recap_data, ratio_type):
-    # Créer le dataframe récapitulatif
+    # Créer le dataframe récapitulatif selon le type de ratio
     if ratio_type == "LCR":
         recap_df = pd.DataFrame([{
             "Année": x["Année"],
@@ -231,12 +357,26 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
             "Outflows": f"{x['Outflows']:,.2f}",
             f"{ratio_type} (%)": f"{x[f'{ratio_type} (%)']:.2f}%"
         } for x in recap_data])
-    else:  # NSFR
+    elif ratio_type == "NSFR":
         recap_df = pd.DataFrame([{
             "Année": x["Année"],
             "ASF": f"{x['ASF']:,.2f}",
             "RSF": f"{x['RSF']:,.2f}",
             f"{ratio_type} (%)": f"{x[f'{ratio_type} (%)']:.2f}%"
+        } for x in recap_data])
+    elif ratio_type == "Solvabilité":
+        recap_df = pd.DataFrame([{
+            "Année": x["Année"],
+            "Fonds propres": f"{x['Fonds propres']:,.2f}",
+            "RWA total": f"{x['RWA total']:,.2f}",
+            f"Ratio de {ratio_type} (%)": f"{x['Ratio de solvabilité (%)']:.2f}%"
+        } for x in recap_data])
+    elif ratio_type == "Levier":
+        recap_df = pd.DataFrame([{
+            "Année": x["Année"],
+            "Fonds propres": f"{x['Fonds propres']:,.2f}",
+            "Exposition totale": f"{x['Exposition totale']:,.2f}",
+            f"Ratio de {ratio_type} (%)": f"{x['Ratio de levier (%)']:.2f}%"
         } for x in recap_data])
     
     st.dataframe(recap_df, use_container_width=True)
@@ -265,7 +405,7 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
                 
                 st.markdown("**Entrées de liquidités (Inflows)**")
                 st.dataframe(affiche_inflow_lcr(annee_data['df_74']), use_container_width=True)
-            else:  # NSFR
+            elif ratio_type == "NSFR":
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.metric("NSFR", f"{annee_data['NSFR (%)']:.2f}%")
@@ -279,4 +419,25 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
                 
                 st.markdown("**Required Stable Funding (RSF)**")
                 st.dataframe(affiche_RSF(annee_data['df_80']), use_container_width=True)
-
+            elif ratio_type == "Solvabilité":
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Ratio de Solvabilité", f"{annee_data['Ratio de solvabilité (%)']:.2f}%")
+                with col2:
+                    st.metric("Fonds propres", format_large_number(annee_data['Fonds propres']))
+                with col3:
+                    st.metric("RWA total", format_large_number(annee_data['RWA total']))
+                
+                # Vous pouvez ajouter des détails supplémentaires si disponibles
+                st.markdown("**Note**: Pour plus de détails sur le calcul de solvabilité, consultez les logs d'exécution.")
+            elif ratio_type == "Levier":
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Ratio de Levier", f"{annee_data['Ratio de levier (%)']:.2f}%")
+                with col2:
+                    st.metric("Fonds propres", format_large_number(annee_data['Fonds propres']))
+                with col3:
+                    st.metric("Exposition totale", format_large_number(annee_data['Exposition totale']))
+                
+                # Vous pouvez ajouter des détails supplémentaires si disponibles
+                st.markdown("**Note**: Pour plus de détails sur le calcul du ratio de levier, consultez les logs d'exécution.")
