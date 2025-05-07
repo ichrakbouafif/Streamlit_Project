@@ -152,8 +152,8 @@ mapping_bilan_LCR_NSFR = {
     "Caisse Banque Centrale / nostro": [
         ("row_0040", "df_72"),  # LB: Coins and banknotes
         ("row_0050", "df_72"),  # LB: Withdrawable central bank reserves
-        ("row_0150", "df_72"),  # Inflow: Monies due from central banks
-        ("row_0030", "df_74"),  # NSFR: Central bank assets
+        ("row_0150", "df_74"),  # Inflow: Monies due from central banks
+        ("row_0030", "df_80"),  # RSF from central bank assets 
     ],
     "Créances banques autres": [
         ("row_0060", "df_72"),  # LB: Central bank assets
@@ -162,75 +162,99 @@ mapping_bilan_LCR_NSFR = {
         ("row_0730", "df_80"),  # NSFR: RSF from loans to financial customers
     ],
     "Créances hypothécaires": [
-        ("row_0030", "df_72"),  # Inflow – à ajuster selon contrepartie
-        ("row_0800", "df_74"),  # NSFR
-        ("row_0810", "df_74"),
+        ("row_0030", "df_74"),  # Inflow – monies from non financial customers  
+        ("row_0640", "df_80"),  # RSF from loans to finantial customers
+        
     ],
     "Créances clientèle (hors hypo)": [
-        ("row_0030", "df_72"),
-        ("row_0060", "df_72"),
-        ("row_0070", "df_72"),
-        ("row_0080", "df_72"),
-        ("row_0090", "df_72"),
+        ("row_0060", "df_74"),  # Inflow – Monies from retail customers
+        ("row_0070", "df_74"),  # Inflow – Monies from non financial corporate 
+        ("row_0080", "df_74"),  # Inflow – Monies from ..
+        ("row_0090", "df_74"),  # Inflow – Monies from ..
+        ("row_0810", "df_80"), # RSF from loans to non finantial customers 
     ],
     "Portefeuille": [
-        ("row_0070", "df_72"),  ## central government assets
-        ("row_0100", "df_72"),  ## recognised central government assets
-        ("row_0190", "df_72"),  ## extremely high-quality covered bonds
-        ("row_0200", "df_72"),  ## high-quality covered bonds
-        ("row_0260", "df_72"),  ## high-quality covered bonds (CQS2)
-        ("row_0270", "df_72"),  ## high-quality covered bonds (CQS1)
+        ("row_0190", "df_74"),  ## inflow – Monies from ..
+        ("row_0190", "df_72"),  ## LB - extremely high-quality covered bonds
+        ("row_0260", "df_72"),  ## LB - high-quality covered bonds (CQS2)
+        ("row_0270", "df_72"),  ## LB- high-quality covered bonds (CQS1)
+        ("row_0280", "df_72"),  ## LB - corperate debt securities  
+        #("row_0570", "df_80"),  # RSF from securities other than liquid assets non hqla
+        ("row_0580", "df_80"),  # RSF from securities other than liquid assets non hqla
     ],
     "Participations": [
         ("row_X", "df_72"),  # Non considéré LCR
-        ("row_0600", "df_74"),  # NSFR
+        ("row_X", "df_73"),  # Non considéré LCR
+        ("row_X", "df_74"),  # Non considéré LCR
+        ("row_0600", "df_80"),  # RSF non hqla traded equities
     ],
     "Immobilisations et Autres Actifs": [
         ("row_X", "df_72"),  # Non considéré LCR
-        ("row_1030", "df_74"),
+        ("row_X", "df_73"),  # Non considéré LCR
+        ("row_X", "df_74"),  # Non considéré LCR
+        ("row_1030", "df_80"), # RSF from other assets
     ],
-    "Dettes envers les établissements de crédit": [
-        ("row_0230", "df_73"),
-        ("row_1350", "df_73"),
-        ("row_0270", "df_74"),
+    "Dettes envers les établissements de crédit (passif)": [
+        ("row_0230", "df_73"), # outflow non operational deposits by finantial customers
+        ("row_1350", "df_73"), #outflow intra group non operational deposits
+        ("row_0270", "df_81"), # ASF from finantial cus and central banks - liabilities provided by finantial customers
     ],
     "Depots clients (passif)": [
-        ("row_0035", "df_73"),("row_0060", "df_73"),("row_0070", "df_73"),   ## retail deposits
-        ("row_0120", "df_73"),  ## Operational deposits
-        ("row_0203", "df_73"),  ## Excess operational deposits
-        ("row_0210", "df_73"),  ## Non-operational deposits
-        ("row_0070", "df_74"),
-        ("row_0130", "df_74"),
-        ("row_0200", "df_74"),
+        ("row_0035", "df_73"),("row_0040", "df_73"),("row_0060", "df_73"),("row_0070", "df_73"),("row_0080", "df_73"),("row_0090", "df_73"),("row_0100", "df_73"),("row_0110", "df_73"),   ## outflow retail deposits
+        ("row_0240", "df_73"),  ## outflow Non-operational deposits by other customers
+        ("row_0250", "df_73"), ## outflow covered by DGS
+        ("row_0260", "df_73"), ## outflow not covered by DGS
+        #("row_0070", "df_81"), #ASF from retail deposits
+        ("row_0090", "df_81"), #ASF from retail deposits
+        #("row_0130", "df_81"), #ASF from other non finantial customers
+        ("row_0160", "df_81"), #ASF from other non finantial customers
+
     ],
-    "Autres passifs": [
-        ("row_0885", "df_73"),
-        ("row_0918", "df_73"),
-        ("row_0390", "df_74"),
+    "Autres passifs (passif)": [
+        ("row_0885", "df_73"), ## outflow other liabilities
+        ("row_0890", "df_73"), ## outflow other liabilities
+        ("row_0918", "df_73"), ## outflow other liabilities
+        ("row_0390", "df_81"), #ASF from other liabilities
     ],
-    "Comptes de régularisation": [
-        ("row_0890", "df_73"),
-        ("row_0390", "df_74"),
-        ("row_0430", "df_74"),
+    "Comptes de régularisation (passif)": [
+        ("row_0890", "df_73"), ## outflow other liabilities
+        ("row_0430", "df_81"), #ASF from other liabilities
     ],
-    "Provisions": [
-        ("row_X", "df_73"),
-        ("row_0430", "df_74"),
+    "Provisions (passif)": [
+        ("row_X", "df_72"),  # Non considéré LCR
+        ("row_X", "df_73"),  # Non considéré LCR
+        ("row_X", "df_74"),  # Non considéré LCR
+        ("row_0430", "df_81"), #ASF from other liabilities
     ],
-    "Capital souscrit": [
-        ("row_0030", "df_74"),
+    "Capital souscrit (passif)": [
+        ("row_0030", "df_81"), # ASF common equity tier 1
+        ("row_X", "df_72"),  # Non considéré LCR
+        ("row_X", "df_73"),  # Non considéré LCR
+        ("row_X", "df_74"),  # Non considéré LCR
     ],
-    "Primes émission": [
-        ("row_0030", "df_74"),
+    "Primes émission (passif)": [
+        ("row_X", "df_72"),  # Non considéré LCR
+        ("row_X", "df_73"),  # Non considéré LCR
+        ("row_X", "df_74"),  # Non considéré LCR
+        ("row_0030", "df_81"), # ASF common equity tier 1
     ],
-    "Réserves": [
-        ("row_0030", "df_74"),
+    "Réserves (passif)": [
+        ("row_X", "df_72"),  # Non considéré LCR
+        ("row_X", "df_73"),  # Non considéré LCR
+        ("row_X", "df_74"),  # Non considéré LCR
+        ("row_0030", "df_81"), # ASF common equity tier 1
     ],
-    "Report à nouveau": [
-        ("row_0030", "df_74"),
+    "Report à nouveau (passif)": [
+        ("row_X", "df_72"),  # Non considéré LCR
+        ("row_X", "df_73"),  # Non considéré LCR
+        ("row_X", "df_74"),  # Non considéré LCR
+        ("row_0030", "df_81"), # ASF common equity tier 1
     ],
-    "Résultat de l'exercice": [
-        ("row_0030", "df_74"),
+    "Income Statement - Résultat de l'exercice": [
+        ("row_X", "df_72"),  # Non considéré LCR
+        ("row_X", "df_73"),  # Non considéré LCR
+        ("row_X", "df_74"),  # Non considéré LCR
+        ("row_0030", "df_81"), # ASF common equity tier 1
     ],
 }
 
@@ -290,7 +314,7 @@ def get_mapping_df_row(post_bilan):
             continue  # ignorer les erreurs de conversion de ligne
 
         # Utilisation de noms de DataFrame au lieu des codes de feuille
-        if feuille in ["df_72","df_73","df_74"] :
+        if feuille in ["df_72","df_73","df_74","df_80","df_81"]: 
             df_name = feuille
         else:
             continue  # feuille non reconnue
@@ -318,7 +342,7 @@ def propager_delta_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponde
             df_72.loc[mask, "0010"] = df_72.loc[mask, "0010"] - part_delta
         elif df_name == "df_73":
             mask = df_73["row"] == row_num
-            df_73.loc[mask, "0010"] = df_73.loc[mask, "0010"] - part_delta
+            df_73.loc[mask, "0010"] = df_73.loc[mask, "0010"] + part_delta
         elif df_name == "df_74":
             mask = df_74["row"] == row_num
             df_74.loc[mask, "0010"] = df_74.loc[mask, "0010"] - part_delta
@@ -328,6 +352,7 @@ def propager_delta_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponde
 def propager_delta_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderations=None):
     lignes = get_mapping_df_row(poste_bilan)
     n = len(lignes)
+    print("n in nsfr = ", n)
     
     if n == 0:
         return df_80, df_81
@@ -335,11 +360,18 @@ def propager_delta_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderation
     if ponderations is None:
         ponderations = [1 / n] * n  # Equal weighting by default
 
+    # Create copies before modification
+    df_80 = df_80.copy()
+    df_81 = df_81.copy()
+
+# Use .loc properly with masks
     for (row_num, df_name), poids in zip(lignes, ponderations):
         part_delta = delta * poids
+        print("part delta in nsfr = ", part_delta)
         if df_name == "df_80":
             mask = df_80["row"] == row_num
             df_80.loc[mask, "0010"] = df_80.loc[mask, "0010"] - part_delta
+
         elif df_name == "df_81":
             mask = df_81["row"] == row_num
             df_81.loc[mask, "0010"] = df_81.loc[mask, "0010"] - part_delta

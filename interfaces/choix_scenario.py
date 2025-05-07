@@ -212,10 +212,10 @@ def afficher_resultats_nsfr(bilan_stresse, postes_concernes):
                     df_80_annee, df_81_annee = bst.propager_delta_vers_COREP_NSFR(
                         poste, delta, df_80_annee, df_81_annee
                     )
-            
             ASF = calcul_ASF(df_81_annee)
             RSF = calcul_RSF(df_80_annee)
             NSFR = Calcul_NSFR(ASF, RSF)
+            
             
             recap_data.append({
                 "Année": annee,
