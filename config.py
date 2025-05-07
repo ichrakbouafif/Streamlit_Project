@@ -16,8 +16,13 @@ scenarios = {
 # --- CONTREPARTIES RÉELLES ---
 contreparties = {
     "Dépôts et avoirs de la clientèle": [
+<<<<<<< HEAD
         "Portefeuille d’investissement",
         "Créances sur les établissements bancaires et financiers"
+=======
+        "Portefeuille",
+        "Créances banques autres"
+>>>>>>> nour
     ],
     "Créances sur la clientèle": [
         "Provisions pour pertes sur prêts",

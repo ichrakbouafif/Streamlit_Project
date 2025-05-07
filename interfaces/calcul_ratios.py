@@ -303,4 +303,9 @@ def show():
         st.dataframe(IN, use_container_width=True)
         st.dataframe(OUT, use_container_width=True)
         
+<<<<<<< HEAD
 
+=======
+                       
+    
+>>>>>>> nour

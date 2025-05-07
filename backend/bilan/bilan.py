@@ -1,7 +1,10 @@
 import os
 import pandas as pd
+<<<<<<< HEAD
 import shutil
 from openpyxl import load_workbook
+=======
+>>>>>>> nour
 
 def charger_bilan():
     """
@@ -47,6 +50,7 @@ def get_capital_planning(bilan_df, poste_bilan, annee="2025"):
                 return valeur
     return None
 
+<<<<<<< HEAD
 def get_valeur_poste_bilan(bilan_df, poste_bilan, annee="2024"):
     """
     Récupère la valeur d’un poste du bilan pour une année donnée, en tenant compte que 
@@ -149,6 +153,123 @@ mapping_bilan_LCR_NSFR = {
     ],
 }
 
+=======
+
+# fichier: mapping_bilan_corep.py
+mapping_bilan_LCR_NSFR = {
+    "Caisse Banque Centrale / nostro": [
+        ("row_0040", "C72.00"),  # LB: Coins and banknotes
+        ("row_0050", "C72.00"),  # LB: Withdrawable central bank reserves
+        ("row_0150", "C72.00"),  # Inflow: Monies due from central banks
+        ("row_0030", "C74.00"),  # NSFR: Central bank assets
+    ],
+    "Créances banques autres": [
+        ("row_0060", "C72.00"),  # LB: Central bank assets
+        ("row_0160", "C72.00"),  # Inflow: Monies due from financial customers
+        ("row_0100", "C72.00"),  # Inflow: Monies due from CB + financial customers
+        ("row_0730", "C74.00"),  # NSFR: RSF from loans to financial customers
+    ],
+    "Créances hypothécaires": [
+        ("row_0030", "C72.00"),  # Inflow – à ajuster selon contrepartie
+        ("row_0800", "C74.00"),  # NSFR
+        ("row_0810", "C74.00"),
+    ],
+    "Créances clientèle (hors hypo)": [
+        ("row_0030", "C72.00"),
+        ("row_0060", "C72.00"),
+        ("row_0070", "C72.00"),
+        ("row_0080", "C72.00"),
+        ("row_0090", "C72.00"),
+    ],
+    "Portefeuille (titres)": [
+        ("row_0190", "C72.00"),
+        ("row_0260", "C72.00"),
+        ("row_0280", "C72.00"),
+        ("row_0310", "C72.00"),
+        ("row_0470", "C72.00"),
+        ("row_0560", "C74.00"),
+        ("row_0570", "C74.00"),
+    ],
+    "Participations": [
+        ("row_X", "C72.00"),  # Non considéré LCR
+        ("row_0600", "C74.00"),  # NSFR
+    ],
+    "Immobilisations et Autres Actifs": [
+        ("row_X", "C72.00"),  # Non considéré LCR
+        ("row_1030", "C74.00"),
+    ],
+    "Dettes envers les établissements de crédit": [
+        ("row_0230", "C73.00"),
+        ("row_1350", "C73.00"),
+        ("row_0270", "C74.00"),
+    ],
+    "Depots clients (passif)": [
+        ("row_0030", "C73.00"),
+        ("row_0110", "C73.00"),
+        ("row_0240", "C73.00"),
+        ("row_0250", "C73.00"),
+        ("row_0260", "C73.00"),
+        ("row_0070", "C74.00"),
+        ("row_0130", "C74.00"),
+        ("row_0200", "C74.00"),
+    ],
+    "Autres passifs": [
+        ("row_0885", "C73.00"),
+        ("row_0918", "C73.00"),
+        ("row_0390", "C74.00"),
+    ],
+    "Comptes de régularisation": [
+        ("row_0890", "C73.00"),
+        ("row_0390", "C74.00"),
+        ("row_0430", "C74.00"),
+    ],
+    "Provisions": [
+        ("row_X", "C73.00"),
+        ("row_0430", "C74.00"),
+    ],
+    "Capital souscrit": [
+        ("row_0030", "C74.00"),
+    ],
+    "Primes émission": [
+        ("row_0030", "C74.00"),
+    ],
+    "Réserves": [
+        ("row_0030", "C74.00"),
+    ],
+    "Report à nouveau": [
+        ("row_0030", "C74.00"),
+    ],
+    "Résultat de l'exercice": [
+        ("row_0030", "C74.00"),
+    ],
+}
+
+""" def add_capital_planning_df(df, row_number, value_to_add):
+
+    # Si row_number est une chaîne, essayer de l'interpréter comme un index de ligne.
+    if isinstance(row_number, str):
+        # Vérifier si la chaîne correspond à un format comme "row_150" et extraire le numéro.
+        if row_number.startswith("row_"):
+            row_number = int(row_number.replace("row_", ""))
+        else:
+            raise ValueError(f"Format de row_number invalide: {row_number}")
+
+    # Vérification que la colonne '0010' existe
+    if '0010' not in df.columns:
+        raise ValueError("La colonne '0010' n'existe pas dans le DataFrame.")
+    
+    # Vérifier que row_number ne dépasse pas la taille du DataFrame
+    if row_number < 0 or row_number >= len(df):
+        print(f"Avertissement: row_number {row_number} hors des limites du DataFrame. Taille actuelle: {len(df)}")
+        return df  # Ne rien ajouter et renvoyer le DataFrame inchangé.
+    
+    # Ajouter la valeur à la ligne spécifiée
+    current_value = df.at[row_number, '0010']
+    current_value = current_value if pd.notnull(current_value) else 0
+    df.at[row_number, '0010'] = current_value + value_to_add
+
+    return df """
+>>>>>>> nour
 
 def add_capital_planning_df(df, row_number, value_to_add):
     if 'row' not in df.columns:
@@ -200,6 +321,7 @@ def get_mapping_df_row(post_bilan):
         result.append((row_number, df_name))
 
     return result
+<<<<<<< HEAD
 
 
 
@@ -414,3 +536,5 @@ def sauvegarder_corep_modifie(original_path, df_72, df_73, df_74, output_filenam
 
 #sauvegarder_corep_modifie(file_path, df_72, df_73, df_74, output_filename="LCR_stresse.xlsx", output_dir="data")
 #sauvegarder_bilan_stresse(bilan_stresse, output_filename="bilan_stresse.xlsx", output_dir="data")
+=======
+>>>>>>> nour

@@ -45,11 +45,19 @@ def show():
                 expected_files["nsfr"] = True
                 st.success("Fichier 'NSFR' enregistré avec succès")
             elif "solvabilite" in file_name or "solvabilité" in file_name:
+<<<<<<< HEAD
                 save_uploaded_file(uploaded_file, data_folder, "solvabilite.csv")
                 expected_files["solvabilite"] = True
                 st.success("Fichier 'Solvabilité' enregistré avec succès")
             elif "levier" in file_name:
                 save_uploaded_file(uploaded_file, data_folder, "levier.csv")
+=======
+                save_uploaded_file(uploaded_file, data_folder, "solvabilite.xlsx")
+                expected_files["solvabilite"] = True
+                st.success("Fichier 'Solvabilité' enregistré avec succès")
+            elif "levier" in file_name:
+                save_uploaded_file(uploaded_file, data_folder, "levier.xlsx")
+>>>>>>> nour
                 expected_files["levier"] = True
                 st.success("Fichier 'Levier' enregistré avec succès")
             else:

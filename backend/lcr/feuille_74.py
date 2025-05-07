@@ -272,13 +272,20 @@ def calcul_row_345(df):
 def calcul_row_339(df):
     """Calcule la valeur de la ligne 339 (somme des lignes 341 à 345)."""
     inflow_341 = calcul_row_341(df)
+<<<<<<< HEAD
     inflow_343 = calcul_row_343(df)
+=======
+    inflow_343 = calcul_row_343(df) 
+>>>>>>> nour
     inflow_345 = calcul_row_345(df)
     inflow_339 = inflow_341 + inflow_343 + inflow_345
     df.loc[df['row'] == 339, '0140'] = inflow_339
     return inflow_339
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> nour
 def calcul_row_305(df):
     """Calcule la valeur de la ligne 305 (somme des lignes 307 et 339)."""
     inflow_307 = calcul_row_307(df)
@@ -323,7 +330,11 @@ def calcul_row_430(df):
     df.loc[df['row'] == 420, '0140'] = adjustment
     return adjustment
 
+<<<<<<< HEAD
 def calcul_row_00010(df):
+=======
+def calcul_row_010(df):
+>>>>>>> nour
     """Calcule la valeur de la ligne 010 (Total inflows after adjustments)."""
     # Calculate base components
     unsecured = calcul_row_020(df)
@@ -339,6 +350,10 @@ def calcul_row_00010(df):
     return total
 
 def calcul_inflow(df):
+<<<<<<< HEAD
     inflow = calcul_row_00010(df)
+=======
+    inflow = calcul_row_010(df)
+>>>>>>> nour
     print(inflow)
     return inflow
