@@ -22,8 +22,22 @@ def affiche_RSF(df):
         "RSF (0130)"
     ]
 
+    # Convertir les colonnes de montants en numérique
+    amount_cols = [
+        "Montant < 6 mois (0010)",
+        "Montant >= 6 mois < 1an (0020)",
+        "Montant > 1an (0030)",
+        "HQLA (0040)",
+        "RSF (0130)"
+    ]
+    
+    for col in amount_cols:
+        df[col] = pd.to_numeric(df[col].astype(str).str.replace(",", ""), errors="coerce")
+        # Formater avec séparateurs de milliers et 2 décimales
+        df[col] = df[col].apply(lambda x: f"{x:,.2f}" if pd.notnull(x) else "")
+
     # Ne garder que les lignes où "RSF (0130)" est différente de 0
-    df = df[df["RSF (0130)"].fillna(0) != 0].copy()  # ✅ Important: copy to avoid warning
+    df = df[df["RSF (0130)"].fillna(0) != 0].copy()
 
     # Appliquer le format pourcentage sur les colonnes des "Applicable RSF factor"
     cols_rsf_factors = [
@@ -36,7 +50,7 @@ def affiche_RSF(df):
     for col in cols_rsf_factors:
         df.loc[:, col] = df[col].apply(
             lambda x: f"{int(float(x)*100)}%" if pd.notnull(x) and x != 'None' else ""
-        )  # ✅ Use loc to avoid chained assignment
+        )
 
     return df
 
@@ -55,8 +69,21 @@ def affiche_ASF(df):
         "ASF (0100)"
     ]
     
+    # Convertir les colonnes de montants en numérique
+    amount_cols = [
+        "Montant < 6 mois (0010)",
+        "Montant >= 6 mois < 1an (0020)",
+        "Montant > 1an (0030)",
+        "ASF (0100)"
+    ]
+    
+    for col in amount_cols:
+        df[col] = pd.to_numeric(df[col].astype(str).str.replace(",", ""), errors="coerce")
+        # Formater avec séparateurs de milliers et 2 décimales
+        df[col] = df[col].apply(lambda x: f"{x:,.2f}" if pd.notnull(x) else "")
+
     # Ne garder que les lignes où "ASF (0100)" est différente de 0
-    df = df[df["ASF (0100)"].fillna(0) != 0].copy()  # <== FIX HERE
+    df = df[df["ASF (0100)"].fillna(0) != 0].copy()
 
     # Appliquer le format pourcentage sur les colonnes des "Applicable ASF factor"
     cols_asf_factors = [
@@ -68,10 +95,9 @@ def affiche_ASF(df):
     for col in cols_asf_factors:
         df.loc[:, col] = df[col].apply(
             lambda x: f"{int(float(x)*100)}%" if pd.notnull(x) and x != 'None' else ""
-        )  # <== USING loc TO AVOID WARNING
+        )
 
     return df
-
 
 def Calcul_NSFR(ASF, RSF):
     """Calculate NSFR ratio with error handling"""

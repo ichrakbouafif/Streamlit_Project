@@ -6,7 +6,6 @@ def extraire_lignes_non_vides(df, colonne_montant='0010'):
     return pd.DataFrame()
 
 def affiche_LB_lcr(df):
-
     # Renommer les colonnes
     df.columns = [
         "Item",                     # Deuxième colonne (Unnamed: 1)
@@ -24,6 +23,11 @@ def affiche_LB_lcr(df):
 
     # Convertir la colonne "Valeur (0040)" en float (en supprimant les virgules et caractères non numériques)
     df["Valeur (0040)"] = pd.to_numeric(df["Valeur (0040)"].astype(str).str.replace(",", " "), errors="coerce")
+    
+    # Formater les nombres avec séparateur de milliers et 2 décimales
+    df["Valeur (0040)"] = df["Valeur (0040)"].apply(
+        lambda x: f"{x:,.2f}" if pd.notnull(x) else ""
+    )
 
     # Ne garder que les lignes où "Valeur (0040)" est différente de 0
     df = df[df["Valeur (0040)"].fillna(0) != 0]
@@ -58,6 +62,11 @@ def affiche_outflow_lcr(df):
     df["Outflow (0060)"] = pd.to_numeric(
         df["Outflow (0060)"].astype(str).str.replace(",", " "), errors="coerce"
     )
+    
+    # Formater les nombres avec séparateur de milliers et 2 décimales
+    df["Outflow (0060)"] = df["Outflow (0060)"].apply(
+        lambda x: f"{x:,.2f}" if pd.notnull(x) else ""
+    )
 
     # Filtrer les lignes où Outflow != 0
     df = df[df["Outflow (0060)"].fillna(0) != 0]
@@ -69,7 +78,6 @@ def affiche_outflow_lcr(df):
 
 
 def affiche_inflow_lcr(df):
-
     # Renommer les colonnes
     df.columns = [
         "Item",                     #  colonne (Unnamed: 1)
@@ -87,6 +95,11 @@ def affiche_inflow_lcr(df):
 
     # Convertir la colonne "Inflow (0140)" en float (en supprimant les virgules et caractères non numériques)
     df["Inflow (0140)"] = pd.to_numeric(df["Inflow (0140)"].astype(str).str.replace(",", " "), errors="coerce")
+    
+    # Formater les nombres avec séparateur de milliers et 2 décimales
+    df["Inflow (0140)"] = df["Inflow (0140)"].apply(
+        lambda x: f"{x:,.2f}" if pd.notnull(x) else ""
+    )
 
     # Ne garder que les lignes où "Inflow (0140)" est différente de 0
     df = df[df["Inflow (0140)"].fillna(0) != 0]
@@ -94,8 +107,8 @@ def affiche_inflow_lcr(df):
     # Supprimer la colonne "Standard weight (0070)"
     df = df.drop(columns=["Standard weight (0070)"])
 
-
     return df
+
 import os
 import pandas as pd
 

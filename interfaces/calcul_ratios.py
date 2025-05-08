@@ -109,11 +109,11 @@ def show():
             if year in resultats_horizon:
                 lcr_years.append({
                     "Année": year,
-                    "HQLA": resultats_horizon[year]['HQLA'],
-                    "Inflow": resultats_horizon[year]['INFLOWS'],
-                    "Outflow": resultats_horizon[year]['OUTFLOWS'],
+                    "HQLA": f"{resultats_horizon[year]['HQLA']:,.2f}",
+                    "Inflow":f"{resultats_horizon[year]['INFLOWS']:,.2f}",
+                    "Outflow": f"{resultats_horizon[year]['OUTFLOWS']:,.2f}",
                     #"Net Outflow": format_large_number(resultats_horizon[year]['OUTFLOWS'] - resultats_horizon[year]['INFLOWS']),
-                    "LCR%": f"{resultats_horizon[year]['LCR']*100:.2f}%"
+                    "LCR%": f"{resultats_horizon[year]['LCR']*100:,.2f}%"
                 })
         
         lcr_table = pd.DataFrame(lcr_years)
@@ -194,9 +194,9 @@ def show():
             if year in resultats_horizon:
                 nsfr_years.append({
                     "Année": year,
-                    "ASF": resultats_horizon[year]['ASF'],
-                    "RSF": resultats_horizon[year]['RSF'],
-                    "NSFR%": f"{resultats_horizon[year]['NSFR']:.2f}%"
+                    "ASF": f"{resultats_horizon[year]['ASF']:,.2f}",
+                    "RSF": f"{resultats_horizon[year]['RSF']:,.2f}",
+                    "NSFR%": f"{resultats_horizon[year]['NSFR']:,.2f}%"
                 })
         
         nsfr_table = pd.DataFrame(nsfr_years)
