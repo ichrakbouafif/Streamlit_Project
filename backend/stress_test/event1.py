@@ -175,6 +175,7 @@ mapping_bilan_LCR_NSFR = {
     ],
     "Portefeuille": [
         ("row_0190", "df_74"),  ## inflow – Monies from ..
+        ("row_0070", "df_72"),  ## LB - central government assets
         ("row_0190", "df_72"),  ## LB - extremely high-quality covered bonds
         ("row_0260", "df_72"),  ## LB - high-quality covered bonds (CQS2)
         ("row_0270", "df_72"),  ## LB- high-quality covered bonds (CQS1)
@@ -299,7 +300,7 @@ def get_mapping_df_row(post_bilan):
         post_bilan (str): Le nom du poste du bilan (clé du dictionnaire `mapping_bilan_LCR_NSFR`).
 
     Returns:
-        List[Tuple[int, str]]: Liste des tuples (row_number, df_name) où df_name ∈ {'df_72', 'df_73', 'df_74'}.
+        List[Tuple[int, str]]: Liste des tuples (row_number, df_name) .
     """
     result = []
     if post_bilan not in mapping_bilan_LCR_NSFR:
@@ -327,57 +328,96 @@ def get_mapping_df_row(post_bilan):
 
 def propager_delta_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponderations=None):
     lignes = get_mapping_df_row(poste_bilan)
-    n = len(lignes)
-    
-    if n == 0:
+    print("lignes = ", lignes)
+
+    lignes_72 = [l for l in lignes if l[1] == "df_72"]
+    lignes_73 = [l for l in lignes if l[1] == "df_73"]
+    lignes_74 = [l for l in lignes if l[1] == "df_74"]
+    n, m, p = len(lignes_72), len(lignes_73), len(lignes_74)
+
+    print("n (df_72) = ", n)
+    print("m (df_73) = ", m)
+    print("p (df_74) = ", p)
+
+    if n + m + p == 0:
         return df_72, df_73, df_74
 
-    if ponderations is None:
-        ponderations = [1 / n] * n  # Equal weighting by default
+    df_72 = df_72.copy()
+    df_73 = df_73.copy()
+    df_74 = df_74.copy()
 
-    for (row_num, df_name), poids in zip(lignes, ponderations):
+    if ponderations is None:
+        ponderations_72 = [1 / n] * n if n > 0 else []
+        ponderations_73 = [1 / m] * m if m > 0 else []
+        ponderations_74 = [1 / p] * p if p > 0 else []
+    else:
+        ponderations_72 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_72"]
+        ponderations_73 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_73"]
+        ponderations_74 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_74"]
+
+    for (row_num, _), poids in zip(lignes_72, ponderations_72):
         part_delta = delta * poids
-        if df_name == "df_72":
-            mask = df_72["row"] == row_num
-            df_72.loc[mask, "0010"] = df_72.loc[mask, "0010"] - part_delta
-        elif df_name == "df_73":
-            mask = df_73["row"] == row_num
-            df_73.loc[mask, "0010"] = df_73.loc[mask, "0010"] + part_delta
-        elif df_name == "df_74":
-            mask = df_74["row"] == row_num
-            df_74.loc[mask, "0010"] = df_74.loc[mask, "0010"] - part_delta
+        print("part delta in df_72 = ", part_delta)
+        mask = df_72["row"] == row_num
+        df_72.loc[mask, "0010"] = df_72.loc[mask, "0010"] - part_delta
+
+    for (row_num, _), poids in zip(lignes_73, ponderations_73):
+        part_delta = delta * poids
+        print("part delta in df_73 = ", part_delta)
+        mask = df_73["row"] == row_num
+        df_73.loc[mask, "0010"] = df_73.loc[mask, "0010"] + part_delta
+
+    for (row_num, _), poids in zip(lignes_74, ponderations_74):
+        part_delta = delta * poids
+        print("part delta in df_74 = ", part_delta)
+        mask = df_74["row"] == row_num
+        df_74.loc[mask, "0010"] = df_74.loc[mask, "0010"] - part_delta
 
     return df_72, df_73, df_74
 
+
 def propager_delta_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderations=None):
     lignes = get_mapping_df_row(poste_bilan)
-    n = len(lignes)
-    print("n in nsfr = ", n)
-    
-    if n == 0:
+    print("lignes nsfr = ", lignes)
+
+    lignes_80 = [l for l in lignes if l[1] == "df_80"]
+    lignes_81 = [l for l in lignes if l[1] == "df_81"]
+    n = len(lignes_80)
+    m = len(lignes_81)
+
+    print("n (df_80) = ", n)
+    print("m (df_81) = ", m)
+
+    if n + m == 0:
         return df_80, df_81
 
-    if ponderations is None:
-        ponderations = [1 / n] * n  # Equal weighting by default
-
-    # Create copies before modification
     df_80 = df_80.copy()
     df_81 = df_81.copy()
 
-# Use .loc properly with masks
-    for (row_num, df_name), poids in zip(lignes, ponderations):
-        part_delta = delta * poids
-        print("part delta in nsfr = ", part_delta)
-        if df_name == "df_80":
-            mask = df_80["row"] == row_num
-            df_80.loc[mask, "0010"] = df_80.loc[mask, "0010"] - part_delta
+    if ponderations is None:
+        ponderations_80 = [1 / n] * n if n > 0 else []
+        ponderations_81 = [1 / m] * m if m > 0 else []
+    else:
+        # Optional: use weights if provided (must match the length)
+        ponderations_80 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_80"]
+        ponderations_81 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_81"]
 
-        elif df_name == "df_81":
-            mask = df_81["row"] == row_num
-            df_81.loc[mask, "0010"] = df_81.loc[mask, "0010"] - part_delta
-        
+    # Apply delta to df_80
+    for (row_num, _), poids in zip(lignes_80, ponderations_80):
+        part_delta = delta * poids
+        print("part delta in df_80 = ", part_delta)
+        mask = df_80["row"] == row_num
+        df_80.loc[mask, "0010"] = df_80.loc[mask, "0010"] - part_delta
+
+    # Apply delta to df_81
+    for (row_num, _), poids in zip(lignes_81, ponderations_81):
+        part_delta = delta * poids
+        print("part delta in df_81 = ", part_delta)
+        mask = df_81["row"] == row_num
+        df_81.loc[mask, "0010"] = df_81.loc[mask, "0010"] - part_delta
 
     return df_80, df_81
+
 
 def sauvegarder_bilan_stresse(bilan_stresse, output_filename="bilan_stresse.xlsx", output_dir="data"):
     """

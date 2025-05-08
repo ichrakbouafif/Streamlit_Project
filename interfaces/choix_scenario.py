@@ -108,8 +108,8 @@ def afficher_parametres_retrait_depots():
 
 def executer_retrait_depots():
     bilan = bst.charger_bilan()
-    st.write("Bilan actuel:")
-    st.dataframe(bilan, use_container_width=True)
+    #st.write("Bilan actuel:")
+    #st.dataframe(bilan, use_container_width=True)
     params = afficher_parametres_retrait_depots()
 
     if st.button("Exécuter le stress test", key="executer_stress_test", use_container_width=True):
