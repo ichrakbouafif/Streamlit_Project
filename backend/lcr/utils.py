@@ -23,7 +23,7 @@ def affiche_LB_lcr(df):
     )
 
     # Convertir la colonne "Valeur (0040)" en float (en supprimant les virgules et caractères non numériques)
-    df["Valeur (0040)"] = pd.to_numeric(df["Valeur (0040)"].astype(str).str.replace(",", ""), errors="coerce")
+    df["Valeur (0040)"] = pd.to_numeric(df["Valeur (0040)"].astype(str).str.replace(",", " "), errors="coerce")
 
     # Ne garder que les lignes où "Valeur (0040)" est différente de 0
     df = df[df["Valeur (0040)"].fillna(0) != 0]
@@ -56,7 +56,7 @@ def affiche_outflow_lcr(df):
 
     # Convertir "Outflow (0060)" en float
     df["Outflow (0060)"] = pd.to_numeric(
-        df["Outflow (0060)"].astype(str).str.replace(",", ""), errors="coerce"
+        df["Outflow (0060)"].astype(str).str.replace(",", " "), errors="coerce"
     )
 
     # Filtrer les lignes où Outflow != 0
@@ -64,7 +64,6 @@ def affiche_outflow_lcr(df):
 
     # Supprimer la colonne inutile
     df = df.drop(columns=["Standard weight (0040)"])
-
 
     return df
 
@@ -87,7 +86,7 @@ def affiche_inflow_lcr(df):
     )
 
     # Convertir la colonne "Inflow (0140)" en float (en supprimant les virgules et caractères non numériques)
-    df["Inflow (0140)"] = pd.to_numeric(df["Inflow (0140)"].astype(str).str.replace(",", ""), errors="coerce")
+    df["Inflow (0140)"] = pd.to_numeric(df["Inflow (0140)"].astype(str).str.replace(",", " "), errors="coerce")
 
     # Ne garder que les lignes où "Inflow (0140)" est différente de 0
     df = df[df["Inflow (0140)"].fillna(0) != 0]
@@ -99,9 +98,7 @@ def affiche_inflow_lcr(df):
     return df
 import os
 import pandas as pd
-from backend.lcr.feuille_72 import calcul_HQLA
-from backend.lcr.feuille_73 import calcul_outflow
-from backend.lcr.feuille_74 import calcul_inflow
+
 from backend.lcr.feuille_72 import charger_feuille_72
 from backend.lcr.feuille_73 import charger_feuille_73
 from backend.lcr.feuille_74 import charger_feuille_74
