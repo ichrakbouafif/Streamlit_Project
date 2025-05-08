@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 ###importation des modules nécessaires pour le bilan
-from backend.bilan.bilan import charger_bilan
+from backend.ratios_baseline.ratios_baseline import charger_bilan
 
 ###importation des modules nécessaires pour le LCR
 from backend.lcr.feuille_72 import charger_feuille_72
@@ -20,9 +20,12 @@ from backend.nsfr.feuille_81 import charger_feuille_81
 from backend.nsfr.utils import affiche_RSF
 from backend.nsfr.utils import affiche_ASF
 
-from backend.bilan.bilan import get_capital_planning
-from backend.bilan.bilan import add_capital_planning_df
-from backend.bilan.bilan import get_mapping_df_row
+from backend.ratios_baseline.ratios_baseline import get_capital_planning
+from backend.ratios_baseline.ratios_baseline import get_mapping_df_row
+from backend.ratios_baseline.ratios_baseline import add_capital_planning_df
+
+from backend.stress_test import event1 as bst
+
 
 
  
@@ -106,9 +109,8 @@ def show():
     if 'show_ratios' not in st.session_state:
         st.session_state.show_ratios = True
 
-    if st.button("Calculer les Ratios"):
-        st.session_state.show_ratios = not st.session_state.show_ratios
-
+    # Removed the "Calculer les Ratios" button
+    
     if st.session_state.show_ratios:
         st.subheader("Ratios Réglementaires")
         
@@ -246,61 +248,50 @@ def show():
 
     if st.button("Procéder aux choix du scénario"):
         st.session_state.selected_page = "Choix du Scénario"
-
-################################        TEST     #######################################
-    # ====================== TEST DE CAPITAL PLANNING ======================
-    ## charger COREP LCR 
-    LCR_path = os.path.join("data", "LCR.csv")  
-    df_72 = charger_feuille_72(LCR_path) 
-    df_73 = charger_feuille_73(LCR_path) 
-    df_74 = charger_feuille_74(LCR_path) 
-
-    ## charger COREP NSFR
-    NSFR_path = os.path.join("data", "NSFR.csv")  
-    df_80 = charger_feuille_80(NSFR_path) 
-    df_81 = charger_feuille_81(NSFR_path)
-
-    st.subheader("Test Extraction Capital Planning")
-
-    poste_selectionne = "Depots clients (passif)"
-    valeur_capital = get_capital_planning(bilan, poste_selectionne, "2025")
-    print("Valeur de capital planning : ", valeur_capital)
-    mapping = get_mapping_df_row(poste_selectionne)
-
-    for row, df_name in mapping:
-        #if df_name == "df_72":
-            #df_72 = add_capital_planning_df(df_72, 3, 111111111)
-        if df_name == "df_72":
-            df_72 = add_capital_planning_df(df_72, row, valeur_capital)
-        elif df_name == "df_73":
-            df_73 = add_capital_planning_df(df_73, row, valeur_capital)
-        elif df_name == "df_74":
-            df_74 = add_capital_planning_df(df_74, row, valeur_capital)
-
-    from backend.lcr.utils import extraire_lignes_non_vides
-    from backend.lcr.feuille_72 import calcul_HQLA
-    from backend.lcr.feuille_73 import calcul_outflow
-    from backend.lcr.feuille_74 import calcul_inflow
-    from backend.lcr.utils import Calcul_LCR
-
-    #LB = affiche_LB_lcr(df_72)
-
-    HQLA = calcul_HQLA(df_72)
-    OUTFLOWS = calcul_outflow(df_73)
-    inflow = calcul_inflow(df_74)
-    LCR = Calcul_LCR(inflow,OUTFLOWS,HQLA)
-    st.write("LCR : ", LCR)
-    st.write("HQLA : ", HQLA)
-    st.write("OUTFLOWS : ", OUTFLOWS)
-    st.write("inflow : ", inflow)
+    
 
 
-    OUT = affiche_outflow_lcr(df_73)
-    IN = affiche_inflow_lcr(df_74) 
-    LB = affiche_LB_lcr(df_72)
-    if not LB.empty:
-        st.dataframe(LB, use_container_width=True)
-        st.dataframe(IN, use_container_width=True)
-        st.dataframe(OUT, use_container_width=True)
-        
+    from backend.stress_test import event1 as bst
+    bilan = charger_bilan()
+    df_72, df_73, df_74 = bst.charger_lcr()
+    df_80, df_81 = bst.charger_nsfr()
+    from backend.ratios_baseline.ratios_baseline import calcul_ratios_sur_horizon
+
+
+    # Lancer les calculs sur tout l'horizon
+    if st.button("Lancer les calculs projetés"):
+        resultats_horizon = calcul_ratios_sur_horizon(horizon, bilan, df_72, df_73, df_74, df_80, df_81)
+
+        for annee, ratios in resultats_horizon.items():
+            with st.expander(f"Résultats projetés pour l'année {annee}"):
+                st.metric("LCR", f"{ratios['LCR']:.2f}")
+                st.metric("NSFR", f"{ratios['NSFR']:.2f}")
+                st.metric("HQLA", f"{ratios['HQLA']:.2f}")
+                st.metric("OUTFLOWS", f"{ratios['OUTFLOWS']:.2f}")
+                st.metric("INFLOWS", f"{ratios['INFLOWS']:.2f}")
+                st.metric("ASF", f"{ratios['ASF']:.2f}")
+                st.metric("RSF", f"{ratios['RSF']:.2f}")
+
+                LB = affiche_LB_lcr(ratios["df_72"])
+                if not LB.empty:
+                    st.write("Liquidité brute (feuille 72)")
+                    st.dataframe(LB, use_container_width=True)
+
+                IN = affiche_inflow_lcr(ratios["df_74"])
+                if not IN.empty:
+                    st.write("Inflows (feuille 74)")
+                    st.dataframe(IN, use_container_width=True)
+
+                OUT = affiche_outflow_lcr(ratios["df_73"])
+                if not OUT.empty:
+                    st.write("Outflows (feuille 73)")
+                    st.dataframe(OUT, use_container_width=True)
+                
+                
+                
+                bilan = charger_bilan()
+                df_72, df_73, df_74 = bst.charger_lcr()
+                df_80, df_81 = bst.charger_nsfr()
+                
+                
 
