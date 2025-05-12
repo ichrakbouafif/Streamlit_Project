@@ -27,10 +27,10 @@ def affiche_LB_lcr(df):
     
     # Formater les nombres avec séparateur de milliers et 2 décimales
     df["Valeur (0040)"] = df["Valeur (0040)"].apply(
-        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ".") if pd.notnull(x) else ""
     )
     df["Montant (0010)"] = df["Montant (0010)"].apply(
-        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ".") if pd.notnull(x) else ""
     )
 
     # Ne garder que les lignes où "Valeur (0040)" est différente de 0
@@ -70,10 +70,10 @@ def affiche_outflow_lcr(df):
     
     # Formater les nombres avec séparateur de milliers et 2 décimales
     df["Montant (0010)"] = df["Montant (0010)"].apply(
-        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ".") if pd.notnull(x) else ""
     )
     df["Outflow (0060)"] = df["Outflow (0060)"].apply(
-        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ".") if pd.notnull(x) else ""
     )
 
     # Filtrer les lignes où Outflow != 0
@@ -107,10 +107,10 @@ def affiche_inflow_lcr(df):
     
     # Formater les nombres avec séparateur de milliers et 2 décimales
     df["Inflow (0140)"] = df["Inflow (0140)"].apply(
-        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ".") if pd.notnull(x) else ""
     )
     df["Montant (0010)"] = df["Montant (0010)"].apply(
-        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ".") if pd.notnull(x) else ""
     )
 
 

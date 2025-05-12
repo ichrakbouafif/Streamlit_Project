@@ -469,7 +469,7 @@ def afficher_corep_levier_detaille(df_c4700_stresse, key_prefix="corep_levier"):
     df['Row'] = pd.to_numeric(df['Row'], errors='coerce')
     df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
     df["Amount"] = df["Amount"].apply(
-        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ".") if pd.notnull(x) else ""
     )
     df['Description'] = df['Row'].map(mapping_rows_levier)
 

@@ -3,6 +3,8 @@ import pandas as pd
 
 ###importation des modules nécessaires pour le bilan
 from backend.ratios_baseline.ratios_baseline import charger_bilan
+from backend.ratios_baseline.capital_projete import noms_lignes_c0100  # Assure-toi que le mapping est importé
+from backend.ratios_baseline.capital_projete import noms_lignes_c4700  # Assure-toi que le mapping est importé
 
 ###importation des modules nécessaires pour le LCR
 from backend.lcr.utils import affiche_LB_lcr
@@ -33,6 +35,9 @@ def format_large_number(num):
     if pd.isna(num) or num == 0:
         return "0"
     return f"{num:,.2f}".replace(",", " ").replace(".", ",")
+
+
+
 
 def affiche_bilan(bilan: pd.DataFrame):
     bilan_affichage = bilan.copy()
@@ -108,9 +113,9 @@ def show():
             if year in resultats_horizon:
                 lcr_years.append({
                     "Année": year,
-                    "HQLA": f"{resultats_horizon[year]['HQLA']:,.2f}",
-                    "Inflow":f"{resultats_horizon[year]['INFLOWS']:,.2f}",
-                    "Outflow": f"{resultats_horizon[year]['OUTFLOWS']:,.2f}",
+                    "HQLA": f"{resultats_horizon[year]['HQLA']:,.2f}".replace(",", " "),
+                    "Inflow":f"{resultats_horizon[year]['INFLOWS']:,.2f}".replace(",", " "),
+                    "Outflow": f"{resultats_horizon[year]['OUTFLOWS']:,.2f}".replace(",", " "),
                     #"Net Outflow": format_large_number(resultats_horizon[year]['OUTFLOWS'] - resultats_horizon[year]['INFLOWS']),
                     "LCR%": f"{resultats_horizon[year]['LCR']*100:,.2f}%"
                 })
@@ -118,26 +123,78 @@ def show():
         lcr_table = pd.DataFrame(lcr_years)
         st.table(lcr_table)
         
-        # LCR details expander for each year
-        st.subheader("Détail du calcul du ratio LCR")
-        
-        # Pour chaque année, créer un expander avec les détails
+                # LCR details expander for each year
+        st.markdown("#####  Détail du calcul du ratio LCR")
+
+        pwc_orange = "#f47721"
+        pwc_dark_gray = "#3d3d3d"
+        pwc_light_beige = "#f5f0e6"
+        pwc_brown = "#6e4c1e"
+        pwc_soft_black = "#2c2c2c"
+
         for year in range(2024, 2024+horizon+1):
             if year in resultats_horizon:
                 with st.expander(f"Détails de calcul LCR pour {year}"):
                     st.markdown(f"#### Année {year}")
                     
-                    # Afficher métriques principales
                     col1, col2, col3, col4 = st.columns(4)
+
                     with col1:
-                        st.metric("LCR", f"{resultats_horizon[year]['LCR']*100:.2f}%")
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">LCR</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
+                                    {resultats_horizon[year]['LCR']*100:.2f}%
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
                     with col2:
-                        st.metric("HQLA", format_large_number(resultats_horizon[year]['HQLA']))
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">HQLA</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                    {format_large_number(resultats_horizon[year]['HQLA'])}
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
                     with col3:
-                        st.metric("Outflows", format_large_number(resultats_horizon[year]['OUTFLOWS']))
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Outflows</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                    {format_large_number(resultats_horizon[year]['OUTFLOWS'])}
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
                     with col4:
-                        st.metric("Inflows", format_large_number(resultats_horizon[year]['INFLOWS']))
-                    
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Inflows</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                    {format_large_number(resultats_horizon[year]['INFLOWS'])}
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
                     # DÉTAIL DU CALCUL LCR : FEUILLE 72 - Utiliser les dataframes spécifiques à l'année
                     st.markdown("**Actifs liquides de haute qualité (HQLA)**")
                     try:
@@ -178,7 +235,7 @@ def show():
                         st.error(f"Erreur lors de l'extraction des données Inflows : {e}")
 
         # ====================== NSFR RATIO ======================
-        st.subheader("Ratio NSFR")
+        st.markdown("##### Ratio NSFR")
         with st.expander("Ratio NSFR", expanded=False):
             st.write("**Définition:** Le ratio de financement stable à long terme évalue si les ressources stables de la banque couvrent ses besoins stables à long terme.")
             st.latex(r"NSFR = \frac{\text{Financements stables disponibles}}{\text{Besoins en financements stables}}")
@@ -193,8 +250,8 @@ def show():
             if year in resultats_horizon:
                 nsfr_years.append({
                     "Année": year,
-                    "ASF": f"{resultats_horizon[year]['ASF']:,.2f}",
-                    "RSF": f"{resultats_horizon[year]['RSF']:,.2f}",
+                    "ASF": f"{resultats_horizon[year]['ASF']:,.2f}".replace(",", " "),
+                    "RSF": f"{resultats_horizon[year]['RSF']:,.2f}".replace(",", " "),
                     "NSFR%": f"{resultats_horizon[year]['NSFR']:,.2f}%"
                 })
         
@@ -202,13 +259,13 @@ def show():
         st.table(nsfr_table)
         
         # NSFR details expander for each year
-        st.subheader("Détail du calcul du ratio NSFR")
+        st.markdown("##### Détail du calcul du ratio NSFR")
         
         # Pour chaque année, créer un expander avec les détails
         for year in range(2024, 2024+horizon+1):
             if year in resultats_horizon:
                 with st.expander(f"Détails de calcul NSFR pour {year}"):
-                    st.markdown(f"#### Année {year}")
+                    st.markdown(f"##### Année {year}")
                     
                     # Afficher métriques principales
                     pwc_orange = "#f47721"
@@ -303,14 +360,14 @@ def show():
         resultats_levier = simuler_levier_pluriannuel(bilan, df_c01, df_c4700, annees=annees[1:])
 
         # === AFFICHAGE SOLVABILITÉ ===
-        st.subheader("Ratio Solvabilité")
+        st.markdown("##### Ratio Solvabilité")
         with st.expander("Ratio Solvabilité", expanded=False):
             st.write("**Définition:** Le ratio de solvabilité mesure la capacité d'une banque à absorber les pertes par rapport à ses actifs pondérés par le risque.")
             st.latex(r"Solvabilité = \frac{\text{Fonds propres réglementaires}}{\text{Risques pondérés}}")
             st.write("**Composantes:**")
             st.write("- Fonds propres réglementaires (capital de base et réserves)")
             st.write("- Risques pondérés (actifs ajustés en fonction de leur risque, comme les prêts à faible ou à haut risque)")
-            st.write("**Interprétation:** Un ratio de solvabilité élevé montre que la banque a suffisamment de capital pour couvrir ses risques.")
+            st.write("**Interprétation:** Un ratio de solvabilité >=8% montre que la banque a suffisamment de capital pour couvrir ses risques.")
         tableau_solva = []
         for annee in annees:
             if annee in resultats_solva:
@@ -325,29 +382,82 @@ def show():
         for annee in annees:
             if annee in resultats_solva:
                 with st.expander(f" Détails Solvabilité - {annee}", expanded=False):
+                    pwc_orange = "#f47721"
+                    pwc_dark_gray = "#3d3d3d"
+                    pwc_light_beige = "#f5f0e6"
+                    pwc_brown = "#6e4c1e"
+                    pwc_soft_black = "#2c2c2c"
+
                     col1, col2, col3 = st.columns(3)
-                    col1.metric("Ratio Solvabilité", f"{resultats_solva[annee]['ratio']:.2f}%")
-                    col2.metric("Fonds Propres", format_large_number(resultats_solva[annee]["fonds_propres"]))
-                    col3.metric("RWA", format_large_number(resultats_solva[annee]["rwa"]))
 
+                    with col1:
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio Solvabilité</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
+                                    {resultats_solva[annee]['ratio']:.2f}%
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with col2:
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Fonds Propres</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                    {format_large_number(resultats_solva[annee]["fonds_propres"])}
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with col3:
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">RWA</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                    {format_large_number(resultats_solva[annee]["rwa"])}
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
                     st.markdown("**Fonds propres (C0100)**")
-                    df_c01_filt = resultats_solva[annee]["df_c01"]
-                    st.dataframe(df_c01_filt[df_c01_filt["row"].isin([20, 30, 150, 530, 750])], use_container_width=True)
+                    df_complet_c01 = resultats_solva[annee]["df_c01"]
+                    if not df_complet_c01.empty:
+                            df_c01_affiche = df_complet_c01.copy()
+                            df_c01_affiche = df_c01_affiche[df_c01_affiche["row"] != 10]
 
+                    if "row" in df_c01_affiche.columns:
+                                df_c01_affiche["Rubrique"] = df_c01_affiche["row"].apply(lambda x: noms_lignes_c0100.get(int(x), f"Ligne {x}"))
+                                df_c01_affiche = df_c01_affiche[["Rubrique", "0010"]]  # Garde uniquement la colonne utile
+                                df_c01_affiche = df_c01_affiche.rename(columns={"0010": "Montant (EUR)"})
+                                st.dataframe(df_c01_affiche, use_container_width=True)
+                                
+                    else:
+                                st.warning("❗ Colonne 'row' manquante dans le dataframe C0100.")
                     if "blocs_rwa" in resultats_solva[annee]:
                         for nom_bloc, df_bloc in resultats_solva[annee]["blocs_rwa"].items():
                             st.markdown(f"**Bloc RWA - {nom_bloc} (C0700)**")
                             st.dataframe(df_bloc, use_container_width=True)
-
         # === AFFICHAGE LEVIER ===
-        st.subheader("Ratio Levier")
+        st.markdown("#####  Ratio Levier")
         with st.expander("Ratio Levier", expanded=False):
             st.write("**Définition:** Le ratio de levier mesure le niveau d'endettement de la banque en comparant ses fonds propres au total de ses expositions.")
             st.latex(r"Levier = \frac{\text{Fonds propres de base}}{\text{Total des expositions}}")
             st.write("**Composantes:**")
             st.write("- Fonds propres de base (par exemple : capital social, réserves consolidées)")
             st.write("- Total des expositions (y compris les prêts, titres, dérivés, engagements)")
-            st.write("**Interprétation:** Un ratio de levier élevé indique une banque plus robuste, avec une plus grande capacité à absorber les pertes.")
+            st.write("**Interprétation:** Un ratio de levier>=3%  indique une banque plus robuste, avec une plus grande capacité à absorber les pertes.")
         tableau_levier = []
         for annee in annees:
             if annee in resultats_levier:
@@ -362,20 +472,94 @@ def show():
         for annee in annees:
             if annee in resultats_levier:
                 with st.expander(f" Détails Levier - {annee}", expanded=False):
+                    pwc_orange = "#f47721"
+                    pwc_dark_gray = "#3d3d3d"
+                    pwc_light_beige = "#f5f0e6"
+                    pwc_brown = "#6e4c1e"
+                    pwc_soft_black = "#2c2c2c"
+
                     col1, col2, col3 = st.columns(3)
-                    col1.metric("Ratio Levier", f"{resultats_levier[annee]['ratio']:.2f}%")
-                    col2.metric("Tier 1", format_large_number(resultats_levier[annee]["tier1"]))
-                    col3.metric("Exposition", format_large_number(resultats_levier[annee]["total_exposure"]))
 
+                    with col1:
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio Levier</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
+                                    {resultats_levier[annee]['ratio']:.2f}%
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with col2:
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Tier 1</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                    {format_large_number(resultats_levier[annee]["tier1"])}
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with col3:
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Exposition Totale</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                    {format_large_number(resultats_levier[annee]["total_exposure"])}
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                                                                    # Affichage explicite du tableau C4700 avec noms de lignes
+                                                # === AFFICHAGE TIER 1 (C0100) ===
                     st.markdown("**Tier 1 (extrait C0100)**")
-                    df_c01_filt = resultats_levier[annee]["df_c01"]
-                    st.dataframe(df_c01_filt[df_c01_filt["row"].isin([15, 20, 530])], use_container_width=True)
+                    df_c01_complet = resultats_levier[annee]["df_c01"].copy()
+                    df_c01_complet = df_c01_complet[df_c01_complet["row"] != 10]  # supprimer ligne globale inutilisée
 
+                        # Ajout des noms explicites des lignes via mapping
+                    df_c01_complet["Rubrique"] = df_c01_complet["row"].astype(int).map(noms_lignes_c0100)
+                    df_c01_complet["Montant (EUR)"] = df_c01_complet["0010"]
+
+                        # Lignes liées au TIER 1 (CET1 + AT1)
+                    lignes_tier1 = [
+                            15, 20, 30, 40, 45, 50, 60, 70, 80, 90, 91, 92,
+                            130, 140, 150, 160, 170, 180, 200, 210, 220, 230,
+                            240, 250, 260, 270, 280, 285, 290, 300, 310, 320,
+                            330, 335, 340, 350, 360, 365, 370, 380, 390, 400,
+                            410, 420, 430, 440, 450, 460, 470, 471, 472, 480,
+                            490, 500, 510, 511, 512, 513, 514, 515, 520, 524, 529,
+                            530, 540, 551, 571, 580, 590, 620, 621, 622, 660, 670,
+                            680, 690, 700, 710, 720, 730, 740, 744, 748
+                        ]
+
+                    df_c01_tier1 = df_c01_complet[df_c01_complet["row"].isin(lignes_tier1)].sort_values("row")
+                    st.dataframe(df_c01_tier1[["Rubrique", "Montant (EUR)"]], use_container_width=True)
+
+
+                        # === AFFICHAGE C4700 ===
                     st.markdown("**Exposition Totale (C4700)**")
-                    df_c47_filt = resultats_levier[annee]["df_c4700"]
-                    st.dataframe(df_c47_filt[df_c47_filt["Row"].isin([10, 61, 91, 130, 150, 160, 170, 180, 190, 270])], use_container_width=True)
+                    df_c47 = resultats_levier[annee]["df_c4700"].copy()
+                    df_c47 = df_c47[df_c47["0010"].notna()]  # retirer les lignes vides
 
+                        # Ajout des noms explicites
+                    df_c47["Rubrique"] = df_c47["Row"].astype(int).map(noms_lignes_c4700)
+                    df_c47["Montant (EUR)"] = df_c47["0010"]
 
+                        # Tri réglementaire
+                    df_c47_affiche = df_c47.sort_values("Row")[["Rubrique", "Montant (EUR)"]]
+                    st.dataframe(df_c47_affiche, use_container_width=True)
 
 
         # ====================== SOLVABILITÉ RATIO (Placeholder) ======================
@@ -441,4 +625,4 @@ def show():
 
     if st.button("Procéder aux choix du scénario"):
         st.session_state.selected_page = "Choix du Scénario"
-        st.rerun() 
+        st.rerun()
