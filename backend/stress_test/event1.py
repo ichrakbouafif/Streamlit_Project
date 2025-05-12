@@ -259,20 +259,31 @@ mapping_bilan_LCR_NSFR = {
     ],
 }
 
+def afficher_postes_concernes(bilan_df, postes, horizon=1):
+    """
+    Affiche les lignes associées aux postes concernés pour les années de 2024 à 2024 + horizon,
+    avec formatage des montants en '123 456 789.12'.
+    """
+    # Générer dynamiquement la liste des années en fonction de l'horizon
+    annees_base = [str(2024 + i) for i in range(horizon + 1)]
 
-def afficher_postes_concernes(bilan_df, postes, annees=["2024", "2025", "2026", "2027"]):
-    """
-    Affiche uniquement les lignes associées aux postes concernés pour les années spécifiées.
-    """
     resultats = []
 
     for poste in postes:
         idx = bilan_df[bilan_df["Poste du Bilan"].astype(str).str.strip() == poste].index
         if not idx.empty:
-            ligne_valeurs = bilan_df.loc[idx[0], ["Poste du Bilan"] + annees]
+            ligne_valeurs = bilan_df.loc[idx[0], ["Poste du Bilan"] + annees_base]
             resultats.append(ligne_valeurs)
 
-    return pd.DataFrame(resultats).set_index("Poste du Bilan")
+    df_resultats = pd.DataFrame(resultats).set_index("Poste du Bilan")
+
+    # Format personnalisé
+    def format_custom(x):
+        if pd.isna(x):
+            return ""
+        return f"{x:,.2f}".replace(",", " ")
+
+    return df_resultats.applymap(format_custom)
 
 
 def get_delta_bilan(original_df, stressed_df, poste_bilan, annee):

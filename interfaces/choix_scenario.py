@@ -16,7 +16,6 @@ from backend.nsfr.feuille_81 import calcul_ASF
 from backend.levier.calcul_ratio_levier import charger_donnees_levier, calculer_ratio_levier_double_etape
 from backend.solvabilite.calcul_ratios_capital_stressé import charger_donnees,calculer_ratios_solva_double_etape
 
-
 def show():
     st.title("Choix des scénarios")
 
@@ -49,22 +48,13 @@ def show():
     if selected_events:
         afficher_configuration_evenements(selected_events, scenario_type_key)
 
-    if st.button("Valider ce scénario"):
-        if not selected_events:
-            st.warning("Veuillez sélectionner au moins un événement.")
-        else:
-            st.success("Scénario validé avec succès!")
+        
+
 def format_large_number(num):
-    """Format large numbers with M/B suffixes"""
+    """Format number with space as thousands separator and 2 decimal digits"""
     if pd.isna(num) or num == 0:
         return "0"
-    abs_num = abs(num)
-    if abs_num >= 1_000_000_000:
-        return f"{num/1_000_000_000:.2f}B"
-    elif abs_num >= 1_000_000:
-        return f"{num/1_000_000:.2f}M"
-    else:
-        return f"{num:,.2f}"
+    return f"{num:,.2f}".replace(",", " ").replace(".", ".")
     
 def afficher_configuration_evenements(selected_events, scenario_type):
     events_dict = config.scenarios[scenario_type]
@@ -76,30 +66,54 @@ def afficher_configuration_evenements(selected_events, scenario_type):
             executer_retrait_depots()
         else:
             st.warning("Cette fonctionnalité n'est pas encore implémentée.")
-            st.info("Seul l'événement 'Retrait massif des dépôts' est actuellement disponible.")
-
-def afficher_parametres_retrait_depots():
-    st.subheader("Paramètres du retrait massif des dépôts")
-
-
-    pourcentage = st.slider("Pourcentage de diminution des dépôts (%)", 0, 100, 15, 5) / 100.0
-    horizon = st.slider("Horizon d'absorption du choc (années)", 1, 5, 1, 1)
-
     
-        
+def afficher_parametres_retrait_depots():
 
-    st.subheader("Répartition de l'impact")
-    st.markdown("Répartition de l'impact du retrait des dépôts:")
+    # Initialisation des états
+    if "poids_portefeuille" not in st.session_state:
+        st.session_state.poids_portefeuille = 50
+    if "poids_creances" not in st.session_state:
+        st.session_state.poids_creances = 50
+    if "last_changed" not in st.session_state:
+        st.session_state.last_changed = "portefeuille"
 
-    poids_portefeuille = st.slider("Portefeuille (%)", 0, 100, 50, 5) / 100.0
-    poids_creances = st.slider("Créances bancaires (%)", 0, 100, 50, 5) / 100.0
+    col1, col2 = st.columns(2)
 
-    total_poids = poids_portefeuille + poids_creances
-    if not np.isclose(total_poids, 1.0):
-        st.warning(f"La somme des pourcentages doit être égale à 100%. Actuellement: {total_poids*100:.0f}%")
-        st.info("Ajustement automatique appliqué.")
-        poids_portefeuille = poids_portefeuille / total_poids
-        poids_creances = poids_creances / total_poids
+    with col1:
+        st.markdown("#### <span style='font-size:18px;'>Paramètres du retrait massif des dépôts</span>", unsafe_allow_html=True)
+        pourcentage = st.slider("Diminution des dépôts (%)", 0, 100, 15, 5) / 100.0
+        horizon = st.slider("Horizon du choc (années)", 1, 3, 1, 1)
+
+    with col2:
+        st.markdown("#### <span style='font-size:18px;'>Répartition de l’impact</span>", unsafe_allow_html=True)
+
+        def on_change_portefeuille():
+            st.session_state.last_changed = "portefeuille"
+            st.session_state.poids_creances = 100 - st.session_state.poids_portefeuille
+
+        def on_change_creances():
+            st.session_state.last_changed = "creances"
+            st.session_state.poids_portefeuille = 100 - st.session_state.poids_creances
+
+        st.slider(
+            "Portefeuille (%)",
+            0, 100,
+            key="poids_portefeuille",
+            step=5,
+            on_change=on_change_portefeuille
+        )
+
+        st.slider(
+            "Créances bancaires (%)",
+            0, 100,
+            key="poids_creances",
+            step=5,
+            on_change=on_change_creances
+        )
+
+    # Conversion en décimales
+    poids_portefeuille = st.session_state.poids_portefeuille / 100.0
+    poids_creances = st.session_state.poids_creances / 100.0
 
     return {
         'pourcentage': pourcentage,
@@ -134,24 +148,34 @@ def executer_retrait_depots():
                 st.session_state.bilan_stresse = bilan_stresse
                 st.success("Stress test exécuté avec succès!")
                 afficher_resultats_retrait_depots(bilan_stresse, params)
+                if st.button("Valider ce scénario"):
+                    st.success("Scénario validé avec succès!")
+                
+                # Set the stress test executed flag
+                st.session_state.stress_test_executed = True
+                
+                return params
                 
             except Exception as e:
                 st.error(f"Erreur lors de l'exécution du stress test: {str(e)}")
+                st.session_state.stress_test_executed = False
+                return None
 
+    return None
 
 def afficher_resultats_retrait_depots(bilan_stresse, params):
     st.subheader("Impact sur le bilan")
     postes_concernes = ["Depots clients (passif)", "Portefeuille", "Créances banques autres"]
-    bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes)
+    bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
 
     # Section LCR
     st.subheader("Impact sur la liquidité (LCR)")
-    afficher_resultats_lcr(bilan_stresse, postes_concernes)
+    afficher_resultats_lcr(bilan_stresse, postes_concernes,horizon=params['horizon'])
     
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
-    afficher_resultats_nsfr(bilan_stresse, postes_concernes)
+    afficher_resultats_nsfr(bilan_stresse, postes_concernes,horizon=params['horizon'])
     
     # Section Ratio de Solvabilité
     st.subheader("Impact sur le ratio de solvabilité")
@@ -161,64 +185,63 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     st.subheader("Impact sur le ratio de levier")
     afficher_resultats_levier(bilan_stresse, postes_concernes, params)
 
-def afficher_resultats_lcr(bilan_stresse, postes_concernes):
+def afficher_resultats_lcr(bilan_stresse, postes_concernes, horizon=1):
     try:
         df_72, df_73, df_74 = bst.charger_lcr()
-        annees = ["2024", "2025", "2026", "2027"]
+        annees = [str(2024 + i) for i in range(horizon + 1)]
         recap_data = []
-        
+
         for annee in annees:
             df_72_annee, df_73_annee, df_74_annee = df_72.copy(), df_73.copy(), df_74.copy()
-            
+
             for poste in postes_concernes:
                 delta = bst.get_delta_bilan(st.session_state.bilan_original, bilan_stresse, poste, annee)
                 if delta != 0:
                     df_72_annee, df_73_annee, df_74_annee = bst.propager_delta_vers_COREP_LCR(
                         poste, delta, df_72_annee, df_73_annee, df_74_annee
                     )
-            
+
             HQLA = calcul_HQLA(df_72_annee)
             outflow = calcul_outflow(df_73_annee)
             inflow = calcul_inflow(df_74_annee)
             LCR = Calcul_LCR(inflow, outflow, HQLA)
-            
+
             recap_data.append({
                 "Année": annee,
                 "HQLA": HQLA,
                 "Inflows": inflow,
                 "Outflows": outflow,
-                "LCR (%)": LCR*100,
+                "LCR (%)": LCR * 100,
                 "df_72": df_72_annee,
                 "df_73": df_73_annee,
                 "df_74": df_74_annee
             })
-        
-        # Afficher le tableau récapitulatif LCR
+
         afficher_tableau_recapitulatif(recap_data, "LCR")
-        
+
     except Exception as e:
         st.error(f"Erreur lors du calcul du LCR: {e}")
 
-def afficher_resultats_nsfr(bilan_stresse, postes_concernes):
+def afficher_resultats_nsfr(bilan_stresse, postes_concernes, horizon=1):
     try:
         df_80, df_81 = bst.charger_nsfr()
-        annees = ["2024", "2025", "2026", "2027"]
+        annees = [str(2024 + i) for i in range(horizon + 1)]
         recap_data = []
-        
+
         for annee in annees:
             df_80_annee, df_81_annee = df_80.copy(), df_81.copy()
-            
+
             for poste in postes_concernes:
                 delta = bst.get_delta_bilan(st.session_state.bilan_original, bilan_stresse, poste, annee)
                 if delta != 0:
                     df_80_annee, df_81_annee = bst.propager_delta_vers_COREP_NSFR(
                         poste, delta, df_80_annee, df_81_annee
                     )
+
             ASF = calcul_ASF(df_81_annee)
             RSF = calcul_RSF(df_80_annee)
             NSFR = Calcul_NSFR(ASF, RSF)
-            
-            
+
             recap_data.append({
                 "Année": annee,
                 "ASF": ASF,
@@ -227,10 +250,9 @@ def afficher_resultats_nsfr(bilan_stresse, postes_concernes):
                 "df_80": df_80_annee,
                 "df_81": df_81_annee
             })
-        
-        # Afficher le tableau récapitulatif NSFR
+
         afficher_tableau_recapitulatif(recap_data, "NSFR")
-        
+
     except Exception as e:
         st.error(f"Erreur lors du calcul du NSFR: {e}")
 
@@ -299,16 +321,6 @@ def afficher_resultats_solva(bilan_stresse, postes_concernes, params):
             # Afficher le tableau récapitulatif
             afficher_tableau_recapitulatif(unique_recap, "Solvabilité")
            
-            # Afficher un graphique d'évolution des ratios de solvabilité
-            df_graph = pd.DataFrame([{
-                "Année": data["Année"],
-                "Ratio de solvabilité (%)": data["Ratio de solvabilité (%)"]
-            } for data in unique_recap])
-           
-            # Visualiser l'évolution du ratio de solvabilité
-            st.subheader("Évolution du ratio de solvabilité")
-            st.line_chart(df_graph.set_index("Année"))
-           
             # Afficher les seuils réglementaires
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -317,19 +329,6 @@ def afficher_resultats_solva(bilan_stresse, postes_concernes, params):
                 st.metric("Seuil minimum Tier 1", "6.0%")
             with col3:
                 st.metric("Seuil minimum Total Capital", "8.0%")
-           
-            # Ajouter une analyse du capital planning
-            st.subheader("Analyse de l'impact du stress test")
-            ratio_initial = unique_recap[0]["Ratio de solvabilité (%)"]
-            ratio_final = unique_recap[-1]["Ratio de solvabilité (%)"]
-            delta_ratio = ratio_final - ratio_initial
-           
-            if delta_ratio < 0:
-                st.warning(f"Le ratio de solvabilité diminue de {abs(delta_ratio):.2f} points de pourcentage sur la période.")
-                if ratio_final < 8.0:
-                    st.error("⚠️ Le ratio final est inférieur au seuil réglementaire minimum de 8% !")
-            else:
-                st.success(f"Le ratio de solvabilité augmente de {delta_ratio:.2f} points de pourcentage sur la période.")
         else:
             st.warning("Aucune donnée de solvabilité disponible.")
        
@@ -371,7 +370,7 @@ def afficher_resultats_levier(bilan_stresse, postes_concernes, params):
                 "Année": annee,
                 "Fonds propres": row["Fonds propres"],
                 "Exposition totale": row["Exposition totale"],
-                "Ratio de levier (%)": row["Ratio de levier"] * 100  # Convert to percentage
+                "Ratio de levier (%)": row["Ratio de levier"]   
             }
 
             # Store detailed DataFrames if available
@@ -392,7 +391,7 @@ def afficher_resultats_levier(bilan_stresse, postes_concernes, params):
         st.error(traceback.format_exc())
         
 def afficher_corep_levier_detaille(df_c4700_stresse, key_prefix="corep_levier"):
-    st.subheader("Détails du ratio de levier COREP")
+    #st.markdown("**Détails du ratio de levier COREP**")
 
     # Mapping complet des lignes COREP C47.00 avec description
     mapping_rows_levier = {
@@ -469,11 +468,15 @@ def afficher_corep_levier_detaille(df_c4700_stresse, key_prefix="corep_levier"):
     # Nettoyage et mapping
     df['Row'] = pd.to_numeric(df['Row'], errors='coerce')
     df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
+    df["Amount"] = df["Amount"].apply(
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
+    )
     df['Description'] = df['Row'].map(mapping_rows_levier)
 
     colonnes_affichees = ['Row', 'Amount', 'Description']
     df_affiche =df[colonnes_affichees]
     df_affiche['Row'] = df_affiche['Row'].apply(lambda x: f"{int(x):04d}" if pd.notna(x) else "")
+
 
     # Fonction de style pour colorer la ligne Other assets en rouge
     def highlight_other_assets(row):
@@ -498,7 +501,7 @@ def afficher_ratios_rwa(df_bloc):
     import pandas as pd
 
 
-    st.markdown("### Ratios RWA/Exposition")
+    st.markdown("**Ratios RWA/Exposition**")
 
 
     lignes = {
@@ -594,7 +597,7 @@ def afficher_corep_detaille(df_bloc):
 
     # === Formatage des valeurs numériques ===
     for col in df_affichage.columns[1:]:
-        df_affichage[col] = df_affichage[col].apply(lambda x: f"{x:,.2f}" if pd.notna(x) else "")
+        df_affichage[col] = df_affichage[col].apply(lambda x: f"{x:,.2f}".replace(","," ").replace(".",".") if pd.notna(x) else "")
 
     # === Surlignage rose de la ligne stressée (70.0) ===
     def highlight_on_balance(row):
@@ -618,30 +621,30 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
     if ratio_type == "LCR":
         recap_df = pd.DataFrame([{
             "Année": x["Année"],
-            "HQLA": f"{x['HQLA']:,.2f}",
-            "Inflows": f"{x['Inflows']:,.2f}",
-            "Outflows": f"{x['Outflows']:,.2f}",
+            "HQLA": f"{x['HQLA']:,.2f}".replace(",", " ").replace(".", "."),
+            "Inflows": f"{x['Inflows']:,.2f}".replace(",", " ").replace(".", "."),
+            "Outflows": f"{x['Outflows']:,.2f}".replace(",", " ").replace(".", "."),
             f"{ratio_type} (%)": f"{x[f'{ratio_type} (%)']:.2f}%"
         } for x in recap_data])
     elif ratio_type == "NSFR":
         recap_df = pd.DataFrame([{
             "Année": x["Année"],
-            "ASF": f"{x['ASF']:,.2f}",
-            "RSF": f"{x['RSF']:,.2f}",
+            "ASF": f"{x['ASF']:,.2f}".replace(",", " ").replace(".", "."),
+            "RSF": f"{x['RSF']:,.2f}".replace(",", " ").replace(".", "."),
             f"{ratio_type} (%)": f"{x[f'{ratio_type} (%)']:.2f}%"
         } for x in recap_data])
     elif ratio_type == "Solvabilité":
         recap_df = pd.DataFrame([{
             "Année": x["Année"],
-            "Fonds propres": f"{x['Fonds propres']:,.2f}",
-            "RWA total": f"{x['RWA total']:,.2f}",
+            "Fonds propres": f"{x['Fonds propres']:,.2f}".replace(",", " ").replace(".", "."),
+            "RWA total": f"{x['RWA total']:,.2f}".replace(",", " ").replace(".", "."),
             f"Ratio de {ratio_type} (%)": f"{x['Ratio de solvabilité (%)']:.2f}%"
         } for x in recap_data])
     elif ratio_type == "Levier":
         recap_df = pd.DataFrame([{
             "Année": x["Année"],
-            "Fonds propres": f"{x['Fonds propres']:,.2f}",
-            "Exposition totale": f"{x['Exposition totale']:,.2f}",
+            "Fonds propres": f"{x['Fonds propres']:,.2f}".replace(",", " ").replace(".", "."),
+            "Exposition totale": f"{x['Exposition totale']:,.2f}".replace(",", " ").replace(".", "."),
             f"Ratio de {ratio_type} (%)": f"{x['Ratio de levier (%)']:.2f}%"
         } for x in recap_data])
     else:
@@ -700,17 +703,17 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
                     st.metric("RWA total", format_large_number(annee_data['RWA total']))
 
                 if annee_data["Année"] == "2024":
-                    st.markdown("### COREP de référence (avant stress)")
+                    st.markdown("**COREP de référence (avant stress)**")
                     if "df_bloc_cap" in annee_data:
                         afficher_corep_detaille(annee_data["df_bloc_cap"])
                     else:
                         st.info("Données de COREP non disponibles pour cette année.")
                 else:
                     if "df_bloc_cap" in annee_data:
-                        st.markdown("### COREP après Capital Planning")
+                        st.markdown("** COREP après Capital Planning**")
                         afficher_corep_detaille(annee_data["df_bloc_cap"])
                     if "df_bloc_stresse" in annee_data:
-                        st.markdown("### COREP après application du stress")
+                        st.markdown("** COREP après application du stress**")
                         afficher_corep_detaille(annee_data["df_bloc_stresse"])
 
                 if annee_data["Année"] == "2027":

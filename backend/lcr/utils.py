@@ -16,6 +16,7 @@ def affiche_LB_lcr(df):
         "Valeur (0040)"             # Septième colonne
     ]
 
+    df['row'] = df['row'].apply(lambda x: f"{int(x):04d}" if pd.notna(x) else "")
     # Appliquer le format 100% au lieu de 1.0 dans "Applicable weight (0030)"
     df["Applicable weight (0030)"] = df["Applicable weight (0030)"].apply(
         lambda x: f"{int(float(x)*100)}%" if pd.notnull(x) and x != 'None' else ""
@@ -26,7 +27,10 @@ def affiche_LB_lcr(df):
     
     # Formater les nombres avec séparateur de milliers et 2 décimales
     df["Valeur (0040)"] = df["Valeur (0040)"].apply(
-        lambda x: f"{x:,.2f}" if pd.notnull(x) else ""
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
+    )
+    df["Montant (0010)"] = df["Montant (0010)"].apply(
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
     )
 
     # Ne garder que les lignes où "Valeur (0040)" est différente de 0
@@ -52,6 +56,7 @@ def affiche_outflow_lcr(df):
         "Applicable weight (0050)", # 5ème colonne
         "Outflow (0060)"            # 6ème colonne
     ]
+    df['row'] = df['row'].apply(lambda x: f"{int(x):04d}" if pd.notna(x) else "")
 
     # Appliquer le format 100% au lieu de 1.0 dans "Applicable weight (0050)"
     df["Applicable weight (0050)"] = df["Applicable weight (0050)"].apply(
@@ -64,8 +69,11 @@ def affiche_outflow_lcr(df):
     )
     
     # Formater les nombres avec séparateur de milliers et 2 décimales
+    df["Montant (0010)"] = df["Montant (0010)"].apply(
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
+    )
     df["Outflow (0060)"] = df["Outflow (0060)"].apply(
-        lambda x: f"{x:,.2f}" if pd.notnull(x) else ""
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
     )
 
     # Filtrer les lignes où Outflow != 0
@@ -87,6 +95,7 @@ def affiche_inflow_lcr(df):
         "Applicable weight (0080)", # Sixième colonne
         "Inflow (0140)"             # Septième colonne
     ]
+    df['row'] = df['row'].apply(lambda x: f"{int(x):04d}" if pd.notna(x) else "")
 
     # Appliquer le format 100% au lieu de 1.0 dans "Applicable weight (0030)"
     df["Applicable weight (0080)"] = df["Applicable weight (0080)"].apply(
@@ -98,8 +107,12 @@ def affiche_inflow_lcr(df):
     
     # Formater les nombres avec séparateur de milliers et 2 décimales
     df["Inflow (0140)"] = df["Inflow (0140)"].apply(
-        lambda x: f"{x:,.2f}" if pd.notnull(x) else ""
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
     )
+    df["Montant (0010)"] = df["Montant (0010)"].apply(
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
+    )
+
 
     # Ne garder que les lignes où "Inflow (0140)" est différente de 0
     df = df[df["Inflow (0140)"].fillna(0) != 0]

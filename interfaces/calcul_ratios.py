@@ -34,9 +34,6 @@ def format_large_number(num):
         return "0"
     return f"{num:,.2f}".replace(",", " ").replace(".", ",")
 
-
-
-
 def affiche_bilan(bilan: pd.DataFrame):
     bilan_affichage = bilan.copy()
 
@@ -444,3 +441,4 @@ def show():
 
     if st.button("Procéder aux choix du scénario"):
         st.session_state.selected_page = "Choix du Scénario"
+        st.rerun() 

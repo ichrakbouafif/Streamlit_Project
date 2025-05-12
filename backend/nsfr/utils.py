@@ -30,11 +30,12 @@ def affiche_RSF(df):
         "HQLA (0040)",
         "RSF (0130)"
     ]
+    df['row'] = df['row'].apply(lambda x: f"{int(x):04d}" if pd.notna(x) else "")
     
     for col in amount_cols:
         df[col] = pd.to_numeric(df[col].astype(str).str.replace(",", ""), errors="coerce")
         # Formater avec séparateurs de milliers et 2 décimales
-        df[col] = df[col].apply(lambda x: f"{x:,.2f}" if pd.notnull(x) else "")
+        df[col] = df[col].apply(lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else "")
 
     # Ne garder que les lignes où "RSF (0130)" est différente de 0
     df = df[df["RSF (0130)"].fillna(0) != 0].copy()
@@ -68,6 +69,7 @@ def affiche_ASF(df):
         "Applicable ASF factor > 1an (0090)",   
         "ASF (0100)"
     ]
+    df['row'] = df['row'].apply(lambda x: f"{int(x):04d}" if pd.notna(x) else "")
     
     # Convertir les colonnes de montants en numérique
     amount_cols = [
@@ -80,7 +82,7 @@ def affiche_ASF(df):
     for col in amount_cols:
         df[col] = pd.to_numeric(df[col].astype(str).str.replace(",", ""), errors="coerce")
         # Formater avec séparateurs de milliers et 2 décimales
-        df[col] = df[col].apply(lambda x: f"{x:,.2f}" if pd.notnull(x) else "")
+        df[col] = df[col].apply(lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else "")
 
     # Ne garder que les lignes où "ASF (0100)" est différente de 0
     df = df[df["ASF (0100)"].fillna(0) != 0].copy()
