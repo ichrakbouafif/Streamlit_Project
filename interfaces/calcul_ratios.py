@@ -36,8 +36,8 @@ def format_large_number(num):
         return "0"
     return f"{num:,.2f}".replace(",", " ").replace(".", ",")
 
-
-
+def format_number_espace(n):
+    return f"{n:,.2f}".replace(",", " ").replace(".", ",")
 
 def affiche_bilan(bilan: pd.DataFrame):
     bilan_affichage = bilan.copy()
@@ -369,15 +369,19 @@ def show():
             st.write("- Risques pondérés (actifs ajustés en fonction de leur risque, comme les prêts à faible ou à haut risque)")
             st.write("**Interprétation:** Un ratio de solvabilité >=8% montre que la banque a suffisamment de capital pour couvrir ses risques.")
         tableau_solva = []
+
+        tableau_solva = []
         for annee in annees:
             if annee in resultats_solva:
                 tableau_solva.append({
                     "Année": annee,
-                    "Fonds Propres": resultats_solva[annee]["fonds_propres"],
-                    "RWA": resultats_solva[annee]["rwa"],
+                    "Fonds Propres": format_number_espace(resultats_solva[annee]["fonds_propres"]),
+                    "RWA": format_number_espace(resultats_solva[annee]["rwa"]),
                     "Solvabilité": f"{resultats_solva[annee]['ratio']:.2f}%"
                 })
+
         st.dataframe(pd.DataFrame(tableau_solva), use_container_width=True)
+
 
         for annee in annees:
             if annee in resultats_solva:
@@ -441,6 +445,8 @@ def show():
                                 df_c01_affiche["Rubrique"] = df_c01_affiche["row"].apply(lambda x: noms_lignes_c0100.get(int(x), f"Ligne {x}"))
                                 df_c01_affiche = df_c01_affiche[["Rubrique", "0010"]]  # Garde uniquement la colonne utile
                                 df_c01_affiche = df_c01_affiche.rename(columns={"0010": "Montant (EUR)"})
+                                  # Formatage des montants
+                                df_c01_affiche["Montant (EUR)"] = df_c01_affiche["Montant (EUR)"].apply(format_number_espace)
                                 st.dataframe(df_c01_affiche, use_container_width=True)
                                 
                     else:
@@ -448,7 +454,12 @@ def show():
                     if "blocs_rwa" in resultats_solva[annee]:
                         for nom_bloc, df_bloc in resultats_solva[annee]["blocs_rwa"].items():
                             st.markdown(f"**Bloc RWA - {nom_bloc} (C0700)**")
-                            st.dataframe(df_bloc, use_container_width=True)
+                              # Formatage des montants
+                               # Appliquer le format sur toutes les colonnes numériques
+                            df_formate = df_bloc.copy()
+                            for col in df_formate.select_dtypes(include=["float", "int"]).columns:
+                                df_formate[col] = df_formate[col].apply(format_number_espace)
+                            st.dataframe(df_formate, use_container_width=True)
         # === AFFICHAGE LEVIER ===
         st.markdown("#####  Ratio Levier")
         with st.expander("Ratio Levier", expanded=False):
@@ -463,10 +474,12 @@ def show():
             if annee in resultats_levier:
                 tableau_levier.append({
                     "Année": annee,
-                    "Tier 1": resultats_levier[annee]["tier1"],
-                    "Exposition Totale":resultats_levier[annee]["total_exposure"],
+                    "Tier 1": format_number_espace(resultats_levier[annee]["tier1"]),
+                    "Exposition Totale": format_number_espace(resultats_levier[annee]["total_exposure"]),
                     "Levier": f"{resultats_levier[annee]['ratio']:.2f}%"
                 })
+          # Formatage des montants
+      
         st.dataframe(pd.DataFrame(tableau_levier), use_container_width=True)
 
         for annee in annees:
@@ -545,6 +558,7 @@ def show():
                         ]
 
                     df_c01_tier1 = df_c01_complet[df_c01_complet["row"].isin(lignes_tier1)].sort_values("row")
+                    df_c01_tier1["Montant (EUR)"] = df_c01_tier1["Montant (EUR)"].apply(format_number_espace)
                     st.dataframe(df_c01_tier1[["Rubrique", "Montant (EUR)"]], use_container_width=True)
 
 
@@ -559,6 +573,7 @@ def show():
 
                         # Tri réglementaire
                     df_c47_affiche = df_c47.sort_values("Row")[["Rubrique", "Montant (EUR)"]]
+                    df_c47_affiche["Montant (EUR)"] = df_c47_affiche["Montant (EUR)"].apply(format_number_espace)
                     st.dataframe(df_c47_affiche, use_container_width=True)
 
 

@@ -884,17 +884,17 @@ def simuler_solvabilite_pluriannuelle(
 
     return resultats
 
-def format_large_number(num):
-    """Formate les grands nombres pour l'affichage"""
-    if pd.isna(num) or num == 0:
-        return "0"
-    abs_num = abs(num)
-    if abs_num >= 1_000_000_000:
-        return f"{num/1_000_000_000:.2f}B"
-    elif abs_num >= 1_000_000:
-        return f"{num/1_000_000:.2f}M"
-    else:
-        return f"{num:,.2f}"
+# def format_large_number(num):
+#     """Formate les grands nombres pour l'affichage"""
+#     if pd.isna(num) or num == 0:
+#         return "0"
+#     abs_num = abs(num)
+#     if abs_num >= 1_000_000_000:
+#         return f"{num/1_000_000_000:.2f}B"
+#     elif abs_num >= 1_000_000:
+#         return f"{num/1_000_000:.2f}M"
+#     else:
+#         return f"{num:,.2f}"
 
 def afficher_ratios_solvabilite(resultats_solva):
     """Affiche les résultats des ratios de solvabilité dans Streamlit"""
@@ -911,9 +911,9 @@ def afficher_ratios_solvabilite(resultats_solva):
             with col1:
                 st.metric("Ratio", f"{result['ratio']:.2f}%")
             with col2:
-                st.metric("Fonds propres", format_large_number(result["fonds_propres"]))
+                st.metric("Fonds propres", (result["fonds_propres"]))
             with col3:
-                st.metric("RWA", format_large_number(result["rwa"]))
+                st.metric("RWA", (result["rwa"]))
 
             # Tableau C0100 filtré (Fonds propres)
             st.markdown("**Fonds Propres (C0100)**")
