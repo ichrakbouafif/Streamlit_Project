@@ -29,17 +29,11 @@ from backend.ratios_baseline.capital_projete import (
 )
 
 def format_large_number(num):
-    """Format large numbers with M/B suffixes"""
+    """Format number with space as thousands separator and 2 decimal digits"""
     if pd.isna(num) or num == 0:
         return "0"
-    abs_num = abs(num)
-    if abs_num >= 1_000_000_000:
-        return f"{num/1_000_000_000:.2f}B"
-    elif abs_num >= 1_000_000:
-        return f"{num/1_000_000:.2f}M"
-    else:
-        return f"{num:,.2f}"
-    
+    return f"{num:,.2f}".replace(",", " ").replace(".", ",")
+
 
 
 
@@ -102,7 +96,7 @@ def show():
         st.subheader("Ratios Réglementaires")
         
         # ====================== LCR RATIO ======================
-        st.subheader("Ratio LCR")
+        st.markdown("##### Ratio LCR")
         with st.expander("Ratio LCR", expanded=False):
             st.write("**Définition:** Le ratio de liquidité à court terme mesure la capacité de la banque à faire face à ses sorties de trésorerie à 30 jours.")
             st.latex(r"LCR = \frac{\text{Actifs liquides de haute qualité}}{\text{Sorties nettes de trésorerie sur 30 jours}}")
@@ -220,14 +214,56 @@ def show():
                     st.markdown(f"#### Année {year}")
                     
                     # Afficher métriques principales
+                    pwc_orange = "#f47721"
+                    pwc_dark_gray = "#3d3d3d"
+                    pwc_light_beige = "#f5f0e6"
+                    pwc_brown = "#6e4c1e"
+                    pwc_soft_black = "#2c2c2c"
+
                     col1, col2, col3 = st.columns(3)
+
                     with col1:
-                        st.metric("NSFR", f"{resultats_horizon[year]['NSFR']:.2f}%")
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">NSFR</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
+                                    {resultats_horizon[year]['NSFR']:.2f}%
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
                     with col2:
-                        st.metric("ASF", format_large_number(resultats_horizon[year]['ASF']))
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">ASF</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                    {format_large_number(resultats_horizon[year]['ASF'])}
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
                     with col3:
-                        st.metric("RSF", format_large_number(resultats_horizon[year]['RSF']))
-                    
+                        st.markdown(
+                            f"""
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                                <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">RSF</h4>
+                                <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                    {format_large_number(resultats_horizon[year]['RSF'])}
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
                     # DÉTAIL DU CALCUL NSFR : FEUILLE 81 (ASF) - Utiliser les dataframes spécifiques à l'année
                     st.markdown("**Available Stable Funding (ASF)**")
                     try:
