@@ -16,9 +16,6 @@ from backend.nsfr.feuille_81 import calcul_ASF
 from backend.levier.calcul_ratio_levier import charger_donnees_levier, calculer_ratio_levier_double_etape
 from backend.solvabilite.calcul_ratios_capital_stressé import charger_donnees,calculer_ratios_solva_double_etape
 
-#import pour le formatage des nombres
-from config import format_large_number, format_number_espace
-
 def show():
     st.title("Choix des scénarios")
 
@@ -613,6 +610,11 @@ def afficher_corep_detaille(df_bloc):
 
     # === Affichage des ratios RWA/Exposition ===
     afficher_ratios_rwa(df_bloc)
+pwc_orange = "#f47721"
+pwc_dark_gray = "#3d3d3d"
+pwc_light_beige = "#f5f0e6"
+pwc_brown = "#6e4c1e"
+pwc_soft_black = "#2c2c2c"
 
 def afficher_tableau_recapitulatif(recap_data, ratio_type):
     # Vérification de la structure des données
@@ -664,14 +666,40 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
             if ratio_type == "LCR":
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("LCR", f"{annee_data['LCR (%)']:.2f}%")
+                        st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">LCR</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">{annee_data['LCR (%)']:.2f}%</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
                 with col2:
-                    st.metric("HQLA", format_large_number(annee_data['HQLA']))
+                        st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">HQLA</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">{format_large_number(annee_data['HQLA'])}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
                 with col3:
-                    st.metric("Outflows", format_large_number(annee_data['Outflows']))
+                        st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Outflows</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">{format_large_number(annee_data['Outflows'])}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
                 with col4:
-                    st.metric("Inflows", format_large_number(annee_data['Inflows']))
-                
+                        st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Inflows</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">{format_large_number(annee_data['Inflows'])}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                 st.markdown("**Actifs liquides de haute qualité (HQLA)**")
                 st.dataframe(affiche_LB_lcr(annee_data['df_72']), use_container_width=True)
 
@@ -683,13 +711,34 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
 
             elif ratio_type == "NSFR":
                 col1, col2, col3 = st.columns(3)
+
                 with col1:
-                    st.metric("NSFR", f"{annee_data['NSFR (%)']:.2f}%")
+                    st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">NSFR</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">{annee_data['NSFR (%)']:.2f}%</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
                 with col2:
-                    st.metric("ASF", format_large_number(annee_data['ASF']))
+                    st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">ASF</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">{format_large_number(annee_data['ASF'])}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
                 with col3:
-                    st.metric("RSF", format_large_number(annee_data['RSF']))
-                
+                    st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">RSF</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">{format_large_number(annee_data['RSF'])}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
                 st.markdown("**Available Stable Funding (ASF)**")
                 st.dataframe(affiche_ASF(annee_data['df_81']), use_container_width=True)
 
@@ -698,13 +747,39 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
 
             elif ratio_type == "Solvabilité":
                 col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Ratio de Solvabilité", f"{annee_data['Ratio de solvabilité (%)']:.2f}%")
-                with col2:
-                    st.metric("Fonds propres", format_large_number(annee_data['Fonds propres']))
-                with col3:
-                    st.metric("RWA total", format_large_number(annee_data['RWA total']))
 
+                with col1:
+                    st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio de Solvabilité</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
+                            {annee_data['Ratio de solvabilité (%)']:.2f}%
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col2:
+                    st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Fonds propres</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                            {format_large_number(annee_data['Fonds propres'])}
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col3:
+                    st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">RWA total</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                            {format_large_number(annee_data['RWA total'])}
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
                 if annee_data["Année"] == "2024":
                     st.markdown("**COREP de référence (avant stress)**")
                     if "df_bloc_cap" in annee_data:
@@ -750,11 +825,37 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
                 } for x in recap_data])
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("Ratio de Levier", f"{annee_data['Ratio de levier (%)']:.2f}%")
+                    st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio de Levier</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
+                            {annee_data['Ratio de levier (%)']:.2f}%
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
                 with col2:
-                    st.metric("Fonds propres", format_large_number(annee_data['Fonds propres']))
+                            st.markdown(f"""
+    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Fonds propres</h4>
+        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+            {format_large_number(annee_data['Fonds propres'])}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
                 with col3:
-                    st.metric("Exposition totale", format_large_number(annee_data['Exposition totale']))
+                           st.markdown(f"""
+    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Exposition totale</h4>
+        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+            {format_large_number(annee_data['Exposition totale'])}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
                 st.markdown("**Tableau COREP - Exposition au levier (C47.00)**")
                 key_prefix = f"corep_levier_{annee_data['Année']}"

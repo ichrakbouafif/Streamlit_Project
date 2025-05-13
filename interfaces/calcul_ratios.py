@@ -50,14 +50,13 @@ def affiche_bilan(bilan: pd.DataFrame):
     for year in ["2024", "2025", "2026", "2027"]:
         bilan_affichage[year] = pd.to_numeric(bilan_affichage[year], errors="coerce")
         bilan_affichage[year] = bilan_affichage[year].apply(
-            #lambda x: "{:,.2f}".format(x).replace(",", " ").replace(".", ",") if pd.notnull(x) else ""
-            lambda x: "{:,.2f}".format(x) if pd.notnull(x) else ""
+            lambda x: "{:,.2f}".format(x).replace(",", " ").replace(".", ".") if pd.notnull(x) else ""
         )
 
     # Fonction de surlignage conditionnel
     def highlight_rows(row):
         if row["Poste du Bilan"] == "Capital Planning":
-            return ["background-color: #ffe6f0"] * len(row)
+            return ["background-color: #FFCDA8"] * len(row)
         return [""] * len(row)
 
     styled_df = bilan_affichage.drop(columns=["Type"]).style.apply(highlight_rows, axis=1)
