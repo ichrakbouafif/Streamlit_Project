@@ -16,6 +16,9 @@ from backend.nsfr.feuille_81 import calcul_ASF
 from backend.levier.calcul_ratio_levier import charger_donnees_levier, calculer_ratio_levier_double_etape
 from backend.solvabilite.calcul_ratios_capital_stressé import charger_donnees,calculer_ratios_solva_double_etape
 
+#import pour le formatage des nombres
+from config import format_large_number, format_number_espace
+
 def show():
     st.title("Choix des scénarios")
 

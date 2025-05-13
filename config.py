@@ -1,3 +1,17 @@
+import streamlit as st
+import pandas as pd
+
+def format_large_number(num):
+    """Format number with space as thousands separator and 2 decimal digits"""
+    if pd.isna(num) or num == 0:
+        return "0"
+    return f"{num:,.2f}".replace(",", " ").replace(".", ".")
+
+def format_number_espace(n):
+    return f"{n:,.2f}".replace(",", " ").replace(".", ".")
+
+
+
 scenarios = {
     "idiosyncratique": {
         "Retrait massif des dépôts": ["Dépôts et avoirs de la clientèle"],
