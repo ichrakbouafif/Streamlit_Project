@@ -5,7 +5,7 @@ st.set_page_config(page_title="Application de Stress Testing Bancaire", layout="
 
 # Couleurs
 LIGHT_BG = "#F8F9FA"
-ROSE = "#D93954"
+ROSE = "#E88D14"
 FONT_FAMILY = "Roboto, sans-serif"
 
 # CSS pour styliser l'application
@@ -13,14 +13,14 @@ st.markdown(f"""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Tinos&family=Roboto:wght@400;500;700&display=swap');
 
-        body {{
+        html, body, [class*="css"] {{
             font-family: 'Roboto', sans-serif;
             background-color: {LIGHT_BG};
         }}
 
         h1, h2, h3, h4, h5, h6 {{
-            font-family: 'Tinos', serif;
-            color: {ROSE};
+            font-family: 'Tinos', serif !important;
+            color: {ROSE} !important;
         }}
 
         [data-testid=stSidebar] {{
@@ -127,13 +127,11 @@ with st.sidebar:
         is_disabled = page_name in disabled_rules.get(st.session_state.selected_page, [])
 
         if is_disabled:
-            # Bouton non-cliquable avec tooltip
             st.markdown(
                 f'<div class="disabled-btn" title="Veuillez terminer l\'étape précédente">{page_name}</div>',
                 unsafe_allow_html=True
             )
         else:
-            # Bouton normal ou actif
             if st.button(page_name, key=page_name):
                 st.session_state.selected_page = page_name
                 st.rerun()
