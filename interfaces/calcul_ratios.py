@@ -69,6 +69,7 @@ def show():
 
     # ====================== BILAN DE RÉFÉRENCE ======================
     bilan = charger_bilan()
+    #st.dataframe(bilan, use_container_width=True)
     affiche_bilan(bilan)
 
     # ====================== HORIZON DE STRESS TEST ======================

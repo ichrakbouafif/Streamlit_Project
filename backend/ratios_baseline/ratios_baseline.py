@@ -33,7 +33,11 @@ def charger_bilan():
     bilan.columns.values[3] = "2026"
     bilan.columns.values[4] = "2027"
 
-    bilan = bilan.dropna(how="all").reset_index(drop=True)
+# Supprime les lignes où Poste du Bilan est vide ET 2025 = 0
+    mask = (bilan["Poste du Bilan"].notna()) | (bilan["2025"] != 0)
+    bilan = bilan[mask].reset_index(drop=True)
+    #bilan = bilan.dropna(how="all").reset_index(drop=True)
+    
     return bilan
 
 #Récupérer la valeur de capital planning
