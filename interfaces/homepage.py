@@ -7,7 +7,7 @@ def show():
     col_logo, col_title, col_help = st.columns([1, 5, 0.5])
 
     with col_logo:
-        st.image("assets/PwC_logo.jpg", width=100)
+        st.image("assets/pwc_logo.png", width=100)
     
     with col_title:
         st.markdown('<h1 style="color:#E0301E;">Outil de Stress Test Bancaire</h1>', unsafe_allow_html=True)
