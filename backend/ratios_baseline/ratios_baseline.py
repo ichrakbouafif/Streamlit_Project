@@ -137,62 +137,54 @@ def add_capital_planning_df(df, row_number, value_to_add):
 mapping_bilan_LCR_NSFR = {
     "Caisse Banque Centrale / nostro": [
         ("row_0050", "df_72"),  # LB: Withdrawable central bank reserves
-        ("row_0030", "df_80"),  # RSF from central bank assets 
     ],
     "Créances banques autres": [
         ("row_0160", "df_74"),  # Inflow: Monies due from financial customers
-        ("row_0730", "df_80"),  # NSFR: RSF from loans to financial customers
     ],
     "Créances hypothécaires": [
-        ("row_0640", "df_80"),  # RSF from loans to finantial customers
+        ("row_X", "df_80"),  # RSF from loans to finantial customers
         
     ],
     "Créances clientèle": [
         ("row_0050", "df_74"),  # Inflow – Monies from retail customers
-        ("row_0810", "df_80"), # RSF from loans to non finantial customers 
+        ("row_0820", "df_80"), # RSF from loans to non finantial customers 
     ],
     "Portefeuille": [
-        #("row_0570", "df_80"),  # RSF from securities other than liquid assets non hqla
         ("row_0580", "df_80"),  # RSF from securities other than liquid assets non hqla
     ],
     "Participations": [
         ("row_X", "df_72"),  # Non considéré LCR
         ("row_X", "df_73"),  # Non considéré LCR
-        ("row_0600", "df_80"),  # RSF non hqla traded equities
     ],
     "Immobilisations et Autres Actifs": [
         ("row_X", "df_72"),  # Non considéré LCR
         ("row_X", "df_73"),  # Non considéré LCR
         ("row_X", "df_74"),  # Non considéré LCR
-        ("row_1030", "df_80"), # RSF from other assets
     ],
     "Dettes envers les établissements de crédit (passif)": [
         ("row_0230", "df_73"), # outflow non operational deposits by finantial customers
-        ("row_0270", "df_81"), # ASF from finantial cus and central banks - liabilities provided by finantial customers
+        ("row_0300", "df_81"), # ASF from finantial cus and central banks - liabilities provided by finantial customers
     ],
     "Depots clients (passif)": [
         ("row_0030", "df_73"), ## outflow not covered by DGS
-        #("row_0070", "df_81"), #ASF from retail deposits
         ("row_0090", "df_81"), #ASF from retail deposits
-        #("row_0130", "df_81"), #ASF from other non finantial customers
-        ("row_0160", "df_81"), #ASF from other non finantial customers
+        ("row_0110", "df_81"), #ASF from other non finantial customers
+        ("row_0130", "df_81"), #ASF from other non finantial customers
 
     ],
     "Autres passifs (passif)": [
-        ("row_0390", "df_81"), #ASF from other liabilities
+        ("row_X", "df_81"), #ASF from other liabilities
     ],
     "Comptes de régularisation (passif)": [
         #("row_0890", "df_73"), ## outflow other liabilities
-        ("row_0430", "df_81"), #ASF from other liabilities
+        ("row_X", "df_81"), #ASF from other liabilities
     ],
     "Provisions (passif)": [
         ("row_X", "df_72"),  # Non considéré LCR
         ("row_X", "df_73"),  # Non considéré LCR
         ("row_X", "df_74"),  # Non considéré LCR
-        ("row_0430", "df_81"), #ASF from other liabilities
     ],
     "Capital souscrit (passif)": [
-        ("row_0030", "df_81"), # ASF common equity tier 1
         ("row_X", "df_72"),  # Non considéré LCR
         ("row_X", "df_73"),  # Non considéré LCR
         ("row_X", "df_74"),  # Non considéré LCR
@@ -201,25 +193,21 @@ mapping_bilan_LCR_NSFR = {
         ("row_X", "df_72"),  # Non considéré LCR
         ("row_X", "df_73"),  # Non considéré LCR
         ("row_X", "df_74"),  # Non considéré LCR
-        ("row_0030", "df_81"), # ASF common equity tier 1
     ],
     "Réserves (passif)": [
         ("row_X", "df_72"),  # Non considéré LCR
         ("row_X", "df_73"),  # Non considéré LCR
         ("row_X", "df_74"),  # Non considéré LCR
-        ("row_0030", "df_81"), # ASF common equity tier 1
     ],
     "Report à nouveau (passif)": [
         ("row_X", "df_72"),  # Non considéré LCR
         ("row_X", "df_73"),  # Non considéré LCR
         ("row_X", "df_74"),  # Non considéré LCR
-        ("row_0030", "df_81"), # ASF common equity tier 1
     ],
     "Income Statement - Résultat de l'exercice": [
         ("row_X", "df_72"),  # Non considéré LCR
         ("row_X", "df_73"),  # Non considéré LCR
         ("row_X", "df_74"),  # Non considéré LCR
-        ("row_0030", "df_81"), # ASF common equity tier 1
     ],
 }
 
@@ -398,3 +386,193 @@ def calcul_ratios_sur_horizon(horizon, bilan, df_72, df_73, df_74, df_80, df_81)
         current_df81 = ratios["df_81"].copy()
 
     return resultats
+
+def extract_rsf_data():
+    # Données des lignes 580 et 820
+    data = {
+        "Row": ["580", "820"],
+        "Rubrique": [
+            "non-HQLA securities and exchange traded equities (unencumbered or encumbered < 1 year)",
+            "other loans to non-financial customers (unencumbered or encumbered < 1 year)"
+        ],
+        "Included_in_calculation": ["Yes", "Yes"],
+        "Amount_less_than_6M": [76456830, 1398399253],
+        "Amount_6M_to_1Y": [30122816, 57733609],
+        "Amount_greater_than_1Y": [136894455, 1359266078],
+        "RSF_factor_less_than_6M": [0.50, 0.50],
+        "RSF_factor_6M_to_1Y": [0.50, 0.50],
+        "RSF_factor_greater_than_1Y": [0.85, 0.85],
+        "Required_stable_funding": [169650110, 1883442598]
+    }
+    
+    # Création du DataFrame
+    df = pd.DataFrame(data)
+    
+    # Calcul des montants totaux pour chaque ligne
+    df["Total_amount"] = df["Amount_less_than_6M"] + df["Amount_6M_to_1Y"] + df["Amount_greater_than_1Y"]
+    
+    # Calcul des poids (proportion de chaque tranche de maturité)
+    df["Weight_less_than_6M"] = df["Amount_less_than_6M"] / df["Total_amount"]
+    df["Weight_6M_to_1Y"] = df["Amount_6M_to_1Y"] / df["Total_amount"]
+    df["Weight_greater_than_1Y"] = df["Amount_greater_than_1Y"] / df["Total_amount"]
+    
+    # Formatage des pourcentages
+    for col in ["Weight_less_than_6M", "Weight_6M_to_1Y", "Weight_greater_than_1Y"]:
+        df[col] = df[col].apply(lambda x: f"{x:.2%}")
+    
+    # Formatage des grands nombres avec séparateur de milliers
+    for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", 
+                "Total_amount", "Required_stable_funding"]:
+        df[col] = df[col].apply(lambda x: f"{x:,.0f}")
+    
+    return df
+
+def create_summary_table_rsf():
+    """
+    Crée un tableau récapitulatif à partir des données NSFR.
+    """
+    df = extract_rsf_data()
+    
+    # Création d'une version plus lisible du tableau avec traduction en français
+    summary_table = pd.DataFrame({
+        "Row": df["Row"],
+        "Rubrique": [
+            "Titres non-HQLA et actions échangées en bourse (non grevés ou grevés < 1 an)",
+            "Autres prêts aux clients non financiers (non grevés ou grevés < 1 an)"
+        ],
+        "Inclus dans le calcul": ["Oui", "Oui"],
+        "Montant < 6M (€)": df["Amount_less_than_6M"],
+        "Montant 6M-1A (€)": df["Amount_6M_to_1Y"],
+        "Montant > 1A (€)": df["Amount_greater_than_1Y"],
+        "Montant total (€)": df["Total_amount"],
+        "Poids < 6M": df["Weight_less_than_6M"],
+        "Poids 6M-1A": df["Weight_6M_to_1Y"],
+        "Poids > 1A": df["Weight_greater_than_1Y"],
+        "Financement stable requis (€)": df["Required_stable_funding"]
+    })
+    
+    return summary_table
+
+def extract_asf_data():
+    data = {
+        "Row": ["90", "110", "130", "Total"],
+        "Rubrique": [
+            "Stable retail deposits",
+            "Other retail deposits",
+            "ASF from other non-financial customers",
+            "TOTAL SELECTED ITEMS"
+        ],
+        "Included_in_calculation": ["Yes", "Yes", "Yes", "Yes"],
+        "Amount_less_than_6M": [70461721, 2687188132, 1854112318, 70461721 + 2687188132 + 1854112318],
+        "Amount_6M_to_1Y": [263249, 156025150, 96897231, 263249 + 156025150 + 96897231],
+        "Amount_greater_than_1Y": [0, 90419066, 48761102, 0 + 90419066 + 48761102],
+        "Available_stable_funding": [67188721, 2649311020, 1024265877, 67188721 + 2649311020 + 1024265877]
+    }
+
+    df = pd.DataFrame(data)
+
+    # Total par ligne
+    df["Total_amount"] = df["Amount_less_than_6M"] + df["Amount_6M_to_1Y"] + df["Amount_greater_than_1Y"]
+
+    # Total global
+    total_selected_items = df[df["Row"] == "Total"]["Total_amount"].values[0]
+
+    # Poids % par type
+    df["Poids_%_par_type"] = df["Total_amount"] / total_selected_items
+
+    # Poids par tranche de maturité relative à la ligne
+    df["Poids < 6M"] = df["Amount_less_than_6M"] / df["Total_amount"]
+    df["Poids 6M-1Y"] = df["Amount_6M_to_1Y"] / df["Total_amount"]
+    df["Poids > 1Y"] = df["Amount_greater_than_1Y"] / df["Total_amount"]
+
+    # Formatage des montants
+    for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", "Total_amount", "Available_stable_funding"]:
+        df[col] = df[col].apply(lambda x: f"{x:,.0f}")
+
+    # Formatage des pourcentages
+    for col in ["Poids_%_par_type", "Poids < 6M", "Poids 6M-1Y", "Poids > 1Y"]:
+        df[col] = df[col].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "")
+
+    return df
+
+def create_summary_table_asf():
+    df = extract_asf_data()
+
+    # Création d'une version traduite du tableau
+    summary_table = pd.DataFrame({
+        "Row": df["Row"],
+        "Rubrique": [
+            "Dépôts stables de détail",
+            "Autres dépôts de détail",
+            "ASF provenant d'autres clients non financiers",
+            "TOTAL DES ÉLÉMENTS SÉLECTIONNÉS"
+        ],
+        "Inclus dans le calcul": ["Oui", "Oui", "Oui", "Oui"],
+        "Montant < 6M (€)": df["Amount_less_than_6M"],
+        "Montant 6M-1A (€)": df["Amount_6M_to_1Y"],
+        "Montant > 1A (€)": df["Amount_greater_than_1Y"],
+        "Montant total (€)": df["Total_amount"],
+        "Poids % par type": df["Poids_%_par_type"],
+        "Poids < 6M": df["Poids < 6M"],
+        "Poids 6M-1A": df["Poids 6M-1Y"],
+        "Poids > 1A": df["Poids > 1Y"],
+        "Financement stable disponible (€)": df["Available_stable_funding"]
+    })
+
+    return summary_table
+
+def style_table(df, highlight_columns=None):
+    """
+    Stylise un tableau avec les couleurs PwC
+    """
+    # Couleurs PwC
+    pwc_orange = "#f47721"
+    pwc_dark_gray = "#3d3d3d"
+    #pwc_light_beige = "#f5f0e6"
+    pwc_brown = "#6e4c1e"
+    pwc_orange = "#d04a02"
+    pwc_dark_blue = "#FFCDA8"
+    pwc_light_gray = "#f5f0e6"
+    
+    # Style de base du tableau
+    table_styles = [
+        # Style de l'en-tête
+        {"selector": "thead th", 
+         "props": f"background-color: {pwc_dark_blue}; color: black; font-weight: bold; text-align: center; padding: 8px;"},
+        # Style des cellules du corps
+        {"selector": "tbody td", 
+         "props": "padding: 6px; text-align: right;"},
+        # Style des lignes alternées
+        {"selector": "tbody tr:nth-child(odd) td", 
+         "props": f"background-color: {pwc_light_gray};"},
+        # Style de la première colonne
+        {"selector": "tbody td:first-child", 
+         "props": "text-align: center; font-weight: bold;"},
+        # Style de la deuxième colonne (Description)
+        {"selector": "tbody td:nth-child(2)", 
+         "props": "text-align: left;"},
+        # Style du tableau entier
+        {"selector": "table", 
+         "props": "width: 100%; border-collapse: collapse; font-size: 14px;"},
+        # Bordure du tableau
+        {"selector": "th, td", 
+         "props": "border: 1px solid #ddd;"}
+    ]
+    
+    # Convertir toutes les colonnes en type objet pour s'assurer que le formatage reste intact
+    for col in df.columns:
+        df[col] = df[col].astype(str)
+    
+    # Appliquer le style
+    styled_df = df.style.set_table_styles(table_styles)
+    
+    # Mettre en évidence les colonnes de pourcentage si spécifiées
+    if highlight_columns:
+        for col in highlight_columns:
+            if col in df.columns:
+                styled_df = styled_df.set_properties(**{
+                    'font-weight': 'bold',
+                    'color': pwc_orange
+                }, subset=[col])
+    
+    return styled_df

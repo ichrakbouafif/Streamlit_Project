@@ -17,7 +17,7 @@ from backend.nsfr.utils import affiche_ASF
 
 from backend.ratios_baseline.ratios_baseline import get_capital_planning
 from backend.ratios_baseline.ratios_baseline import get_mapping_df_row
-from backend.ratios_baseline.ratios_baseline import add_capital_planning_df
+from backend.ratios_baseline.ratios_baseline import create_summary_table_rsf,create_summary_table_asf,style_table
 
 from backend.stress_test import event1 as bst
 from backend.ratios_baseline.ratios_baseline import calcul_ratios_sur_horizon
@@ -63,6 +63,10 @@ def affiche_bilan(bilan: pd.DataFrame):
 
     st.subheader("Bilan de Référence")
     st.dataframe(styled_df, use_container_width=True)
+
+
+
+
 
 def show():
     st.title("Calcul des Ratios Baseline")
@@ -253,7 +257,19 @@ def show():
         
         # NSFR details expander for each year
         st.markdown("##### Détail du calcul du ratio NSFR")
-        
+        ######################################################################
+        ######################################################################
+        st.markdown("###### Détail du calcul du ratio RSF")
+        table_rsf = create_summary_table_rsf()
+        styled_rsf = style_table(table_rsf, highlight_columns=["Poids < 6M", "Poids 6M-1A", "Poids > 1A"])
+        st.markdown(styled_rsf.to_html(), unsafe_allow_html=True)
+
+        st.markdown("###### Détail du calcul du ratio ASF")
+        table_asf = create_summary_table_asf()
+        styled_asf = style_table(table_asf, highlight_columns=["Poids % par type", "Poids < 6M", "Poids 6M-1A", "Poids > 1A"])
+        st.markdown(styled_asf.to_html(), unsafe_allow_html=True)
+        ######################################################################
+        ######################################################################
         # Pour chaque année, créer un expander avec les détails
         for year in range(2024, 2024+horizon+1):
             if year in resultats_horizon:
