@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 ###importation des modules nécessaires pour le bilan
-from backend.ratios_baseline.ratios_baseline import charger_bilan
+from backend.ratios_baseline.ratios_baseline import charger_bilan, show_asf_tab, show_rsf_tab
 from backend.ratios_baseline.capital_projete import noms_lignes_c0100  # Assure-toi que le mapping est importé
 from backend.ratios_baseline.capital_projete import noms_lignes_c4700  # Assure-toi que le mapping est importé
 
@@ -16,7 +16,7 @@ from backend.nsfr.utils import affiche_RSF
 from backend.nsfr.utils import affiche_ASF
 
 from backend.ratios_baseline.ratios_baseline import get_capital_planning
-from backend.ratios_baseline.ratios_baseline import create_summary_table_lcr_outflow
+from backend.ratios_baseline.ratios_baseline import create_summary_table_lcr_outflow,show_outflow_tab
 from backend.ratios_baseline.ratios_baseline import create_summary_table_rsf,create_summary_table_asf,style_table
 
 from backend.stress_test import event1 as bst
@@ -117,12 +117,9 @@ def show():
         lcr_table = pd.DataFrame(lcr_years)
         st.table(lcr_table)
         
-                # LCR details expander for each year
-        st.markdown("#####  Détail du calcul du ratio LCR")
-        st.markdown("###### Les rubriques COREP impactées par le capital planning dans les sorties LCR")
-        table_lcr = create_summary_table_lcr_outflow()
-        styled_lcr = style_table(table_lcr, highlight_columns=["Poids (% du total)", "Poids (% lignes intégrées)"])
-        st.markdown(styled_lcr.to_html(), unsafe_allow_html=True)
+        # LCR details expander for each year
+        #st.markdown("###### Les rubriques COREP impactées par le capital planning dans les sorties LCR")
+        show_outflow_tab()
 
         pwc_orange = "#f47721"
         pwc_dark_gray = "#3d3d3d"
@@ -257,48 +254,12 @@ def show():
         st.table(nsfr_table)
         
         # NSFR details expander for each year
-        st.markdown("##### Détail du calcul du ratio NSFR")
+        #st.markdown("###### Les rubriques COREP impactées par le capital planning dans RSF")
+        show_rsf_tab()
+    
         ######################################################################
-        ######################################################################
-        st.markdown("###### Les rubriques COREP impactées par le capital planning dans RSF")
-
-        # Create checkboxes for each row
-        rsf_rows = ["580", "820"]
-        rsf_selections = {}
-
-        cols = st.columns(len(rsf_rows))
-        for i, row in enumerate(rsf_rows):
-            with cols[i]:
-                rsf_selections[row] = st.checkbox(
-                    f"Inclure ligne {row}", 
-                    value=True,  # Default to checked
-                    key=f"rsf_{row}"
-                )
-
-        # Get table with user selections
-        table_rsf = create_summary_table_rsf(rsf_selections)
-        styled_rsf = style_table(table_rsf, highlight_columns=["Poids < 6M", "Poids 6M-1A", "Poids > 1A"])
-        st.markdown(styled_rsf.to_html(), unsafe_allow_html=True)
-        ######################################################################
-        st.markdown("###### Les rubriques COREP impactées par le capital planning dans ASF")
-
-        # Create checkboxes for ASF rows
-        asf_rows = ["90", "110", "130"]
-        asf_selections = {}
-
-        cols = st.columns(len(asf_rows))
-        for i, row in enumerate(asf_rows):
-            with cols[i]:
-                asf_selections[row] = st.checkbox(
-                    f"Inclure ligne {row}", 
-                    value=True,
-                    key=f"asf_{row}"
-                )
-
-        # Get ASF table with user selections
-        table_asf = create_summary_table_asf(asf_selections)
-        styled_asf = style_table(table_asf, highlight_columns=["Poids % par type", "Poids < 6M", "Poids 6M-1A", "Poids > 1A"])
-        st.markdown(styled_asf.to_html(), unsafe_allow_html=True)
+        #st.markdown("###### Les rubriques COREP impactées par le capital planning dans ASF")
+        show_asf_tab()
         ######################################################################
         # Pour chaque année, créer un expander avec les détails
         for year in range(2024, 2024+horizon+1):

@@ -479,6 +479,28 @@ def create_summary_table_rsf(user_selections=None):
     
     return summary_table
 
+def show_rsf_tab():
+        st.markdown("##### Détail du calcul du ratio NSFR")
+        st.markdown("###### Les rubriques COREP impactées par le capital planning dans RSF")
+
+        # Create checkboxes for each row
+        rsf_rows = ["580", "820"]
+        rsf_selections = {}
+
+        cols = st.columns(len(rsf_rows))
+        for i, row in enumerate(rsf_rows):
+            with cols[i]:
+                rsf_selections[row] = st.checkbox(
+                    f"Inclure ligne {row}", 
+                    value=True,  # Default to checked
+                    key=f"rsf_{row}"
+                )
+
+        # Get table with user selections
+        table_rsf = create_summary_table_rsf(rsf_selections)
+        styled_rsf = style_table(table_rsf, highlight_columns=["Poids < 6M", "Poids 6M-1A", "Poids > 1A"])
+        st.markdown(styled_rsf.to_html(), unsafe_allow_html=True)
+    
 
 def extract_asf_data(user_selections=None):
     data = {
@@ -590,111 +612,27 @@ def create_summary_table_asf(user_selections=None):
     
     return summary_table
 
+def show_asf_tab():
+        st.markdown("###### Les rubriques COREP impactées par le capital planning dans ASF")
 
-def extract_lcr_outflow_data():
-    """
-    Extrait les données de sorties LCR (Liquidity Coverage Ratio) des lignes spécifiées.
-    """
-    # Données des lignes demandées (35, 60, 70, 80, 110, 250, 260)
-    data = {
-        "Row": ["0035", "0060", "0070", "0080", "0110", "0250", "0260"],
-        "Rubrique": [
-            "deposits exempted from the calculation of outflows",
-            "deposits subject to higher outflows category 1",
-            "deposits subject to higher outflows category 2",
-            "stable deposits",
-            "other retail deposits",
-            "Non-operational deposits covered by DGS",
-            "Non-operational deposits not covered by DGS"
-        ],
-        "Amount": [
-            1153420704,
-            129868556,
-            1654960060,
-            67414342,
-            36822874,
-            25816211,
-            1323881264
-        ]
-    }
-    
-    # Création du DataFrame
-    df = pd.DataFrame(data)
-    
-    # Ajout de la colonne pour l'inclusion dans le calcul
-    if 'lcr_inclusion' not in st.session_state:
-        # Initialiser avec les valeurs par défaut basées sur le code original
-        st.session_state.lcr_inclusion = {
-            "0035": True, "0060": True, "0070": True,
-            "0080": False, "0110": False, "0250": False, "0260": True
-        }
-    
-    # Récupérer les valeurs d'inclusion actuelles
-    df["Included_in_calculation"] = df["Row"].apply(
-        lambda x: "Oui" if st.session_state.lcr_inclusion.get(x, False) else "Non"
-    )
-    
-    # Calculer le total des lignes incluses dans le calcul
-    included_mask = df["Included_in_calculation"] == "Oui"
-    total_included = df[included_mask]["Amount"].sum()
-    
-    # Calculer les poids (proportion par rapport au total des lignes incluses)
-    df["Weight_proportion"] = pd.NA
-    for idx, row in df.iterrows():
-        if row["Included_in_calculation"] == "Oui" and total_included > 0:
-            df.at[idx, "Weight_proportion"] = row["Amount"] / total_included
-    
-    # Calculer les poids par rapport au total des dépôts de détail (si nécessaire)
-    retail_deposit_rows = ["0035", "0060", "0070", "0080", "0110"]
-    retail_deposits_included = df[df["Row"].isin(retail_deposit_rows) & included_mask]
-    retail_deposits_total = retail_deposits_included["Amount"].sum()
-    
-    df["Weight_included"] = pd.NA
-    for idx, row in df.iterrows():
-        if row["Row"] in retail_deposit_rows and row["Included_in_calculation"] == "Oui" and retail_deposits_total > 0:
-            df.at[idx, "Weight_included"] = row["Amount"] / retail_deposits_total
-    
-    return df
+        # Create checkboxes for ASF rows
+        asf_rows = ["90", "110", "130"]
+        asf_selections = {}
 
-def create_summary_table_lcr_outflow():
-    """
-    Crée un tableau récapitulatif à partir des données LCR outflow.
-    """
-    df = extract_lcr_outflow_data()
-    
-    # Formatage des pourcentages et des montants
-    df_formatted = df.copy()
-    df_formatted["Weight_proportion"] = df["Weight_proportion"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "")
-    df_formatted["Weight_included"] = df["Weight_included"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "")
-    df_formatted["Amount"] = df["Amount"].apply(lambda x: f"{int(x):,}".replace(",", " "))
-    
-    # Création d'une version plus lisible du tableau en conservant les rubriques en anglais
-    summary_table = pd.DataFrame({
-        "Row": df_formatted["Row"],
-        "Rubrique": df_formatted["Rubrique"],
-        "Inclus dans le calcul": df_formatted["Included_in_calculation"],
-        "Montant (2024)": df_formatted["Amount"],
-        "Poids (% du total)": df_formatted["Weight_proportion"],
-        "Poids (% lignes integrées)": df_formatted["Weight_included"]
-    })
-    
-    # Ajouter une ligne de total pour les lignes incluses
-    included_rows = df[df["Included_in_calculation"] == "Oui"]
-    total_included = included_rows["Amount"].sum()
-    
-    total_row = pd.DataFrame({
-        "Row": ["Total"],
-        "Rubrique": ["TOTAL OUTFLOWS"],
-        "Inclus dans le calcul": [""],
-        "Montant (2024)": [f"{int(total_included):,}".replace(",", " ")],
-        "Poids (% du total)": ["100.00%"],
-        "Poids (% lignes integrées)": [""]
-    })
-    
-    # Concaténer avec le tableau principal
-    summary_table = pd.concat([summary_table, total_row], ignore_index=True)
-    
-    return summary_table
+        cols = st.columns(len(asf_rows))
+        for i, row in enumerate(asf_rows):
+            with cols[i]:
+                asf_selections[row] = st.checkbox(
+                    f"Inclure ligne {row}", 
+                    value=True,
+                    key=f"asf_{row}"
+                )
+
+        # Get ASF table with user selections
+        table_asf = create_summary_table_asf(asf_selections)
+        styled_asf = style_table(table_asf, highlight_columns=["Poids % par type", "Poids < 6M", "Poids 6M-1A", "Poids > 1A"])
+        st.markdown(styled_asf.to_html(), unsafe_allow_html=True)
+
 
 def style_table(df, highlight_columns=None):
     """
@@ -748,3 +686,142 @@ def style_table(df, highlight_columns=None):
     
     return styled_df
 
+def show_outflow_tab():
+    st.markdown("##### Détail du calcul du ratio LCR")
+    st.markdown("###### Les rubriques COREP impactées par le capital planning dans les outflows LCR")
+
+    # Create checkboxes for each row
+    lcr_rows = ["0035", "0060", "0070", "0080", "0110", "0250", "0260"]
+    lcr_selections = {}
+
+    # Default values for checkboxes
+    default_values = {
+        "0035": True, "0060": True, "0070": True,
+        "0080": False, "0110": False, "0250": False, "0260": True
+    }
+
+    # Create checkboxes in 2 rows (4 in first row, 3 in second)
+    cols1 = st.columns(4)
+    cols2 = st.columns(3)
+    
+    all_cols = cols1 + cols2
+    
+    for i, row in enumerate(lcr_rows):
+        with all_cols[i]:
+            lcr_selections[row] = st.checkbox(
+                f"Inclure ligne {row}", 
+                value=default_values.get(row, True),  # Default to checked based on default_values
+                key=f"lcr_{row}"
+            )
+
+    # Get table with user selections
+    table_lcr = create_summary_table_lcr_outflow(lcr_selections)
+    styled_lcr = style_table(table_lcr, highlight_columns=["Poids (% du total)", "Poids (% lignes integrées)"])
+    st.markdown(styled_lcr.to_html(), unsafe_allow_html=True)
+
+def extract_lcr_outflow_data(user_selections=None):
+    """
+    Extrait les données de sorties LCR (Liquidity Coverage Ratio) des lignes spécifiées.
+    """
+    # Données des lignes demandées (35, 60, 70, 80, 110, 250, 260)
+    data = {
+        "Row": ["0035", "0060", "0070", "0080", "0110", "0250", "0260"],
+        "Rubrique": [
+            "deposits exempted from the calculation of outflows",
+            "deposits subject to higher outflows category 1",
+            "deposits subject to higher outflows category 2",
+            "stable deposits",
+            "other retail deposits",
+            "Non-operational deposits covered by DGS",
+            "Non-operational deposits not covered by DGS"
+        ],
+        "Amount": [
+            1153420704,
+            129868556,
+            1654960060,
+            67414342,
+            36822874,
+            25816211,
+            1323881264
+        ]
+    }
+    
+    # Création du DataFrame
+    df = pd.DataFrame(data)
+    
+    # Update with user selections if provided
+    if user_selections:
+        df["Included_in_calculation"] = df["Row"].apply(
+            lambda x: "Oui" if user_selections.get(x, False) else "Non"
+        )
+    else:
+        # Default values if no selections provided
+        default_values = {
+            "0035": True, "0060": True, "0070": True,
+            "0080": False, "0110": False, "0250": False, "0260": True
+        }
+        df["Included_in_calculation"] = df["Row"].apply(
+            lambda x: "Oui" if default_values.get(x, False) else "Non"
+        )
+    
+    # Calculer le total des lignes incluses dans le calcul
+    included_mask = df["Included_in_calculation"] == "Oui"
+    total_included = df[included_mask]["Amount"].sum()
+    
+    # Calculer les poids (proportion par rapport au total des lignes incluses)
+    df["Weight_proportion"] = pd.NA
+    for idx, row in df.iterrows():
+        if row["Included_in_calculation"] == "Oui" and total_included > 0:
+            df.at[idx, "Weight_proportion"] = row["Amount"] / total_included
+    
+    # Calculer les poids par rapport au total des dépôts de détail (si nécessaire)
+    retail_deposit_rows = ["0035", "0060", "0070", "0080", "0110"]
+    retail_deposits_included = df[df["Row"].isin(retail_deposit_rows) & included_mask]
+    retail_deposits_total = retail_deposits_included["Amount"].sum()
+    
+    df["Weight_included"] = pd.NA
+    for idx, row in df.iterrows():
+        if row["Row"] in retail_deposit_rows and row["Included_in_calculation"] == "Oui" and retail_deposits_total > 0:
+            df.at[idx, "Weight_included"] = row["Amount"] / retail_deposits_total
+    
+    return df
+
+def create_summary_table_lcr_outflow(user_selections=None):
+    """
+    Crée un tableau récapitulatif à partir des données LCR outflow.
+    """
+    df = extract_lcr_outflow_data(user_selections)
+    
+    # Formatage des pourcentages et des montants
+    df_formatted = df.copy()
+    df_formatted["Weight_proportion"] = df["Weight_proportion"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "")
+    df_formatted["Weight_included"] = df["Weight_included"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "")
+    df_formatted["Amount"] = df["Amount"].apply(lambda x: f"{int(x):,}".replace(",", " "))
+    
+    # Création d'une version plus lisible du tableau en conservant les rubriques en anglais
+    summary_table = pd.DataFrame({
+        "Row": df_formatted["Row"],
+        "Rubrique": df_formatted["Rubrique"],
+        "Inclus dans le calcul": df_formatted["Included_in_calculation"],
+        "Montant (2024)": df_formatted["Amount"],
+        "Poids (% du total)": df_formatted["Weight_proportion"],
+        "Poids (% lignes integrées)": df_formatted["Weight_included"]
+    })
+    
+    # Ajouter une ligne de total pour les lignes incluses
+    included_rows = df[df["Included_in_calculation"] == "Oui"]
+    total_included = included_rows["Amount"].sum()
+    
+    total_row = pd.DataFrame({
+        "Row": ["Total"],
+        "Rubrique": ["TOTAL OUTFLOWS"],
+        "Inclus dans le calcul": [""],
+        "Montant (2024)": [f"{int(total_included):,}".replace(",", " ")],
+        "Poids (% du total)": ["100.00%"],
+        "Poids (% lignes integrées)": [""]
+    })
+    
+    # Concaténer avec le tableau principal
+    summary_table = pd.concat([summary_table, total_row], ignore_index=True)
+    
+    return summary_table
