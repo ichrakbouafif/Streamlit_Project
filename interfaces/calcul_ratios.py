@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 ###importation des modules nécessaires pour le bilan
-from backend.ratios_baseline.ratios_baseline import charger_bilan, show_asf_tab, show_rsf_tab
+from backend.ratios_baseline.ratios_baseline import charger_bilan, show_asf_tab, show_rsf_tab,show_other_liabilities_tab
 from backend.ratios_baseline.capital_projete import noms_lignes_c0100  # Assure-toi que le mapping est importé
 from backend.ratios_baseline.capital_projete import noms_lignes_c4700  # Assure-toi que le mapping est importé
 
@@ -260,6 +260,7 @@ def show():
         ######################################################################
         #st.markdown("###### Les rubriques COREP impactées par le capital planning dans ASF")
         show_asf_tab()
+        show_other_liabilities_tab()
         ######################################################################
         # Pour chaque année, créer un expander avec les détails
         for year in range(2024, 2024+horizon+1):

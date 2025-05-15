@@ -67,12 +67,13 @@ def get_capital_planning(bilan_df, poste_bilan, annee="2025"):
         if i < len(bilan_df) and annee in bilan_df.columns:
             valeur = bilan_df.loc[i, annee]
             if pd.notna(valeur):
-                if poste_bilan_lower == "créances clientèle (hors hypo)":
-                    return 0.01 * valeur
+                if poste_bilan_lower == "créances clientèle":
+                    return 1 * valeur
                 elif poste_bilan_lower == "créances banques autres":
                     return 0.28 * valeur
                 elif poste_bilan_lower == "depots clients (passif)":
-                    return 0.71 * valeur
+                    #return 0.71 * valeur
+                    return valeur
                 elif poste_bilan_lower == "dettes envers les établissements de crédit (passif)":
                     return 0.09 * valeur
                 else:
@@ -270,53 +271,6 @@ def propager_CP_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponderat
         df_74.loc[mask, "0010"] = df_74.loc[mask, "0010"] + part_delta
 
     return df_72, df_73, df_74
-
-
-def propager_CP_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderations=None):
-    lignes = get_mapping_df_row_CP(poste_bilan)
-    print("lignes nsfr = ", lignes)
-
-    lignes_80 = [l for l in lignes if l[1] == "df_80"]
-    lignes_81 = [l for l in lignes if l[1] == "df_81"]
-    n = len(lignes_80)
-    m = len(lignes_81)
-
-    print("n (df_80) = ", n)
-    print("m (df_81) = ", m)
-
-    if n + m == 0:
-        return df_80, df_81
-
-    df_80 = df_80.copy()
-    df_81 = df_81.copy()
-
-    if ponderations is None:
-        ponderations_80 = [1 / n] * n if n > 0 else []
-        ponderations_81 = [1 / m] * m if m > 0 else []
-    else:
-        # Optional: use weights if provided (must match the length)
-        ponderations_80 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_80"]
-        ponderations_81 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_81"]
-
-    # Apply delta to df_80
-    for (row_num, _), poids in zip(lignes_80, ponderations_80):
-        part_delta = delta * poids
-        print("part delta in df_80 = ", part_delta)
-        mask = df_80["row"] == row_num
-        df_80.loc[mask, "0010"] = df_80.loc[mask, "0010"] + part_delta
-
-    # Apply delta to df_81
-    for (row_num, _), poids in zip(lignes_81, ponderations_81):
-        part_delta = delta * poids
-        print("part delta in df_81 = ", part_delta)
-        mask = df_81["row"] == row_num
-        df_81.loc[mask, "0010"] = df_81.loc[mask, "0010"] + part_delta
-
-    return df_80, df_81
-
-
-
-
 
 def calcul_ratios_projete(annee, bilan, df_72, df_73, df_74, df_80, df_81):
     posts = ["Caisse Banque Centrale / nostro","Créances banques autres","Créances clientèle","Portefeuille","Immobilisations et Autres Actifs","Dettes envers les établissements de crédit (passif)","Depots clients (passif)","Autres passifs (passif)","Income Statement - Résultat de l'exercice"]
@@ -633,6 +587,127 @@ def show_asf_tab():
         styled_asf = style_table(table_asf, highlight_columns=["Poids % par type", "Poids < 6M", "Poids 6M-1A", "Poids > 1A"])
         st.markdown(styled_asf.to_html(), unsafe_allow_html=True)
 
+def extract_other_liabilities_data(user_selections=None):
+    # Data from the pasted line for "Other liabilities"
+    data = {
+        "Row": ["0300", "Total"],
+        "Rubrique": [
+            "Other liabilities",
+            "TOTAL SELECTED ITEMS"
+        ],
+        "Included_in_calculation": ["Yes", "Yes"],
+        "Amount_less_than_6M": [466211782, 0],
+        "Amount_6M_to_1Y": [108096124, 0],
+        "Amount_greater_than_1Y": [1435000000, 0],
+        "Available_stable_funding": [1489048062, 0]
+    }
+
+    # Update with user selections if provided
+    if user_selections:
+        for row, selection in user_selections.items():
+            if row in data["Row"]:
+                idx = data["Row"].index(row)
+                data["Included_in_calculation"][idx] = "Yes" if selection else "No"
+    
+    df = pd.DataFrame(data)
+    
+    # Calculate only for included rows
+    included_mask = df["Included_in_calculation"] == "Yes"
+    
+    # Calculate totals for included rows only
+    df.loc[df["Row"] == "Total", "Amount_less_than_6M"] = (
+        df[included_mask & (df["Row"] != "Total")]["Amount_less_than_6M"].sum()
+    )
+    df.loc[df["Row"] == "Total", "Amount_6M_to_1Y"] = (
+        df[included_mask & (df["Row"] != "Total")]["Amount_6M_to_1Y"].sum()
+    )
+    df.loc[df["Row"] == "Total", "Amount_greater_than_1Y"] = (
+        df[included_mask & (df["Row"] != "Total")]["Amount_greater_than_1Y"].sum()
+    )
+    df.loc[df["Row"] == "Total", "Available_stable_funding"] = (
+        df[included_mask & (df["Row"] != "Total")]["Available_stable_funding"].sum()
+    )
+    
+    # Total per row
+    df["Total_amount"] = (
+        df["Amount_less_than_6M"] + 
+        df["Amount_6M_to_1Y"] + 
+        df["Amount_greater_than_1Y"]
+    )
+    
+    # Calculate weights for time buckets for included rows
+    df["Poids < 6M"] = 0
+    df["Poids 6M-1Y"] = 0
+    df["Poids > 1Y"] = 0
+    
+    for idx in df.index:
+        if df.loc[idx, "Included_in_calculation"] == "Yes" and df.loc[idx, "Total_amount"] > 0:
+            df.loc[idx, "Poids < 6M"] = (
+                df.loc[idx, "Amount_less_than_6M"] / 
+                df.loc[idx, "Total_amount"]
+            )
+            df.loc[idx, "Poids 6M-1Y"] = (
+                df.loc[idx, "Amount_6M_to_1Y"] / 
+                df.loc[idx, "Total_amount"]
+            )
+            df.loc[idx, "Poids > 1Y"] = (
+                df.loc[idx, "Amount_greater_than_1Y"] / 
+                df.loc[idx, "Total_amount"]
+            )
+    
+    # Format numbers
+    for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", 
+                "Total_amount", "Available_stable_funding"]:
+        df[col] = df[col].apply(lambda x: f"{float(x):,.0f}" if x != "" else "")
+    
+    # Format percentages
+    for col in ["Poids < 6M", "Poids 6M-1Y", "Poids > 1Y"]:
+        df[col] = df[col].apply(lambda x: f"{float(x):.2%}" if x != 0 else "0.00%")
+    
+    return df
+
+def create_summary_table_other_liabilities(user_selections=None):
+    df = extract_other_liabilities_data(user_selections)
+    
+    summary_table = pd.DataFrame({
+        "Row": df["Row"],
+        "Rubrique": [
+            "Other liabilities",
+            "TOTAL "
+        ],
+        "Inclus dans le calcul": ["Oui" if x == "Yes" else "Non" for x in df["Included_in_calculation"]],
+        "Montant < 6M (€)": df["Amount_less_than_6M"],
+        "Montant 6M-1A (€)": df["Amount_6M_to_1Y"],
+        "Montant > 1A (€)": df["Amount_greater_than_1Y"],
+        "Montant total (€)": df["Total_amount"],
+        "Poids < 6M": df["Poids < 6M"],
+        "Poids 6M-1A": df["Poids 6M-1Y"],
+        "Poids > 1A": df["Poids > 1Y"],
+        "Financement stable disponible (€)": df["Available_stable_funding"]
+    })
+    
+    return summary_table
+
+def show_other_liabilities_tab():
+    st.markdown("###### Les rubriques COREP impactées par le capital planning dans Other Liabilities")
+
+    # Create checkbox for Other Liabilities row
+    other_liab_rows = ["0300"]
+    other_liab_selections = {}
+
+    cols = st.columns(len(other_liab_rows))
+    for i, row in enumerate(other_liab_rows):
+        with cols[i]:
+            other_liab_selections[row] = st.checkbox(
+                f"Inclure ligne {row}",
+                value=True,
+                key=f"other_liab_{row}"
+            )
+
+    # Get Other Liabilities table with user selections
+    table_other_liab = create_summary_table_other_liabilities(other_liab_selections)
+    styled_other_liab = style_table(table_other_liab, highlight_columns=["Poids < 6M", "Poids 6M-1A", "Poids > 1A"])
+    st.markdown(styled_other_liab.to_html(), unsafe_allow_html=True)
 
 def style_table(df, highlight_columns=None):
     """
@@ -825,3 +900,199 @@ def create_summary_table_lcr_outflow(user_selections=None):
     summary_table = pd.concat([summary_table, total_row], ignore_index=True)
     
     return summary_table
+
+
+def apply_capital_planning_to_df80(df_80, capital_planning_value, rsf_data_row, target_row):
+
+    # Extract weights from the RSF data row
+    weight_less_6m = float(rsf_data_row['Poids < 6M'].strip('%')) / 100
+    weight_6m_1y = float(rsf_data_row['Poids 6M-1A'].strip('%')) / 100
+    weight_greater_1y = float(rsf_data_row['Poids > 1A'].strip('%')) / 100
+    
+    # Calculate amounts to add to each maturity bucket
+    amount_less_6m = capital_planning_value * weight_less_6m
+    amount_6m_1y = capital_planning_value * weight_6m_1y
+    amount_greater_1y = capital_planning_value * weight_greater_1y
+    
+    # Apply to the appropriate row in df_80
+    row_index = df_80[df_80['row'] == target_row].index
+    
+    if len(row_index) > 0:
+        idx = row_index[0]
+        
+        # Add amounts to each maturity bucket
+        df_80.at[idx, '0010'] = (df_80.at[idx, '0010'] if pd.notnull(df_80.at[idx, '0010']) else 0) + amount_less_6m
+        df_80.at[idx, '0020'] = (df_80.at[idx, '0020'] if pd.notnull(df_80.at[idx, '0020']) else 0) + amount_6m_1y
+        df_80.at[idx, '0030'] = (df_80.at[idx, '0030'] if pd.notnull(df_80.at[idx, '0030']) else 0) + amount_greater_1y
+    
+    return df_80
+
+def apply_capital_planning_to_df81(df_81, capital_planning_value, asf_data):
+    """
+    Apply capital planning impact to df_81 based on ASF weights from the provided table.
+    Distributes the value to rows 90, 110, and 130 according to their weights.
+    
+    Args:
+        df_81 (pd.DataFrame): The df_81 DataFrame to modify
+        capital_planning_value (float): The capital planning value to distribute
+        asf_data (pd.DataFrame): The ASF data table containing weights
+        
+    Returns:
+        pd.DataFrame: Modified df_81 with capital planning impacts applied
+    """
+    # Filter only the relevant rows (90, 110, 130)
+    asf_rows = asf_data[asf_data['Row'].isin(['90', '110', '130'])]
+    
+    # Calculate total weight for normalization
+    total_weight = asf_rows['Poids % par type'].str.rstrip('%').astype(float).sum() / 100
+    
+    for _, asf_row in asf_rows.iterrows():
+        # Extract weights
+        weight_type = float(asf_row['Poids % par type'].strip('%')) / 100
+        weight_less_6m = float(asf_row['Poids < 6M'].strip('%')) / 100
+        weight_6m_1y = float(asf_row['Poids 6M-1A'].strip('%')) / 100
+        weight_greater_1y = float(asf_row['Poids > 1A'].strip('%')) / 100
+        
+        # Calculate the portion for this row (normalized by total weight)
+        portion = capital_planning_value * (weight_type / total_weight)
+        
+        # Calculate amounts to add to each maturity bucket
+        amount_less_6m = portion * weight_less_6m
+        amount_6m_1y = portion * weight_6m_1y
+        amount_greater_1y = portion * weight_greater_1y
+        
+        # Find the target row in df_81
+        target_row = int(asf_row['Row'])
+        row_index = df_81[df_81['row'] == target_row].index
+        
+        if len(row_index) > 0:
+            idx = row_index[0]
+            
+            # Add amounts to each maturity bucket
+            df_81.at[idx, '0010'] = (df_81.at[idx, '0010'] if pd.notnull(df_81.at[idx, '0010']) else 0) + amount_less_6m
+            df_81.at[idx, '0020'] = (df_81.at[idx, '0020'] if pd.notnull(df_81.at[idx, '0020']) else 0) + amount_6m_1y
+            df_81.at[idx, '0030'] = (df_81.at[idx, '0030'] if pd.notnull(df_81.at[idx, '0030']) else 0) + amount_greater_1y
+    
+    return df_81
+
+def apply_capital_planning_to_df81_liabilities(df_81, capital_planning_value, liabilities_data_row):
+    """
+    Apply capital planning impact to df_81 row 300 (Other liabilities) based on weights.
+    
+    Args:
+        df_81 (pd.DataFrame): The df_81 DataFrame to modify
+        capital_planning_value (float): The capital planning value to distribute
+        liabilities_data_row (pd.Series): The row from liabilities data table containing weights
+        
+    Returns:
+        pd.DataFrame: Modified df_81 with capital planning impacts applied
+    """
+    # Extract weights from the liabilities data row
+    weight_less_6m = float(liabilities_data_row['Poids < 6M'].strip('%')) / 100
+    weight_6m_1y = float(liabilities_data_row['Poids 6M-1A'].strip('%')) / 100
+    weight_greater_1y = float(liabilities_data_row['Poids > 1A'].strip('%')) / 100
+    
+    # Calculate amounts to add to each maturity bucket
+    amount_less_6m = capital_planning_value * weight_less_6m
+    amount_6m_1y = capital_planning_value * weight_6m_1y
+    amount_greater_1y = capital_planning_value * weight_greater_1y
+    
+    # Apply to row 300 in df_81
+    row_300_index = df_81[df_81['row'] == 300].index
+    
+    if len(row_300_index) > 0:
+        idx = row_300_index[0]
+        
+        # Add amounts to each maturity bucket
+        df_81.at[idx, '0010'] = (df_81.at[idx, '0010'] if pd.notnull(df_81.at[idx, '0010']) else 0) + amount_less_6m
+        df_81.at[idx, '0020'] = (df_81.at[idx, '0020'] if pd.notnull(df_81.at[idx, '0020']) else 0) + amount_6m_1y
+        df_81.at[idx, '0030'] = (df_81.at[idx, '0030'] if pd.notnull(df_81.at[idx, '0030']) else 0) + amount_greater_1y
+    
+    return df_81
+
+def extract_liabilities_data():
+    """
+    Create a DataFrame with the liabilities data for row 300.
+    """
+    data = {
+        "Row": ["0300", "Total"],
+        "Rubrique": ["Other liabilities", "TOTAL"],
+        "Inclus dans le calcul": ["Oui", "Oui"],
+        "Montant < 6M (€)": ["466,211,782", "466,211,782"],
+        "Montant 6M-1A (€)": ["108,096,124", "108,096,124"],
+        "Montant > 1A (€)": ["1,435,000,000", "1,435,000,000"],
+        "Montant total (€)": ["2,009,307,906", "2,009,307,906"],
+        "Poids < 6M": ["23.20%", "23.20%"],
+        "Poids 6M-1A": ["5.38%", "5.38%"],
+        "Poids > 1A": ["71.42%", "71.42%"],
+        "Financement stable disponible (€)": ["1,489,048,062", "1,489,048,062"]
+    }
+    
+    df = pd.DataFrame(data)
+    
+    # Clean numeric columns
+    numeric_cols = ["Montant < 6M (€)", "Montant 6M-1A (€)", "Montant > 1A (€)", 
+                   "Montant total (€)", "Financement stable disponible (€)"]
+    for col in numeric_cols:
+        df[col] = df[col].str.replace(",", "").str.replace(" ", "").astype(float)
+    
+    return df
+
+
+def propager_CP_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderations=None):
+    lignes = get_mapping_df_row_CP(poste_bilan)
+    print("lignes nsfr = ", lignes)
+
+    lignes_80 = [l for l in lignes if l[1] == "df_80"]
+    lignes_81 = [l for l in lignes if l[1] == "df_81"]
+    n = len(lignes_80)
+    m = len(lignes_81)
+
+    print("n (df_80) = ", n)
+    print("m (df_81) = ", m)
+
+    if n + m == 0:
+        return df_80, df_81
+
+    df_80 = df_80.copy()
+    df_81 = df_81.copy()
+
+    if ponderations is None:
+        ponderations_80 = [1 / n] * n if n > 0 else []
+        ponderations_81 = [1 / m] * m if m > 0 else []
+    else:
+        ponderations_80 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_80"]
+        ponderations_81 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_81"]
+
+    # Get all data tables
+    rsf_data = create_summary_table_rsf()
+    asf_data = create_summary_table_asf()
+    liabilities_data = extract_liabilities_data()
+
+    # Special handling for specific posts
+    if poste_bilan == "Portefeuille":
+        rsf_row = rsf_data[rsf_data['Row'] == '580'].iloc[0]
+        df_80 = apply_capital_planning_to_df80(df_80, delta, rsf_row, 580)
+    elif poste_bilan == "Créances clientèle":
+        rsf_row = rsf_data[rsf_data['Row'] == '820'].iloc[0]
+        df_80 = apply_capital_planning_to_df80(df_80, delta, rsf_row, 820)
+    elif poste_bilan == "Depots clients (passif)":
+        df_81 = apply_capital_planning_to_df81(df_81, delta, asf_data)
+    elif poste_bilan == "Dettes envers les établissements de crédit (passif)":
+        liabilities_row = liabilities_data[liabilities_data['Row'] == '0300'].iloc[0]
+        df_81 = apply_capital_planning_to_df81_liabilities(df_81, delta, liabilities_row)
+    else:
+        # Normal processing for other posts
+        for (row_num, _), poids in zip(lignes_80, ponderations_80):
+            part_delta = delta * poids
+            print("part delta in df_80 = ", part_delta)
+            mask = df_80["row"] == row_num
+            df_80.loc[mask, "0010"] = df_80.loc[mask, "0010"] + part_delta
+
+        for (row_num, _), poids in zip(lignes_81, ponderations_81):
+            part_delta = delta * poids
+            print("part delta in df_81 = ", part_delta)
+            mask = df_81["row"] == row_num
+            df_81.loc[mask, "0010"] = df_81.loc[mask, "0010"] + part_delta
+
+    return df_80, df_81
