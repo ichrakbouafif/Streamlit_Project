@@ -575,6 +575,7 @@ def construire_df_c0700_recalcule(df_bloc, debug=False):
                 df_simulee.at[idx, col] = row_copy.get(col)
    
     return df_simulee
+
 def injecter_capital_planning_dans_bloc(df_bloc, capital_planning_value, debug=False):
     """
     Injecte le capital planning dans le bloc C0700 et recalcule avec la nouvelle logique

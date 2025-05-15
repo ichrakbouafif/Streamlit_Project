@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import streamlit as st
 from backend.stress_test import event1 as bst
 from backend.stress_test.event1 import get_mapping_df_row
 
@@ -387,8 +388,8 @@ def calcul_ratios_sur_horizon(horizon, bilan, df_72, df_73, df_74, df_80, df_81)
 
     return resultats
 
-def extract_rsf_data():
-    # Données des lignes 580 et 820
+def extract_rsf_data(user_selections=None):
+    # Default data
     data = {
         "Row": ["580", "820"],
         "Rubrique": [
@@ -405,42 +406,67 @@ def extract_rsf_data():
         "Required_stable_funding": [169650110, 1883442598]
     }
     
-    # Création du DataFrame
+    # Update with user selections if provided
+    if user_selections:
+        for row, selection in user_selections.items():
+            if row in data["Row"]:
+                idx = data["Row"].index(row)
+                data["Included_in_calculation"][idx] = "Yes" if selection else "No"
+    
+    # Create DataFrame
     df = pd.DataFrame(data)
     
-    # Calcul des montants totaux pour chaque ligne
-    df["Total_amount"] = df["Amount_less_than_6M"] + df["Amount_6M_to_1Y"] + df["Amount_greater_than_1Y"]
+    # Calculate only for included rows
+    included_mask = df["Included_in_calculation"] == "Yes"
     
-    # Calcul des poids (proportion de chaque tranche de maturité)
-    df["Weight_less_than_6M"] = df["Amount_less_than_6M"] / df["Total_amount"]
-    df["Weight_6M_to_1Y"] = df["Amount_6M_to_1Y"] / df["Total_amount"]
-    df["Weight_greater_than_1Y"] = df["Amount_greater_than_1Y"] / df["Total_amount"]
+    # Calculate totals only for included rows
+    df["Total_amount"] = 0
+    df.loc[included_mask, "Total_amount"] = (
+        df.loc[included_mask, "Amount_less_than_6M"] + 
+        df.loc[included_mask, "Amount_6M_to_1Y"] + 
+        df.loc[included_mask, "Amount_greater_than_1Y"]
+    )
     
-    # Formatage des pourcentages
+    # Calculate weights only for included rows
+    df["Weight_less_than_6M"] = 0
+    df["Weight_6M_to_1Y"] = 0
+    df["Weight_greater_than_1Y"] = 0
+    
+    df.loc[included_mask, "Weight_less_than_6M"] = (
+        df.loc[included_mask, "Amount_less_than_6M"] / 
+        df.loc[included_mask, "Total_amount"]
+    )
+    df.loc[included_mask, "Weight_6M_to_1Y"] = (
+        df.loc[included_mask, "Amount_6M_to_1Y"] / 
+        df.loc[included_mask, "Total_amount"]
+    )
+    df.loc[included_mask, "Weight_greater_than_1Y"] = (
+        df.loc[included_mask, "Amount_greater_than_1Y"] / 
+        df.loc[included_mask, "Total_amount"]
+    )
+    
+    # Format percentages
     for col in ["Weight_less_than_6M", "Weight_6M_to_1Y", "Weight_greater_than_1Y"]:
-        df[col] = df[col].apply(lambda x: f"{x:.2%}")
+        df[col] = df[col].apply(lambda x: f"{x:.2%}" if x != 0 else "0.00%")
     
-    # Formatage des grands nombres avec séparateur de milliers
+    # Format large numbers
     for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", 
                 "Total_amount", "Required_stable_funding"]:
         df[col] = df[col].apply(lambda x: f"{x:,.0f}")
     
     return df
 
-def create_summary_table_rsf():
-    """
-    Crée un tableau récapitulatif à partir des données NSFR.
-    """
-    df = extract_rsf_data()
+
+def create_summary_table_rsf(user_selections=None):
+    df = extract_rsf_data(user_selections)
     
-    # Création d'une version plus lisible du tableau avec traduction en français
     summary_table = pd.DataFrame({
         "Row": df["Row"],
         "Rubrique": [
             "Titres non-HQLA et actions échangées en bourse (non grevés ou grevés < 1 an)",
             "Autres prêts aux clients non financiers (non grevés ou grevés < 1 an)"
         ],
-        "Inclus dans le calcul": ["Oui", "Oui"],
+        "Inclus dans le calcul": ["Oui" if x == "Yes" else "Non" for x in df["Included_in_calculation"]],
         "Montant < 6M (€)": df["Amount_less_than_6M"],
         "Montant 6M-1A (€)": df["Amount_6M_to_1Y"],
         "Montant > 1A (€)": df["Amount_greater_than_1Y"],
@@ -453,7 +479,8 @@ def create_summary_table_rsf():
     
     return summary_table
 
-def extract_asf_data():
+
+def extract_asf_data(user_selections=None):
     data = {
         "Row": ["90", "110", "130", "Total"],
         "Rubrique": [
@@ -463,42 +490,84 @@ def extract_asf_data():
             "TOTAL SELECTED ITEMS"
         ],
         "Included_in_calculation": ["Yes", "Yes", "Yes", "Yes"],
-        "Amount_less_than_6M": [70461721, 2687188132, 1854112318, 70461721 + 2687188132 + 1854112318],
-        "Amount_6M_to_1Y": [263249, 156025150, 96897231, 263249 + 156025150 + 96897231],
-        "Amount_greater_than_1Y": [0, 90419066, 48761102, 0 + 90419066 + 48761102],
-        "Available_stable_funding": [67188721, 2649311020, 1024265877, 67188721 + 2649311020 + 1024265877]
+        "Amount_less_than_6M": [70461721, 2687188132, 1854112318, 0],
+        "Amount_6M_to_1Y": [263249, 156025150, 96897231, 0],
+        "Amount_greater_than_1Y": [0, 90419066, 48761102, 0],
+        "Available_stable_funding": [67188721, 2649311020, 1024265877, 0]
     }
 
+    # Update with user selections if provided
+    if user_selections:
+        for row, selection in user_selections.items():
+            if row in data["Row"]:
+                idx = data["Row"].index(row)
+                data["Included_in_calculation"][idx] = "Yes" if selection else "No"
+    
     df = pd.DataFrame(data)
-
-    # Total par ligne
-    df["Total_amount"] = df["Amount_less_than_6M"] + df["Amount_6M_to_1Y"] + df["Amount_greater_than_1Y"]
-
-    # Total global
-    total_selected_items = df[df["Row"] == "Total"]["Total_amount"].values[0]
-
-    # Poids % par type
-    df["Poids_%_par_type"] = df["Total_amount"] / total_selected_items
-
-    # Poids par tranche de maturité relative à la ligne
-    df["Poids < 6M"] = df["Amount_less_than_6M"] / df["Total_amount"]
-    df["Poids 6M-1Y"] = df["Amount_6M_to_1Y"] / df["Total_amount"]
-    df["Poids > 1Y"] = df["Amount_greater_than_1Y"] / df["Total_amount"]
-
-    # Formatage des montants
-    for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", "Total_amount", "Available_stable_funding"]:
-        df[col] = df[col].apply(lambda x: f"{x:,.0f}")
-
-    # Formatage des pourcentages
+    
+    # Calculate only for included rows
+    included_mask = df["Included_in_calculation"] == "Yes"
+    
+    # Calculate totals for included rows only
+    df.loc[df["Row"] == "Total", "Amount_less_than_6M"] = (
+        df[included_mask & (df["Row"] != "Total")]["Amount_less_than_6M"].sum()
+    )
+    df.loc[df["Row"] == "Total", "Amount_6M_to_1Y"] = (
+        df[included_mask & (df["Row"] != "Total")]["Amount_6M_to_1Y"].sum()
+    )
+    df.loc[df["Row"] == "Total", "Amount_greater_than_1Y"] = (
+        df[included_mask & (df["Row"] != "Total")]["Amount_greater_than_1Y"].sum()
+    )
+    df.loc[df["Row"] == "Total", "Available_stable_funding"] = (
+        df[included_mask & (df["Row"] != "Total")]["Available_stable_funding"].sum()
+    )
+    
+    # Total per row
+    df["Total_amount"] = (
+        df["Amount_less_than_6M"] + 
+        df["Amount_6M_to_1Y"] + 
+        df["Amount_greater_than_1Y"]
+    )
+    
+    # Calculate weights only for included rows
+    total_selected = df[df["Row"] == "Total"]["Total_amount"].values[0]
+    
+    df["Poids_%_par_type"] = 0
+    df.loc[included_mask, "Poids_%_par_type"] = (
+        df.loc[included_mask, "Total_amount"] / total_selected
+    )
+    
+    df["Poids < 6M"] = 0
+    df["Poids 6M-1Y"] = 0
+    df["Poids > 1Y"] = 0
+    
+    df.loc[included_mask, "Poids < 6M"] = (
+        df.loc[included_mask, "Amount_less_than_6M"] / 
+        df.loc[included_mask, "Total_amount"]
+    )
+    df.loc[included_mask, "Poids 6M-1Y"] = (
+        df.loc[included_mask, "Amount_6M_to_1Y"] / 
+        df.loc[included_mask, "Total_amount"]
+    )
+    df.loc[included_mask, "Poids > 1Y"] = (
+        df.loc[included_mask, "Amount_greater_than_1Y"] / 
+        df.loc[included_mask, "Total_amount"]
+    )
+    
+    # Format numbers
+    for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", 
+                "Total_amount", "Available_stable_funding"]:
+        df[col] = df[col].apply(lambda x: f"{float(x):,.0f}" if x != "" else "")
+    
+    # Format percentages
     for col in ["Poids_%_par_type", "Poids < 6M", "Poids 6M-1Y", "Poids > 1Y"]:
-        df[col] = df[col].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "")
-
+        df[col] = df[col].apply(lambda x: f"{float(x):.2%}" if x != 0 else "0.00%")
+    
     return df
 
-def create_summary_table_asf():
-    df = extract_asf_data()
-
-    # Création d'une version traduite du tableau
+def create_summary_table_asf(user_selections=None):
+    df = extract_asf_data(user_selections)
+    
     summary_table = pd.DataFrame({
         "Row": df["Row"],
         "Rubrique": [
@@ -507,7 +576,7 @@ def create_summary_table_asf():
             "ASF provenant d'autres clients non financiers",
             "TOTAL DES ÉLÉMENTS SÉLECTIONNÉS"
         ],
-        "Inclus dans le calcul": ["Oui", "Oui", "Oui", "Oui"],
+        "Inclus dans le calcul": ["Oui" if x == "Yes" else "Non" for x in df["Included_in_calculation"]],
         "Montant < 6M (€)": df["Amount_less_than_6M"],
         "Montant 6M-1A (€)": df["Amount_6M_to_1Y"],
         "Montant > 1A (€)": df["Amount_greater_than_1Y"],
@@ -518,7 +587,113 @@ def create_summary_table_asf():
         "Poids > 1A": df["Poids > 1Y"],
         "Financement stable disponible (€)": df["Available_stable_funding"]
     })
+    
+    return summary_table
 
+
+def extract_lcr_outflow_data():
+    """
+    Extrait les données de sorties LCR (Liquidity Coverage Ratio) des lignes spécifiées.
+    """
+    # Données des lignes demandées (35, 60, 70, 80, 110, 250, 260)
+    data = {
+        "Row": ["0035", "0060", "0070", "0080", "0110", "0250", "0260"],
+        "Rubrique": [
+            "deposits exempted from the calculation of outflows",
+            "deposits subject to higher outflows category 1",
+            "deposits subject to higher outflows category 2",
+            "stable deposits",
+            "other retail deposits",
+            "Non-operational deposits covered by DGS",
+            "Non-operational deposits not covered by DGS"
+        ],
+        "Amount": [
+            1153420704,
+            129868556,
+            1654960060,
+            67414342,
+            36822874,
+            25816211,
+            1323881264
+        ]
+    }
+    
+    # Création du DataFrame
+    df = pd.DataFrame(data)
+    
+    # Ajout de la colonne pour l'inclusion dans le calcul
+    if 'lcr_inclusion' not in st.session_state:
+        # Initialiser avec les valeurs par défaut basées sur le code original
+        st.session_state.lcr_inclusion = {
+            "0035": True, "0060": True, "0070": True,
+            "0080": False, "0110": False, "0250": False, "0260": True
+        }
+    
+    # Récupérer les valeurs d'inclusion actuelles
+    df["Included_in_calculation"] = df["Row"].apply(
+        lambda x: "Oui" if st.session_state.lcr_inclusion.get(x, False) else "Non"
+    )
+    
+    # Calculer le total des lignes incluses dans le calcul
+    included_mask = df["Included_in_calculation"] == "Oui"
+    total_included = df[included_mask]["Amount"].sum()
+    
+    # Calculer les poids (proportion par rapport au total des lignes incluses)
+    df["Weight_proportion"] = pd.NA
+    for idx, row in df.iterrows():
+        if row["Included_in_calculation"] == "Oui" and total_included > 0:
+            df.at[idx, "Weight_proportion"] = row["Amount"] / total_included
+    
+    # Calculer les poids par rapport au total des dépôts de détail (si nécessaire)
+    retail_deposit_rows = ["0035", "0060", "0070", "0080", "0110"]
+    retail_deposits_included = df[df["Row"].isin(retail_deposit_rows) & included_mask]
+    retail_deposits_total = retail_deposits_included["Amount"].sum()
+    
+    df["Weight_included"] = pd.NA
+    for idx, row in df.iterrows():
+        if row["Row"] in retail_deposit_rows and row["Included_in_calculation"] == "Oui" and retail_deposits_total > 0:
+            df.at[idx, "Weight_included"] = row["Amount"] / retail_deposits_total
+    
+    return df
+
+def create_summary_table_lcr_outflow():
+    """
+    Crée un tableau récapitulatif à partir des données LCR outflow.
+    """
+    df = extract_lcr_outflow_data()
+    
+    # Formatage des pourcentages et des montants
+    df_formatted = df.copy()
+    df_formatted["Weight_proportion"] = df["Weight_proportion"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "")
+    df_formatted["Weight_included"] = df["Weight_included"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "")
+    df_formatted["Amount"] = df["Amount"].apply(lambda x: f"{int(x):,}".replace(",", " "))
+    
+    # Création d'une version plus lisible du tableau en conservant les rubriques en anglais
+    summary_table = pd.DataFrame({
+        "Row": df_formatted["Row"],
+        "Rubrique": df_formatted["Rubrique"],
+        "Inclus dans le calcul": df_formatted["Included_in_calculation"],
+        "Montant (2024)": df_formatted["Amount"],
+        "Poids (% du total)": df_formatted["Weight_proportion"],
+        "Poids (% lignes integrées)": df_formatted["Weight_included"]
+    })
+    
+    # Ajouter une ligne de total pour les lignes incluses
+    included_rows = df[df["Included_in_calculation"] == "Oui"]
+    total_included = included_rows["Amount"].sum()
+    
+    total_row = pd.DataFrame({
+        "Row": ["Total"],
+        "Rubrique": ["TOTAL OUTFLOWS"],
+        "Inclus dans le calcul": [""],
+        "Montant (2024)": [f"{int(total_included):,}".replace(",", " ")],
+        "Poids (% du total)": ["100.00%"],
+        "Poids (% lignes integrées)": [""]
+    })
+    
+    # Concaténer avec le tableau principal
+    summary_table = pd.concat([summary_table, total_row], ignore_index=True)
+    
     return summary_table
 
 def style_table(df, highlight_columns=None):
@@ -526,10 +701,6 @@ def style_table(df, highlight_columns=None):
     Stylise un tableau avec les couleurs PwC
     """
     # Couleurs PwC
-    pwc_orange = "#f47721"
-    pwc_dark_gray = "#3d3d3d"
-    #pwc_light_beige = "#f5f0e6"
-    pwc_brown = "#6e4c1e"
     pwc_orange = "#d04a02"
     pwc_dark_blue = "#FFCDA8"
     pwc_light_gray = "#f5f0e6"
@@ -576,3 +747,4 @@ def style_table(df, highlight_columns=None):
                 }, subset=[col])
     
     return styled_df
+
