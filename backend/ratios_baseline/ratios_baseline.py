@@ -42,7 +42,7 @@ def charger_bilan():
     return bilan
 
 #Récupérer la valeur de capital planning
-""" def get_capital_planning(bilan_df, poste_bilan, annee="2025"):
+def get_capital_planning(bilan_df, poste_bilan, annee="2025"):
     bilan_df = bilan_df.reset_index(drop=True)
     index_poste = bilan_df[bilan_df["Poste du Bilan"].astype(str).str.strip() == poste_bilan].index
 
@@ -53,10 +53,9 @@ def charger_bilan():
             if pd.notna(valeur):
                 return valeur
     return 0
- """
 
 # Récupérer la valeur de capital planning avec ajustement conditionnel
-def get_capital_planning(bilan_df, poste_bilan, annee="2025"):
+def get_CP_LCR(bilan_df, poste_bilan, annee="2025"):
     bilan_df = bilan_df.reset_index(drop=True)
     poste_bilan_lower = poste_bilan.strip().lower()
     index_poste = bilan_df["Poste du Bilan"].astype(str).str.strip().str.lower() == poste_bilan_lower
@@ -68,12 +67,11 @@ def get_capital_planning(bilan_df, poste_bilan, annee="2025"):
             valeur = bilan_df.loc[i, annee]
             if pd.notna(valeur):
                 if poste_bilan_lower == "créances clientèle":
-                    return 1 * valeur
+                    return 0.01 * valeur
                 elif poste_bilan_lower == "créances banques autres":
                     return 0.28 * valeur
                 elif poste_bilan_lower == "depots clients (passif)":
-                    #return 0.71 * valeur
-                    return valeur
+                    return 0.71 * valeur
                 elif poste_bilan_lower == "dettes envers les établissements de crédit (passif)":
                     return 0.09 * valeur
                 else:
@@ -222,125 +220,6 @@ from backend.nsfr.feuille_80 import calcul_RSF
 from backend.nsfr.feuille_81 import calcul_ASF
 from backend.nsfr.utils import Calcul_NSFR
 
-
-def propager_CP_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponderations=None):
-    lignes = get_mapping_df_row_CP(poste_bilan)
-    print("lignes = ", lignes)
-
-    lignes_72 = [l for l in lignes if l[1] == "df_72"]
-    lignes_73 = [l for l in lignes if l[1] == "df_73"]
-    lignes_74 = [l for l in lignes if l[1] == "df_74"]
-    n, m, p = len(lignes_72), len(lignes_73), len(lignes_74)
-
-    print("n (df_72) = ", n)
-    print("m (df_73) = ", m)
-    print("p (df_74) = ", p)
-
-    if n + m + p == 0:
-        return df_72, df_73, df_74
-
-    df_72 = df_72.copy()
-    df_73 = df_73.copy()
-    df_74 = df_74.copy()
-
-    if ponderations is None:
-        ponderations_72 = [1 / n] * n if n > 0 else []
-        ponderations_73 = [1 / m] * m if m > 0 else []
-        ponderations_74 = [1 / p] * p if p > 0 else []
-    else:
-        ponderations_72 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_72"]
-        ponderations_73 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_73"]
-        ponderations_74 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_74"]
-
-    for (row_num, _), poids in zip(lignes_72, ponderations_72):
-        part_delta = delta * poids
-        print("part delta in df_72 = ", part_delta)
-        mask = df_72["row"] == row_num
-        df_72.loc[mask, "0010"] = df_72.loc[mask, "0010"] + part_delta
-
-    for (row_num, _), poids in zip(lignes_73, ponderations_73):
-        part_delta = delta * poids
-        print("part delta in df_73 = ", part_delta)
-        mask = df_73["row"] == row_num
-        df_73.loc[mask, "0010"] = df_73.loc[mask, "0010"] + part_delta
-
-    for (row_num, _), poids in zip(lignes_74, ponderations_74):
-        part_delta = delta * poids
-        print("part delta in df_74 = ", part_delta)
-        mask = df_74["row"] == row_num
-        df_74.loc[mask, "0010"] = df_74.loc[mask, "0010"] + part_delta
-
-    return df_72, df_73, df_74
-
-def calcul_ratios_projete(annee, bilan, df_72, df_73, df_74, df_80, df_81):
-    posts = ["Caisse Banque Centrale / nostro","Créances banques autres","Créances clientèle","Portefeuille","Immobilisations et Autres Actifs","Dettes envers les établissements de crédit (passif)","Depots clients (passif)","Autres passifs (passif)","Income Statement - Résultat de l'exercice"]
-    for poste_bilan in posts:
-        print("poste_bilan", poste_bilan)
-
-        delta = get_capital_planning(bilan, poste_bilan, annee)
-        print("delta", delta)
-
-        # Propagation vers les feuilles LCR
-        df_72, df_73, df_74 = propager_CP_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74)
-
-        # Propagation vers les feuilles NSFR
-        df_80, df_81 = propager_CP_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81)
-
-    # Calcul des ratios
-    HQLA = calcul_HQLA(df_72)
-    OUTFLOWS = calcul_outflow(df_73)
-    INFLOWS = calcul_inflow(df_74)
-    LCR = Calcul_LCR(INFLOWS, OUTFLOWS, HQLA)
-
-    ASF = calcul_ASF(df_81)
-    RSF = calcul_RSF(df_80)
-    NSFR = Calcul_NSFR(ASF, RSF)
-
-    return {
-        "LCR": LCR,
-        "NSFR": NSFR,
-        "HQLA": HQLA,
-        "OUTFLOWS": OUTFLOWS,
-        "INFLOWS": INFLOWS,
-        "ASF": ASF,
-        "RSF": RSF,
-        "df_72": df_72,
-        "df_73": df_73,
-        "df_74": df_74,
-        "df_80": df_80,
-        "df_81": df_81
-    }
-def calcul_ratios_sur_horizon(horizon, bilan, df_72, df_73, df_74, df_80, df_81):
-    resultats = {}
-    
-    # Initialize with the original data
-    current_df72 = df_72.copy()
-    current_df73 = df_73.copy()
-    current_df74 = df_74.copy()
-    current_df80 = df_80.copy()
-    current_df81 = df_81.copy()
-
-    for annee in range(2024, 2024 + horizon + 1):
-        ratios = calcul_ratios_projete(
-            annee=str(annee),
-            bilan=bilan,
-            df_72=current_df72,
-            df_73=current_df73,
-            df_74=current_df74,
-            df_80=current_df80,
-            df_81=current_df81
-        )
-
-        resultats[annee] = ratios
-        
-        # Update the current dataframes with the modified ones for the next iteration
-        current_df72 = ratios["df_72"].copy()
-        current_df73 = ratios["df_73"].copy()
-        current_df74 = ratios["df_74"].copy()
-        current_df80 = ratios["df_80"].copy()
-        current_df81 = ratios["df_81"].copy()
-
-    return resultats
 
 def extract_rsf_data(user_selections=None):
     # Default data
@@ -931,47 +810,62 @@ def apply_capital_planning_to_df81(df_81, capital_planning_value, asf_data):
     """
     Apply capital planning impact to df_81 based on ASF weights from the provided table.
     Distributes the value to rows 90, 110, and 130 according to their weights.
-    
-    Args:
-        df_81 (pd.DataFrame): The df_81 DataFrame to modify
-        capital_planning_value (float): The capital planning value to distribute
-        asf_data (pd.DataFrame): The ASF data table containing weights
-        
-    Returns:
-        pd.DataFrame: Modified df_81 with capital planning impacts applied
     """
-    # Filter only the relevant rows (90, 110, 130)
-    asf_rows = asf_data[asf_data['Row'].isin(['90', '110', '130'])]
-    
-    # Calculate total weight for normalization
-    total_weight = asf_rows['Poids % par type'].str.rstrip('%').astype(float).sum() / 100
-    
-    for _, asf_row in asf_rows.iterrows():
-        # Extract weights
-        weight_type = float(asf_row['Poids % par type'].strip('%')) / 100
-        weight_less_6m = float(asf_row['Poids < 6M'].strip('%')) / 100
-        weight_6m_1y = float(asf_row['Poids 6M-1A'].strip('%')) / 100
-        weight_greater_1y = float(asf_row['Poids > 1A'].strip('%')) / 100
+    try:
+        # Filter only the relevant rows (90, 110, 130) that are included in calculation
+        asf_rows = asf_data[
+            (asf_data['Row'].isin(['90', '110', '130'])) & 
+            (asf_data['Inclus dans le calcul'] == 'Oui')
+        ].copy()
         
-        # Calculate the portion for this row (normalized by total weight)
-        portion = capital_planning_value * (weight_type / total_weight)
-        
-        # Calculate amounts to add to each maturity bucket
-        amount_less_6m = portion * weight_less_6m
-        amount_6m_1y = portion * weight_6m_1y
-        amount_greater_1y = portion * weight_greater_1y
-        
-        # Find the target row in df_81
-        target_row = int(asf_row['Row'])
-        row_index = df_81[df_81['row'] == target_row].index
-        
-        if len(row_index) > 0:
-            idx = row_index[0]
+        if asf_rows.empty:
+            return df_81
             
-            # Add amounts to each maturity bucket
-            df_81.at[idx, '0010'] = (df_81.at[idx, '0010'] if pd.notnull(df_81.at[idx, '0010']) else 0) + amount_less_6m
-            df_81.at[idx, '0020'] = (df_81.at[idx, '0020'] if pd.notnull(df_81.at[idx, '0020']) else 0) + amount_6m_1y
-            df_81.at[idx, '0030'] = (df_81.at[idx, '0030'] if pd.notnull(df_81.at[idx, '0030']) else 0) + amount_greater_1y
+        # Clean and convert weights to float
+        asf_rows['Poids_clean'] = asf_rows['Poids % par type'].str.replace('%', '').str.replace(',', '.').astype(float) / 100
+        
+        # Calculate total weight for normalization
+        total_weight = asf_rows['Poids_clean'].sum()
+        
+        if total_weight <= 0:
+            return df_81
+            
+        for _, asf_row in asf_rows.iterrows():
+            try:
+                # Extract weights
+                weight_type = float(asf_row['Poids % par type'].strip('%').replace(',', '.')) / 100
+                weight_less_6m = float(asf_row['Poids < 6M'].strip('%').replace(',', '.')) / 100
+                weight_6m_1y = float(asf_row['Poids 6M-1A'].strip('%').replace(',', '.')) / 100
+                weight_greater_1y = float(asf_row['Poids > 1A'].strip('%').replace(',', '.')) / 100
+                
+                # Calculate the portion for this row (normalized by total weight)
+                portion = capital_planning_value * (weight_type / total_weight)
+                
+                # Calculate amounts to add to each maturity bucket
+                amount_less_6m = portion * weight_less_6m
+                amount_6m_1y = portion * weight_6m_1y
+                amount_greater_1y = portion * weight_greater_1y
+                
+                # Find the target row in df_81
+                target_row = int(asf_row['Row'])
+                row_index = df_81[df_81['row'] == target_row].index
+                
+                if len(row_index) > 0:
+                    idx = row_index[0]
+                    
+                    # Add amounts to each maturity bucket
+                    for col, amount in [('0010', amount_less_6m), 
+                                      ('0020', amount_6m_1y), 
+                                      ('0030', amount_greater_1y)]:
+                        current = df_81.at[idx, col]
+                        df_81.at[idx, col] = (current if pd.notnull(current) else 0) + amount
+                        
+            except Exception as e:
+                print(f"Error processing row {asf_row['Row']}: {str(e)}")
+                continue
+                
+    except Exception as e:
+        print(f"Error in apply_capital_planning_to_df81: {str(e)}")
     
     return df_81
 
@@ -1096,3 +990,126 @@ def propager_CP_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderations=N
             df_81.loc[mask, "0010"] = df_81.loc[mask, "0010"] + part_delta
 
     return df_80, df_81
+
+
+
+def propager_CP_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponderations=None):
+    lignes = get_mapping_df_row_CP(poste_bilan)
+    print("lignes = ", lignes)
+
+    lignes_72 = [l for l in lignes if l[1] == "df_72"]
+    lignes_73 = [l for l in lignes if l[1] == "df_73"]
+    lignes_74 = [l for l in lignes if l[1] == "df_74"]
+    n, m, p = len(lignes_72), len(lignes_73), len(lignes_74)
+
+    print("n (df_72) = ", n)
+    print("m (df_73) = ", m)
+    print("p (df_74) = ", p)
+
+    if n + m + p == 0:
+        return df_72, df_73, df_74
+
+    df_72 = df_72.copy()
+    df_73 = df_73.copy()
+    df_74 = df_74.copy()
+
+    if ponderations is None:
+        ponderations_72 = [1 / n] * n if n > 0 else []
+        ponderations_73 = [1 / m] * m if m > 0 else []
+        ponderations_74 = [1 / p] * p if p > 0 else []
+    else:
+        ponderations_72 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_72"]
+        ponderations_73 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_73"]
+        ponderations_74 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_74"]
+
+    for (row_num, _), poids in zip(lignes_72, ponderations_72):
+        part_delta = delta * poids
+        print("part delta in df_72 = ", part_delta)
+        mask = df_72["row"] == row_num
+        df_72.loc[mask, "0010"] = df_72.loc[mask, "0010"] + part_delta
+
+    for (row_num, _), poids in zip(lignes_73, ponderations_73):
+        part_delta = delta * poids
+        print("part delta in df_73 = ", part_delta)
+        mask = df_73["row"] == row_num
+        df_73.loc[mask, "0010"] = df_73.loc[mask, "0010"] + part_delta
+
+    for (row_num, _), poids in zip(lignes_74, ponderations_74):
+        part_delta = delta * poids
+        print("part delta in df_74 = ", part_delta)
+        mask = df_74["row"] == row_num
+        df_74.loc[mask, "0010"] = df_74.loc[mask, "0010"] + part_delta
+
+    return df_72, df_73, df_74
+
+def calcul_ratios_projete(annee, bilan, df_72, df_73, df_74, df_80, df_81):
+    posts = ["Caisse Banque Centrale / nostro","Créances banques autres","Créances clientèle","Portefeuille","Immobilisations et Autres Actifs","Dettes envers les établissements de crédit (passif)","Depots clients (passif)","Autres passifs (passif)","Income Statement - Résultat de l'exercice"]
+    for poste_bilan in posts:
+        print("poste_bilan", poste_bilan)
+
+        delta = get_capital_planning(bilan, poste_bilan, annee)
+        delta_lcr =get_CP_LCR(bilan, poste_bilan, annee)
+        print("delta_lcr", delta_lcr)
+        print("delta", delta)
+
+        # Propagation vers les feuilles LCR
+        df_72, df_73, df_74 = propager_CP_vers_COREP_LCR(poste_bilan, delta_lcr, df_72, df_73, df_74)
+
+        # Propagation vers les feuilles NSFR
+        df_80, df_81 = propager_CP_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81)
+
+    # Calcul des ratios
+    HQLA = calcul_HQLA(df_72)
+    OUTFLOWS = calcul_outflow(df_73)
+    INFLOWS = calcul_inflow(df_74)
+    LCR = Calcul_LCR(INFLOWS, OUTFLOWS, HQLA)
+
+    ASF = calcul_ASF(df_81)
+    RSF = calcul_RSF(df_80)
+    NSFR = Calcul_NSFR(ASF, RSF)
+
+    return {
+        "LCR": LCR,
+        "NSFR": NSFR,
+        "HQLA": HQLA,
+        "OUTFLOWS": OUTFLOWS,
+        "INFLOWS": INFLOWS,
+        "ASF": ASF,
+        "RSF": RSF,
+        "df_72": df_72,
+        "df_73": df_73,
+        "df_74": df_74,
+        "df_80": df_80,
+        "df_81": df_81
+    }
+def calcul_ratios_sur_horizon(horizon, bilan, df_72, df_73, df_74, df_80, df_81):
+    resultats = {}
+    
+    # Initialize with the original data
+    current_df72 = df_72.copy()
+    current_df73 = df_73.copy()
+    current_df74 = df_74.copy()
+    current_df80 = df_80.copy()
+    current_df81 = df_81.copy()
+
+    for annee in range(2024, 2024 + horizon + 1):
+        ratios = calcul_ratios_projete(
+            annee=str(annee),
+            bilan=bilan,
+            df_72=current_df72,
+            df_73=current_df73,
+            df_74=current_df74,
+            df_80=current_df80,
+            df_81=current_df81
+        )
+
+        resultats[annee] = ratios
+        
+        # Update the current dataframes with the modified ones for the next iteration
+        current_df72 = ratios["df_72"].copy()
+        current_df73 = ratios["df_73"].copy()
+        current_df74 = ratios["df_74"].copy()
+        current_df80 = ratios["df_80"].copy()
+        current_df81 = ratios["df_81"].copy()
+
+    return resultats
