@@ -148,15 +148,13 @@ def appliquer_stress_retrait_depots(bilan_df, pourcentage, horizon=1, annee="202
 
     return bilan_df
 
-mapping_bilan_LCR_NSFR = {
+mapping_bilan_LCR_NSFR_retrait_depots = {
     "Caisse Banque Centrale / nostro": [
-        ("row_0040", "df_72"),  # LB: Coins and banknotes
         ("row_0050", "df_72"),  # LB: Withdrawable central bank reserves
         ("row_0150", "df_74"),  # Inflow: Monies due from central banks
         ("row_0030", "df_80"),  # RSF from central bank assets 
     ],
     "Créances banques autres": [
-        ("row_0060", "df_72"),  # LB: Central bank assets
         ("row_0160", "df_74"),  # Inflow: Monies due from financial customers
         ("row_0100", "df_74"),  # Inflow: Monies due from CB + financial customers
         ("row_0730", "df_80"),  # NSFR: RSF from loans to financial customers
@@ -166,7 +164,7 @@ mapping_bilan_LCR_NSFR = {
         ("row_0640", "df_80"),  # RSF from loans to finantial customers
         
     ],
-    "Créances clientèle (hors hypo)": [
+    "Créances clientèle": [
         ("row_0060", "df_74"),  # Inflow – Monies from retail customers
         ("row_0070", "df_74"),  # Inflow – Monies from non financial corporate 
         ("row_0080", "df_74"),  # Inflow – Monies from ..
@@ -175,11 +173,6 @@ mapping_bilan_LCR_NSFR = {
     ],
     "Portefeuille": [
         ("row_0190", "df_74"),  ## inflow – Monies from ..
-        ("row_0070", "df_72"),  ## LB - central government assets
-        ("row_0190", "df_72"),  ## LB - extremely high-quality covered bonds
-        ("row_0260", "df_72"),  ## LB - high-quality covered bonds (CQS2)
-        ("row_0270", "df_72"),  ## LB- high-quality covered bonds (CQS1)
-        ("row_0280", "df_72"),  ## LB - corperate debt securities  
         #("row_0570", "df_80"),  # RSF from securities other than liquid assets non hqla
         ("row_0580", "df_80"),  # RSF from securities other than liquid assets non hqla
     ],
@@ -314,10 +307,10 @@ def get_mapping_df_row(post_bilan):
         List[Tuple[int, str]]: Liste des tuples (row_number, df_name) .
     """
     result = []
-    if post_bilan not in mapping_bilan_LCR_NSFR:
+    if post_bilan not in mapping_bilan_LCR_NSFR_retrait_depots:
         raise ValueError(f"Poste '{post_bilan}' non trouvé dans le mapping.")
 
-    for row_str, feuille in mapping_bilan_LCR_NSFR[post_bilan]:
+    for row_str, feuille in mapping_bilan_LCR_NSFR_retrait_depots[post_bilan]:
         if row_str == "row_X":
             continue  # ignorer les lignes non mappées
         try:
