@@ -28,7 +28,7 @@ def show():
 
     scenario_type = st.radio(
         "Type de scénario à calibrer",
-        ["Scénario Idiosyncratique", "Scénario Macroéconomique"],
+        ["Scénario idiosyncratique", "Scénario macroéconomique"],
         key="scenario_type_radio"
     )
 
@@ -323,14 +323,49 @@ def afficher_resultats_solva(bilan_stresse, postes_concernes, params):
            
             # Afficher les seuils réglementaires
             col1, col2, col3 = st.columns(3)
+
             with col1:
-                st.metric("Seuil minimum CET1", "4.5%")
+                st.markdown(
+                    f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Seuil CET1</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
+                            4.5%
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
             with col2:
-                st.metric("Seuil minimum Tier 1", "6.0%")
+                st.markdown(
+                    f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Seuil Tier 1</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                            6.0%
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
             with col3:
-                st.metric("Seuil minimum Total Capital", "8.0%")
-        else:
-            st.warning("Aucune donnée de solvabilité disponible.")
+                st.markdown(
+                    f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Seuil Total Capital</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                            8.0%
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
        
     except Exception as e:
         st.error(f"Erreur lors du calcul de la solvabilité: {e}")

@@ -64,6 +64,16 @@ def affiche_bilan(bilan: pd.DataFrame):
     st.subheader("Bilan de Référence")
     st.dataframe(styled_df, use_container_width=True)
 
+def debug_log(message, df=None, show_df=False, st_container=None):
+    """Helper function for debug logging"""
+    if st_container is not None:
+        st_container.write(f"**{message}**")
+        if df is not None and show_df:
+            st_container.dataframe(df)
+    else:
+        print(f"\n[DEBUG] {message}")
+        if df is not None and show_df:
+            print(df.to_string())
 
 def show():
     st.title("Calcul des Ratios Baseline")
@@ -351,13 +361,78 @@ def show():
         df_c4700 = charger_c4700()
 
         if bilan is None or df_c01.empty or df_c02.empty or df_c4700.empty:
-            st.error("❌ Données manquantes. Veuillez vérifier vos fichiers COREP.")
+            st.error("Données manquantes. Veuillez vérifier vos fichiers COREP.")
             return
 
         annees = [str(2024 + i) for i in range(horizon + 1)]
+# ====================== PONDÉRATION DES CLIENTÈLES ======================
+       # Initialisation des valeurs dans session_state
+        if "poids_retail" not in st.session_state:
+            st.session_state.poids_retail = 50
+        if "poids_corporate" not in st.session_state:
+            st.session_state.poids_corporate = 50
+        if "last_changed" not in st.session_state:
+            st.session_state.last_changed = "retail"
 
-        # Simulations
-        resultats_solva = simuler_solvabilite_pluriannuelle(bilan, df_c01, df_c02, blocs_c0700, annees=annees[1:])
+        # Affichage
+        st.markdown("###  Ventilation du Capital Planning sur les Créances Clientèle")
+
+        col1, col2, col3 = st.columns([1, 1, 1])
+
+        with col1:
+            st.markdown("**Part Retail (%)**")
+            def on_change_retail():
+                st.session_state.last_changed = "retail"
+                st.session_state.poids_corporate = 100 - st.session_state.poids_retail
+
+            st.slider(
+                "Part Retail (%)",
+                min_value=0,
+                max_value=100,
+                key="poids_retail",
+                step=1,
+                on_change=on_change_retail,
+                label_visibility="collapsed"
+            )
+
+        with col2:
+            st.markdown("**Part Corporate (%)**")
+            def on_change_corporate():
+                st.session_state.last_changed = "corporate"
+                st.session_state.poids_retail = 100 - st.session_state.poids_corporate
+
+            st.slider(
+                "Part Corporate (%)",
+                min_value=0,
+                max_value=100,
+                key="poids_corporate",
+                step=1,
+                on_change=on_change_corporate,
+                label_visibility="collapsed"
+            )
+
+        with col3:
+            st.markdown("**Part Hypothécaire (%)**")
+            st.markdown("### `50%` (Fixe)")
+
+                    # Conversion en % entier (pourcentage sur les 50% restants)
+            poids_retail = st.session_state.poids_retail
+            poids_corporate = st.session_state.poids_corporate
+
+            # Simulations
+            # Activation du mode debug depuis la sidebar
+            DEBUG_MODE = st.sidebar.toggle("Activer le mode debug", value=False)
+
+            # Expander dédié au debug
+            debug_expander = st.expander(" Console de Debug", expanded=False)
+            with debug_expander:
+                st.write("Tous les logs techniques seront affichés ici si le mode debug est activé.")
+            resultats_solva = simuler_solvabilite_pluriannuelle(
+                bilan, df_c01, df_c02, blocs_c0700,
+                annees=annees[1:],
+                pourcentage_retail=poids_retail,
+                pourcentage_corporate=poids_corporate
+            )
         resultats_levier = simuler_levier_pluriannuel(bilan, df_c01, df_c4700, annees=annees[1:])
 
         # === AFFICHAGE SOLVABILITÉ ===
@@ -451,7 +526,7 @@ def show():
                                 st.dataframe(df_c01_affiche, use_container_width=True)
                                 
                     else:
-                                st.warning("❗ Colonne 'row' manquante dans le dataframe C0100.")
+                                st.warning(" Colonne 'row' manquante dans le dataframe C0100.")
                     if "blocs_rwa" in resultats_solva[annee]:
                         for nom_bloc, df_bloc in resultats_solva[annee]["blocs_rwa"].items():
                             st.markdown(f"**Bloc RWA - {nom_bloc} (C0700)**")
@@ -475,7 +550,7 @@ def show():
             if annee in resultats_levier:
                 tableau_levier.append({
                     "Année": annee,
-                    "Tier 1": format_number_espace(resultats_levier[annee]["tier1"]),
+                    "Fonds Propres": format_number_espace(resultats_levier[annee]["tier1"]),
                     "Exposition Totale": format_number_espace(resultats_levier[annee]["total_exposure"]),
                     "Levier": f"{resultats_levier[annee]['ratio']:.2f}%"
                 })

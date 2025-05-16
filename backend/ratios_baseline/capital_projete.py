@@ -114,20 +114,18 @@ noms_lignes_c0100 = {
     974: "(-) Additional deductions of T2 Capital due to Article 3 of Regulation (EU) No 575/2013",
     978: "T2 capital elements or deductions - other"
 }
-
+#new
 mapping_feuilles_rwa = {
-    "Caisse Banque Centrale / nostro": ["C0700_0002_1"],
     "Créances banques autres": ["C0700_0007_1"],
-    "Créances sur la clientèle (total)": ["C0700_0008_1", "C0700_0009_1"],
-    "Immobilisations et Autres Actifs": ["C0700_0017_1"]
+    "Créances clientèle": ["C0700_0008_1", "C0700_0009_1", "C0700_0010_1"],  # ✅ Ajout hypothécaire
+    "Immobilisations et Autres Actifs": ["C0700_0010_1"]
 }
 
 mapping_c0700_to_c0200 = {
-    "C0700_0002_1": "0070",
     "C0700_0007_1": "0120",
     "C0700_0008_1": "0130",
     "C0700_0009_1": "0140",
-    "C0700_0017_1": "0211"
+    "C0700_0010_1": "0150"
 }
 noms_lignes_c4700= {
         10: "SFTs: Exposure value",
@@ -196,7 +194,7 @@ noms_lignes_c4700= {
 mapping_bilan_to_c4700 = {
     "Caisse Banque Centrale / nostro": 190,
     "Créances banques autres": 190,
-    "Créances sur la clientèle (total)": 190,
+    "Créances clientèle": 190,
     "Immobilisations et Autres Actifs": 190
 }
 
@@ -204,23 +202,8 @@ mapping_bilan_to_c4700 = {
 Calcul du Ratio de Solvabilité avec Capital Planning - Version debuggée
 """
 
-# === Configuration des mappings ===
-mapping_feuilles_rwa = {
-    "Caisse Banque Centrale / nostro": ["C0700_0002_1"],
-    "Créances banques autres": ["C0700_0007_1"],
-    "Créances sur la clientèle (total)": ["C0700_0008_1", "C0700_0009_1"],
-   
-    "Immobilisations et Autres Actifs": ["C0700_0017_1"]
-}
 
-mapping_c0700_to_c0200 = {
-    "C0700_0002_1": "0070",
-    "C0700_0007_1": "0120",
-    "C0700_0008_1": "0130",
-    "C0700_0009_1": "0140",
-    "C0700_0016": "0210",
-    "C0700_0017_1": "0211"
-}
+
 def charger_c4700(levier_path="data/levier.xlsx"):
     """
     Charge les données C4700 pour le calcul du ratio de levier
@@ -291,10 +274,10 @@ def charger_donnees(corep_path="data/solvabilite.xlsx", debug=False):
     if 25 in bilan.index:
         bilan = bilan.drop(index=25).reset_index(drop=True)
 
+    
     if debug:
-        st.write("### DEBUG: Aperçu du bilan chargé")
-        st.dataframe(bilan.head())
-
+        st.write("### ✅ Liste des Postes du Bilan (après nettoyage)")
+        st.dataframe(bilan[["Poste du Bilan"]])
     # === C0100 ===
     try:
         df_c01 = pd.read_excel(corep_path, sheet_name="C0100", header=8)
@@ -363,29 +346,31 @@ def charger_donnees(corep_path="data/solvabilite.xlsx", debug=False):
     return bilan, df_c01, df_c02, blocs_c0700
 
 
-def calculer_ratios_transformation(df, debug=False):
+def calculer_ratios_transformation(df_ref, debug=False):
     """
-    Calcule les ratios implicites (RWA/exposition) pour chaque type de ligne
-    avec meilleure gestion des erreurs
+    Calcule les ratios implicites (RWA/exposition) pour chaque type de ligne à partir des données de référence.
+    Ces ratios seront utilisés pour les calculs futurs.
     """
     ratios = {}
+    
     for row_type, name in [(70.0, "on_balance"), (80.0, "off_balance"), (110.0, "derivatives")]:
-        ligne = df[df["row"] == row_type]
-       
+        ligne = df_ref[df_ref["row"] == row_type]
+        
         if not ligne.empty:
-            # S'assurer que les colonnes nécessaires existent
+            # Récupération de l'exposition (0200) et du RWA (0215 ou 0220)
             rwa_col = "0215" if "0215" in ligne.columns else "0220"
-           
+            
             rwa = ligne[rwa_col].values[0] if not pd.isna(ligne[rwa_col].values[0]) else 0
             expo = ligne["0200"].values[0] if "0200" in ligne.columns and not pd.isna(ligne["0200"].values[0]) else 0
-           
+            
+            # Calcul du ratio RWA/exposition
             if expo != 0:
                 ratio = round(rwa / expo, 4)
             else:
                 ratio = 0.25  # Valeur par défaut si exposition = 0
-               
+                
             ratios[row_type] = ratio
-           
+            
             if debug:
                 st.write(f"Ratio calculé pour ligne {row_type} ({name}): {ratio}")
                 st.write(f"  - RWA: {rwa}, Exposition: {expo}")
@@ -393,81 +378,88 @@ def calculer_ratios_transformation(df, debug=False):
             ratios[row_type] = 0.25  # Valeur par défaut si ligne non trouvée
             if debug:
                 st.warning(f"Ligne {row_type} ({name}) non trouvée, utilisation ratio par défaut 0.25")
-   
+    
     return ratios
 
 def calculer_0200(row, debug=False):
     """
-    Calcule la colonne 0200 en fonction des pondérations et avec relation entre 0010 et 0190
-    La logique est la suivante:
-    - Si les colonnes 0170/0180/0190 existent, les utiliser pour calculer 0200
-    - Sinon, utiliser 0010 comme valeur pour 0190 (pondération 100%)
+    Calcule la colonne 0200 en fonction des pondérations et avec relation entre 0010 et 0190.
+    Pour la ligne 070, 0200 est égal à 0150. Pour la ligne 80.0, le calcul basé sur 0170, 0180 et 0190 est appliqué.
     """
-    if row.get("row") == 110.0:  # Pour les dérivés, ne pas recalculer
+    if row.get("row") == 70.0:  # Pour la ligne 70.0, 0200 = 0150
+        return row.get("0150", 0)
+
+    if row.get("row") == 110.0:  # Pour la ligne 110.0, ne pas recalculer 0200
         return row.get("0200", 0)
-   
+
     # Récupérer les valeurs de 0170, 0180, 0190 avec gestion des NaN
     v170 = row.get("0170", 0)
     v180 = row.get("0180", 0)
     v190 = row.get("0190", 0)
    
-    # Remplacer les NaN par 0
     v170 = 0 if pd.isna(v170) else v170
     v180 = 0 if pd.isna(v180) else v180
     v190 = 0 if pd.isna(v190) else v190
-   
-    # Si 0190 est vide ou 0 mais 0010 existe, utiliser 0010 pour 0190 (pondération 100%)
+
     v010 = row.get("0010", 0)
     v010 = 0 if pd.isna(v010) else v010
    
-    # Si 0190 est vide ou 0 mais 0010 existe, prendre la valeur de 0010
-    if (v190 == 0) and (v010 > 0):
-        v190 = v010
-       
+   
+
     # Calculer 0200 selon la pondération
     result = (0.2 * v170) + (0.5 * v180) + (1.0 * v190)
+
    
-    # Si toutes les valeurs sont 0 ou NaN et que 0010 existe, utiliser 0010 comme base
-    if v170 == 0 and v180 == 0 and v190 == 0 and v010 > 0:
-        result = v010
-   
-    # Cas de secours si aucune valeur disponible mais 0200 existe déjà
-    if result == 0 and not pd.isna(row.get("0200", 0)) and row.get("0200", 0) > 0:
-        return row.get("0200", 0)
-   
-    if debug:
-        st.write(f"Calcul 0200 pour ligne {row.get('row')}:")
-        st.write(f"  - 0010: {v010}")
-        st.write(f"  - 0170 (0.2): {v170}")
-        st.write(f"  - 0180 (0.5): {v180}")
-        st.write(f"  - 0190 (1.0): {v190}")
-        st.write(f"  - Résultat 0200: {result}")
-   
+
     return result
 
+#new
+def repartir_capital_planning_clientele(valeur_totale, pourcentage_retail, pourcentage_corporate):
+    """
+    Répartit le capital planning entre les 3 feuilles C0700 :
+    - 50% fixe pour Hypothécaire
+    - Le reste réparti selon les pourcentages utilisateur
+    """
+    valeur_hypo = 0.5 * valeur_totale
+    reste = 0.5 * valeur_totale
+
+    valeur_retail = (pourcentage_retail / 100) * reste
+    valeur_corp = (pourcentage_corporate / 100) * reste
+
+    return {
+        "C0700_0008_1": valeur_retail,
+        "C0700_0009_1": valeur_corp,
+        "C0700_0010_1": valeur_hypo
+    }
+
 def calculer_0220(row, ratios, debug=False):
-    """Calcule la colonne 0220 (RWA) selon le type de ligne avec meilleure gestion des erreurs"""
+    """Calcule la colonne 0220 (RWA) avec les ratios déjà calculés"""
     row_type = row.get("row")
     expo = row.get("0200", 0)
-   
-    # Gestion des NaN
+    
+    # Si l'exposition est nulle ou NaN, on la met à 0
     if pd.isna(expo):
         expo = 0
-       
-    # Pour les lignes principales, utiliser le ratio
+    
+    # Utilisation des ratios pré-calculés
     if row_type in [70.0, 80.0, 110.0]:
-        return calculer_rwa_depuis_exposition(expo, row_type, ratios, debug)
-   
+        ratio = ratios.get(row_type)  # Utiliser le ratio de transformation déjà calculé
+        rwa = expo * ratio
+        if debug:
+            st.write(f"RWA calculé pour ligne {row_type}: {rwa}")
+        return rwa
+    
     # Pour les autres lignes, somme de 0215, 0216, 0217 si disponibles
     sum_cols = 0
     for k in ["0215", "0216", "0217"]:
         if k in row and not pd.isna(row.get(k)):
             sum_cols += row.get(k)
-   
+    
     if debug and row_type in [70.0, 80.0, 110.0]:
         st.write(f"RWA calculé pour ligne {row_type}: {sum_cols}")
-   
+    
     return sum_cols
+
 def calculer_0040(row):
     return somme_sans_nan(row, ["0010", "0030"])
 
@@ -578,28 +570,42 @@ def construire_df_c0700_recalcule(df_bloc, debug=False):
 
 def injecter_capital_planning_dans_bloc(df_bloc, capital_planning_value, debug=False):
     """
-    Injecte le capital planning dans le bloc C0700 et recalcule avec la nouvelle logique
+    Injecte le capital planning dans le bloc C0700 et recalcule uniquement pour la ligne 70.0.
+    La fonction gère également le recalcul complet du bloc.
     """
+    if debug:
+        st.write("\n### DEBUG: injecter_capital_planning_dans_bloc")
+        st.write(f"Capital planning à injecter: {capital_planning_value}")
+
     if capital_planning_value is None or pd.isna(capital_planning_value) or capital_planning_value == 0:
-        return construire_df_c0700_recalcule(df_bloc, debug)
+        if debug:
+            st.write("⚠️ Valeur invalide ou nulle")
+        return df_bloc  # Retourner tel quel si la valeur est invalide
 
     df_new = df_bloc.copy()
+
+    # Identifier la ligne 70.0 dans le bloc
     idx = df_new[df_new["row"] == 70.0].index
 
     if not idx.empty:
-        # Ancienne valeur peut être NaN, gérer ce cas
+        # Injection du capital planning uniquement dans la ligne 70.0
         ancienne_valeur = df_new.at[idx[0], "0010"]
         ancienne_valeur = 0 if pd.isna(ancienne_valeur) else ancienne_valeur
-       
-        df_new.at[idx[0], "0010"] = ancienne_valeur + capital_planning_value
-       
-        if debug:
-            st.write(f"Capital planning injecté: {capital_planning_value}")
-            st.write(f"Nouvelle valeur 0010: {df_new.at[idx[0], '0010']}")
-    else:
-        raise ValueError("Ligne 70.0 introuvable dans le bloc C0700")
+        nouvelle_valeur = ancienne_valeur + capital_planning_value
+        df_new.at[idx[0], "0010"] = nouvelle_valeur
 
-    return construire_df_c0700_recalcule(df_new, debug)
+        if debug:
+            st.write(f"Mise à jour ligne 70.0: {ancienne_valeur:,.2f} + {capital_planning_value:,.2f} = {nouvelle_valeur:,.2f}")
+    else:
+        if debug:
+            st.error("❌ Ligne 70.0 introuvable")
+        raise ValueError("Ligne 70.0 introuvable")
+
+    # Recalculer le bloc après injection
+    df_new = construire_df_c0700_recalcule(df_new, debug)  
+    return df_new  # Retourner le bloc mis à jour et déjà recalculé
+
+
 
 def calculer_somme_rwa_bloc(df_bloc, debug=False):
     """
@@ -691,21 +697,36 @@ def recalculer_arborescence_c0200(df_c02):
 
 def calculer_fonds_propres_annee(df_c01_prec, bilan_df, annee):
     """
-    Ajoute le capital planning au résultat (ligne 150) et recalcule les fonds propres
+    Calcule les fonds propres CET1 en tenant compte :
+    - du capital planning appliqué au Résultat de l'exercice (ligne 150)
+    - et au Report à nouveau (ligne 200)
     """
-    poste = "Income Statement - Résultat de l'exercice"
-    cp_annee = get_capital_planning_below(bilan_df, poste, annee)
-
+    # Copie du COREP C01 de l'année précédente
     df_c01_annee = df_c01_prec.copy()
-    idx_150 = df_c01_annee[df_c01_annee["row"] == 150].index
 
-    if not idx_150.empty and cp_annee is not None:
-        ancienne_val = df_c01_annee.at[idx_150[0], "0010"] or 0
-        df_c01_annee.at[idx_150[0], "0010"] = ancienne_val + cp_annee
+    # === 1. Capital planning sur Résultat de l'exercice
+    poste_resultat = "Income Statement - Résultat de l'exercice"
+    cp_resultat = get_capital_planning_below(bilan_df, poste_resultat, annee)
 
+    idx_resultat = df_c01_annee[df_c01_annee["row"] == 200].index
+    if not idx_resultat.empty and cp_resultat is not None:
+        ancienne_val = df_c01_annee.at[idx_resultat[0], "0010"] or 0
+        df_c01_annee.at[idx_resultat[0], "0010"] = ancienne_val + cp_resultat
+
+    # === 2. Capital planning sur Report à nouveau
+    poste_report = "Report à nouveau (passif)"
+    cp_report = get_capital_planning_below(bilan_df, poste_report, annee)
+
+    idx_report = df_c01_annee[df_c01_annee["row"] == 200].index
+    if not idx_report.empty and cp_report is not None:
+        ancienne_val = df_c01_annee.at[idx_report[0], "0010"] or 0
+        df_c01_annee.at[idx_report[0], "0010"] = ancienne_val + cp_report
+
+    # === 3. Recalcul de l'arborescence (CET1 → Tier1 → Total funds)
     df_c01_annee = recalculer_c0100_arborescence(df_c01_annee)
 
-    idx_20 = df_c01_annee[df_c01_annee["row"] == 20].index
+    # === 4. Extraction du montant total des fonds propres (CET1 + AT1 + T2) : ligne 20
+    idx_20 = df_c01_annee[df_c01_annee["row"] == 15].index
     fonds_propres = df_c01_annee.at[idx_20[0], "0010"] if not idx_20.empty else None
 
     return df_c01_annee, fonds_propres
@@ -765,82 +786,154 @@ def calculer_ratio_solvabilite(df_c01, df_c02):
 
     ratio = fp.values[0] / rwa.values[0] * 100
     return round(ratio, 2)
-def traiter_poste_capital_planning(poste, feuille, bilan, annee, df_bloc_prec, df_c02):
+def traiter_poste_capital_planning(poste, feuille, bilan, annee, df_bloc_prec, df_c02, debug=False):
     """
     Injecte le capital planning pour un poste donné et met à jour le C0200.
     Corrigée : conversion des index 'row' en string pour une bonne correspondance avec le mapping.
+    La fonction utilise l'injection qui inclut déjà le recalcul.
     """
-    cp_value = get_capital_planning_below(bilan, poste, annee)
+    if debug:
+        st.write(f"\n### DEBUG traiter_poste_capital_planning")
+        st.write(f"Processing {poste} pour feuille {feuille}")
+
+    cp_value = get_capital_planning_below(bilan, poste, annee, debug=debug)
+    if debug:
+        st.write(f"Capital planning value: {cp_value}")
+
     if cp_value is None or pd.isna(cp_value):
+        if debug:
+            st.write("⚠️ No capital planning value found")
         return df_bloc_prec.copy(), 0, df_c02
 
-    # Injection et recalcul
-    df_bloc_avec_cp = injecter_capital_planning_dans_bloc(df_bloc_prec, cp_value)
-    df_bloc_recalcule = construire_df_c0700_recalcule(df_bloc_avec_cp)
+    # Injection et recalcul (le recalcul est déjà géré dans injecter_capital_planning_dans_bloc)
+    df_bloc_recalcule = injecter_capital_planning_dans_bloc(df_bloc_prec, cp_value, debug=debug)
 
     # Calcul du delta RWA
-    rwa_ancien = calculer_somme_rwa_bloc(df_bloc_prec)
-    rwa_nouveau = calculer_somme_rwa_bloc(df_bloc_recalcule)
+    rwa_ancien = calculer_somme_rwa_bloc(df_bloc_prec, debug=debug)
+    rwa_nouveau = calculer_somme_rwa_bloc(df_bloc_recalcule, debug=debug)
     delta_rwa = rwa_nouveau - rwa_ancien
+
+    if debug:
+        st.write(f"RWA ancien: {rwa_ancien:,.2f}")
+        st.write(f"RWA nouveau: {rwa_nouveau:,.2f}")
+        st.write(f"Delta RWA: {delta_rwa:,.2f}")
 
     # Mise à jour de la ligne cible dans C0200
     code_ligne = mapping_c0700_to_c0200.get(feuille)
     if code_ligne:
         df_c02_new = df_c02.copy()
-        df_c02_new["row"] = df_c02_new["row"].astype(str)  # 🔁 Cast obligatoire
+        df_c02_new["row"] = df_c02_new["row"].astype(str)  # Cast obligatoire
 
         idx = df_c02_new[df_c02_new["row"] == code_ligne].index
         if not idx.empty:
-            ancienne_valeur = df_c02_new.at[idx[0], "0010"] or 0
+            ancienne_valeur = float(df_c02_new.at[idx[0], "0010"] or 0)
             df_c02_new.at[idx[0], "0010"] = ancienne_valeur + delta_rwa
+            
+            if debug:
+                st.write(f"Mise à jour C0200 ligne {code_ligne}:")
+                st.write(f"- Ancienne valeur: {ancienne_valeur:,.2f}")
+                st.write(f"- Nouvelle valeur: {(ancienne_valeur + delta_rwa):,.2f}")
 
         return df_bloc_recalcule, delta_rwa, df_c02_new
 
+    if debug:
+        st.write("⚠️ No mapping found for C0200 update")
     return df_bloc_recalcule, delta_rwa, df_c02
-
-def traiter_tous_postes(bilan, annee, blocs_prec, df_c02_prec):
-    """
-    Traite tous les postes du mapping_feuilles_rwa et retourne :
-    - blocs recalculés
-    - C0200 mis à jour (ligne 10 mise à jour directement)
-    - journal des deltas
-    """
-    blocs_recalcules = {}
+#new
+def traiter_tous_postes(bilan, annee, blocs_prec, df_c02_prec, pourcentage_retail=50, pourcentage_corporate=50, debug=False):
+    # Initialisation des variables de retour
+    blocs_recalcules = {nom: df.copy() for nom, df in blocs_prec.items()}
     df_c02_new = df_c02_prec.copy()
     journal_deltas = []
-    total_delta_rwa = 0  # 👈 Cumul global
+    repartition = {}
 
+    if debug:
+        st.write(f"\n### DEBUG: Traitement année {annee}")
+        st.write("📊 Blocs initiaux:")
+        for nom, bloc in blocs_prec.items():
+            st.write(f"Bloc {nom}:")
+            st.dataframe(bloc)
+
+    # === PHASE 1 : Créances Clientèle ===
+    poste_client = "Créances clientèle"
+    valeur_creance_totale = get_capital_planning_below(bilan, poste_client, annee, debug=debug) or 0
+    
+    if valeur_creance_totale > 0:
+        # Utilisation de la fonction de répartition pour le capital planning clientèle
+        repartition = repartir_capital_planning_clientele(valeur_creance_totale, pourcentage_retail, pourcentage_corporate)
+
+        if debug:
+            st.write("📊 Répartition Créances Clientèle:")
+            st.json(repartition)
+
+        # Injection Retail/Corporate
+        for feuille in ['C0700_0008_1', 'C0700_0009_1']:
+            valeur = repartition[feuille]
+            if feuille in blocs_recalcules:
+                if debug:
+                    st.write(f"\n🔄 Injection {valeur:,.2f} dans {feuille}")
+                # Le bloc est déjà recalculé dans injecter_capital_planning_dans_bloc
+                bloc_modifie = injecter_capital_planning_dans_bloc(blocs_recalcules[feuille], valeur, debug=debug)
+                delta = calculer_somme_rwa_bloc(bloc_modifie) - calculer_somme_rwa_bloc(blocs_recalcules[feuille])
+                blocs_recalcules[feuille] = bloc_modifie
+                journal_deltas.append((f"{poste_client} - {feuille[-5]}", feuille, delta))
+
+    # === PHASE 2 : Part hypothécaire + Immobilisations ===
+    poste_immobilisations = "Immobilisations et Autres Actifs"
+    valeur_immobilisations = get_capital_planning_below(bilan, poste_immobilisations, annee, debug=debug) or 0
+    valeur_part_hypo = repartition.get("C0700_0010_1", 0)
+    valeur_totale_0010_1 = valeur_part_hypo + valeur_immobilisations
+
+    if valeur_totale_0010_1 > 0:
+        feuille = "C0700_0010_1"
+        if debug:
+            st.write(f"\n🟣 Injection combinée dans {feuille}:")
+            st.write(f"- Part hypothécaire: {valeur_part_hypo:,.2f}")
+            st.write(f"- Immobilisations: {valeur_immobilisations:,.2f}")
+            st.write(f"→ Total injecté: {valeur_totale_0010_1:,.2f}")
+
+        # Le bloc est déjà recalculé dans injecter_capital_planning_dans_bloc
+        bloc_modifie = injecter_capital_planning_dans_bloc(blocs_recalcules[feuille], valeur_totale_0010_1, debug=debug)
+        delta = calculer_somme_rwa_bloc(bloc_modifie) - calculer_somme_rwa_bloc(blocs_recalcules[feuille])
+        blocs_recalcules[feuille] = bloc_modifie
+        journal_deltas.append(("Part hypo + Immobilisations", feuille, delta))
+
+    # === PHASE 3 : Autres postes standards ===
     for poste, feuilles in mapping_feuilles_rwa.items():
-        for feuille in feuilles:
-            df_bloc_prec = blocs_prec.get(feuille, pd.DataFrame(columns=["row", "0010", "0200", "0215", "0220"]))
-            bloc_new, delta_rwa, df_c02_new = traiter_poste_capital_planning(
-                poste, feuille, bilan, annee, df_bloc_prec, df_c02_new
-            )
-            blocs_recalcules[feuille] = bloc_new
-            journal_deltas.append((poste, feuille, delta_rwa))
-            total_delta_rwa += delta_rwa  # 👈 Ajouter au total
+        if poste in [poste_client, poste_immobilisations]:
+            continue
 
-    # Mise à jour directe de la ligne 10 (total RWA)
-    idx_10 = df_c02_new[df_c02_new["row"] == 10].index
+        valeur = get_capital_planning_below(bilan, poste, annee, debug=debug) or 0
+        if valeur > 0:
+            for feuille in feuilles:
+                if feuille in blocs_recalcules:
+                    if debug:
+                        st.write(f"\n🔍 Traitement poste {poste} sur feuille {feuille}")
+                        st.write(f"Valeur CP: {valeur:,.2f}")
+                    # Le bloc est déjà recalculé dans injecter_capital_planning_dans_bloc
+                    bloc_modifie = injecter_capital_planning_dans_bloc(blocs_recalcules[feuille], valeur, debug=debug)
+                    delta = calculer_somme_rwa_bloc(bloc_modifie) - calculer_somme_rwa_bloc(blocs_recalcules[feuille])
+                    blocs_recalcules[feuille] = bloc_modifie
+                    journal_deltas.append((poste, feuille, delta))
+
+    # === PHASE 4 : Mise à jour du RWA total ===
+    total_delta = sum(delta for _, _, delta in journal_deltas)
+    idx_10 = df_c02_new[df_c02_new["row"] == "10"].index
     if not idx_10.empty:
-        ancienne_val = df_c02_new.at[idx_10[0], "0010"] or 0
-        df_c02_new.at[idx_10[0], "0010"] = ancienne_val + total_delta_rwa
-    else:
-        # Si la ligne 10 n'existe pas, on peut l'ajouter
-        nouvelle_ligne = pd.DataFrame([{"row": 10, "0010": total_delta_rwa}])
-        df_c02_new = pd.concat([df_c02_new, nouvelle_ligne], ignore_index=True)
+        ancien_rwa = float(df_c02_new.at[idx_10[0], "0010"] or 0)
+        nouveau_rwa = ancien_rwa + total_delta
+        df_c02_new.at[idx_10[0], "0010"] = nouveau_rwa
+        if debug:
+            st.write(f"\n📌 MAJ RWA total (ligne 10): {ancien_rwa:,.2f} → {nouveau_rwa:,.2f}")
 
+    # === Retour systématique des résultats ===
     return blocs_recalcules, df_c02_new, journal_deltas
-
 
 def simuler_solvabilite_pluriannuelle(
     bilan, df_c01_2024, df_c02_2024, blocs_c0700_2024,
-    annees=["2025", "2026", "2027"]
+    annees=["2025", "2026", "2027"],
+    pourcentage_retail=50, pourcentage_corporate=50
 ):
-    """
-    Version modifiée qui ne s'appuie plus sur C0200 mis à jour, mais reconstruit le RWA total
-    à partir des deltas cumulés.
-    """
     resultats = {
         "2024": {
             "ratio": calculer_ratio_solvabilite(df_c01_2024, df_c02_2024),
@@ -853,37 +946,50 @@ def simuler_solvabilite_pluriannuelle(
         }
     }
 
-    blocs_reference = {nom: df.copy() for nom, df in blocs_c0700_2024.items()}
-    rwa_courant = resultats["2024"]["rwa_cumule"]
+    # MODIFICATION CLÉ : On garde une référence mutable des blocs qui sera mise à jour année après année
+    blocs_courants = {nom: df.copy() for nom, df in blocs_c0700_2024.items()}
+    df_c02_courant = df_c02_2024.copy()
+    rwa_cumule = resultats["2024"]["rwa_cumule"]
 
     for annee in annees:
-        annee_prec = str(int(annee) - 1)
-
-        blocs_annee, _, log_deltas = traiter_tous_postes(
-            bilan, annee, blocs_reference, resultats[annee_prec]["df_c02"]
+        annee_prec = str(int(annee)-1)
+        
+        # MODIFICATION : On utilise les blocs courants (déjà mis à jour) plutôt que blocs_reference
+        blocs_annee, df_c02_new, log_deltas = traiter_tous_postes(
+            bilan, annee, 
+            blocs_prec=blocs_courants,  # On utilise les blocs de l'année précédente modifiés
+            df_c02_prec=df_c02_courant,
+            pourcentage_retail=pourcentage_retail,
+            pourcentage_corporate=pourcentage_corporate
         )
 
+        # Mise à jour des références pour l'année suivante
+        blocs_courants = {nom: df.copy() for nom, df in blocs_annee.items()}
+        df_c02_courant = df_c02_new.copy()
+        
         delta_total = sum(delta for _, _, delta in log_deltas)
-        rwa_courant += delta_total
+        rwa_cumule += delta_total
 
         df_c01_new, fonds_propres = calculer_fonds_propres_annee(
-            resultats[annee_prec]["df_c01"],
+            resultats[annee_prec]["df_c01"],  # Prend les FP de l'année précédente
             bilan, annee
         )
-        ratio = round(fonds_propres / rwa_courant * 100, 2) if rwa_courant else None
+        
+        ratio = round(fonds_propres / rwa_cumule * 100, 2) if rwa_cumule else None
 
         resultats[annee] = {
             "ratio": ratio,
             "fonds_propres": fonds_propres,
-            "rwa": rwa_courant,
+            "rwa": rwa_cumule,
             "df_c01": df_c01_new,
-            "df_c02": resultats[annee_prec]["df_c02"],  # figé
+            "df_c02": df_c02_new,
             "blocs_rwa": blocs_annee,
             "deltas": log_deltas,
-            "rwa_cumule": rwa_courant
+            "rwa_cumule": rwa_cumule
         }
 
     return resultats
+
 
 # def format_large_number(num):
 #     """Formate les grands nombres pour l'affichage"""
@@ -951,14 +1057,14 @@ def somme_sans_nan(row, cols):
 
 
 
-def get_tier1_value(df_c01):
+'''def get_tier1_value(df_c01):
     """
     Récupère la valeur du Tier 1 (ligne 15) du tableau C0100
     """
     idx = df_c01[df_c01["row"] == 15].index
     if not idx.empty:
         return df_c01.loc[idx[0], "0010"]
-    return None
+    return None'''
 
 # Mapping pour identifier les postes du bilan correspondant aux lignes dans C4700
 # Ce mapping relie les postes du bilan aux catégories d'exposition dans le calcul du ratio de levier
@@ -1013,15 +1119,37 @@ def calculer_ratio_levier(tier1_value, total_exposure):
 
 
     # === Récupération du capital planning ===
-def get_capital_planning_below(bilan_df, poste_bilan, annee="2025"):
+def get_capital_planning_below(bilan_df, poste_bilan, annee="2025", debug=False):
+    """
+    Récupère la valeur du capital planning sous un poste du bilan
+    """
+    if debug:
+        st.write(f"### DEBUG: get_capital_planning_below")
+        st.write(f"Recherche capital planning pour {poste_bilan} en {annee}")
+        
     bilan_df = bilan_df.reset_index(drop=True)
     index_poste = bilan_df[bilan_df["Poste du Bilan"].astype(str).str.strip() == poste_bilan].index
+    
+    if debug:
+        st.write(f"Index trouvé pour le poste: {index_poste}")
+        
     if not index_poste.empty:
         i = index_poste[0] + 1
         if i < len(bilan_df) and annee in bilan_df.columns:
             valeur = bilan_df.loc[i, annee]
+            if debug:
+                st.write(f"Valeur trouvée à l'index {i}: {valeur}")
             if pd.notna(valeur):
                 return valeur
+            elif debug:
+                st.write("Valeur trouvée est NaN")
+        elif debug:
+            st.write("Index hors limites ou année non trouvée")
+    elif debug:
+        st.write("Poste non trouvé dans le bilan")
+        
+    if debug:
+        st.write("Retourne None (aucune valeur valide trouvée)")
     return None
 
 
@@ -1093,56 +1221,50 @@ def recalculer_c0100_arborescence(df_c01):
 
 def simuler_levier_pluriannuel(
     bilan, df_c01_2024, df_c4700_2024,
-    annees=["2025", "2026", "2027"]):
+    annees=["2025", "2026", "2027"]
+):
     """
-    Simule la projection des ratios de levier pour plusieurs années
+    Simule la projection des ratios de levier pour plusieurs années,
+    en harmonisant le calcul du Tier 1 avec celui utilisé pour la solvabilité.
     """
-    # Obtenir Tier1 initial
-    tier1_2024 = get_tier1_value(df_c01_2024)
-    # Calcul de l'exposition totale initiale
-    total_exposure_2024, _ = calcul_total_exposure(df_c4700_2024)
-   
+    # === Traitement 2024 avec capital planning ===
+    df_c01_2024_calcule, tier1_2024 = calculer_fonds_propres_annee(df_c01_2024, bilan, "2024")
+    total_exposure_2024, df_c4700_2024_modifie = calcul_total_exposure(df_c4700_2024)
+
     resultats = {
         "2024": {
             "ratio": calculer_ratio_levier(tier1_2024, total_exposure_2024),
             "tier1": tier1_2024,
             "total_exposure": total_exposure_2024,
-            "df_c01": df_c01_2024.copy(),
-            "df_c4700": df_c4700_2024.copy()
+            "df_c01": df_c01_2024_calcule,
+            "df_c4700": df_c4700_2024_modifie
         }
     }
-   
-    # Utiliser pour simuler les années suivantes
-    dict_df_c01 = {"2024": df_c01_2024.copy()}
-    dict_df_c4700 = {"2024": df_c4700_2024.copy()}
-   
+
+    # Dictionnaires de suivi pour les années suivantes
+    dict_df_c01 = {"2024": df_c01_2024_calcule}
+    dict_df_c4700 = {"2024": df_c4700_2024_modifie}
+
+    # === Projection pluriannuelle ===
     for annee in annees:
-        print(f"\n🔁 Traitement de l'année {annee} pour levier")
         annee_prec = str(int(annee) - 1)
-       
-        # ÉTAPE 1: Recalcul de Tier1 avec le capital planning
-        df_c01_new, tier1_value = calculer_fonds_propres_tier1_annee(
-            dict_df_c01[annee_prec],
-            bilan, annee
+
+        # 1. Recalcul du Tier 1 avec capital planning
+        df_c01_new, tier1_value = calculer_fonds_propres_annee(
+            dict_df_c01[annee_prec], bilan, annee
         )
-       
-        # ÉTAPE 2: Mise à jour de l'exposition pour le ratio de levier
+
+        # 2. Recalcul de l’exposition totale avec capital planning appliqué à "Other assets"
         df_c4700_prec = dict_df_c4700[annee_prec].copy()
-       
-        # Calculer la somme des modifications de capital planning à intégrer dans "Other assets"
-        somme_capital_planning = 0
-        for poste, row_c4700 in mapping_bilan_to_c4700.items():
-            cp_value = get_capital_planning_below(bilan, poste, annee)
-            if cp_value is not None:
-                somme_capital_planning += cp_value
-       
-        # Recalculer l'exposition totale avec la somme des capital planning
+        somme_capital_planning = sum(
+            get_capital_planning_below(bilan, poste, annee) or 0
+            for poste in mapping_bilan_to_c4700
+        )
+
         total_exposure, df_c4700_new = calcul_total_exposure(df_c4700_prec, somme_capital_planning)
-       
-        # Calcul du ratio de levier final
         ratio = calculer_ratio_levier(tier1_value, total_exposure)
-       
-        # Sauvegarde des résultats
+
+        # 3. Sauvegarde des résultats
         resultats[annee] = {
             "ratio": ratio,
             "tier1": tier1_value,
@@ -1150,8 +1272,7 @@ def simuler_levier_pluriannuel(
             "df_c01": df_c01_new,
             "df_c4700": df_c4700_new
         }
-       
-        # Stockage pour la prochaine itération
+
         dict_df_c01[annee] = df_c01_new
         dict_df_c4700[annee] = df_c4700_new
 

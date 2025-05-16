@@ -11,7 +11,6 @@ def format_number_espace(n):
     return f"{n:,.2f}".replace(",", " ").replace(".", ".")
 
 
-
 scenarios = {
     "idiosyncratique": {
         "Retrait massif des dépôts": ["Dépôts et avoirs de la clientèle"],
