@@ -86,11 +86,11 @@ def show():
     # ====================== HORIZON DE STRESS TEST ======================
     st.subheader("Horizon de Stress Test")
     horizon = st.number_input("Durée de l'horizon de stress test (en années)", min_value=1, max_value=10, value=3)
-    
+   
     # Load data upfront
     df_72, df_73, df_74 = bst.charger_lcr()
     df_80, df_81 = bst.charger_nsfr()
-    
+   
     # Calculate ratios for all years in horizon immediately
     resultats_horizon = calcul_ratios_sur_horizon(horizon, bilan, df_72, df_73, df_74, df_80, df_81)
 
@@ -100,7 +100,7 @@ def show():
     # ====================== RATIOS DISPLAY SECTION ======================
     if st.session_state.show_ratios:
         st.subheader("Ratios Réglementaires")
-        
+       
         # ====================== LCR RATIO ======================
         st.markdown("##### Ratio LCR")
         with st.expander("Ratio LCR", expanded=False):
@@ -110,7 +110,7 @@ def show():
             st.write("- Actifs liquides de haute qualité (par exemple : bons du Trésor, obligations d'État)")
             st.write("- Sorties nettes de trésorerie sur 30 jours (composées de remboursements de prêts, de retraits de dépôts, etc.)")
             st.write("**Interprétation:** Un LCR supérieur à 100 % signifie que la banque dispose d'une réserve suffisante d'actifs liquides pour faire face à ses obligations à court terme.")
-        
+       
         # Créer un tableau pour LCR avec les colonnes Année, HQLA, Inflow, Outflow, LCR%
         lcr_years = []
         for year in range(2024, 2024+horizon+1):
@@ -123,10 +123,10 @@ def show():
                     #"Net Outflow": format_large_number(resultats_horizon[year]['OUTFLOWS'] - resultats_horizon[year]['INFLOWS']),
                     "LCR%": f"{resultats_horizon[year]['LCR']*100:,.2f}%"
                 })
-        
+       
         lcr_table = pd.DataFrame(lcr_years)
         st.table(lcr_table)
-        
+       
         # LCR details expander for each year
         #st.markdown("###### Les rubriques COREP impactées par le capital planning dans les sorties LCR")
         show_outflow_tab()
@@ -141,13 +141,13 @@ def show():
             if year in resultats_horizon:
                 with st.expander(f"Détails de calcul LCR pour {year}"):
                     st.markdown(f"#### Année {year}")
-                    
+                   
                     col1, col2, col3, col4 = st.columns(4)
 
                     with col1:
                         st.markdown(
                             f"""
-                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                                         box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
                                 <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">LCR</h4>
                                 <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
@@ -161,7 +161,7 @@ def show():
                     with col2:
                         st.markdown(
                             f"""
-                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                                         box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
                                 <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">HQLA</h4>
                                 <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
@@ -175,7 +175,7 @@ def show():
                     with col3:
                         st.markdown(
                             f"""
-                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                                         box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
                                 <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Outflows</h4>
                                 <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
@@ -189,7 +189,7 @@ def show():
                     with col4:
                         st.markdown(
                             f"""
-                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                                         box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
                                 <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Inflows</h4>
                                 <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
@@ -228,7 +228,7 @@ def show():
 
                     # DÉTAIL DU CALCUL LCR : FEUILLE 74 - Utiliser les dataframes spécifiques à l'année
                     st.markdown("**Entrées de liquidités (Inflows)**")
-                    try: 
+                    try:
                         # Utilisez le df_74 spécifique à l'année
                         df_74_year = resultats_horizon[year]['df_74']
                         lignes_non_vides = affiche_inflow_lcr(df_74_year)  
@@ -248,7 +248,7 @@ def show():
             st.write("- Financements stables disponibles (par exemple : dépôts à long terme, fonds propres)")
             st.write("- Besoins en financements stables (corresponds aux besoins de la banque pour financer ses actifs à long terme)")
             st.write("**Interprétation:** Un NSFR supérieur à 100 % indique que la banque dispose de ressources financières stables suffisantes pour soutenir ses activités à long terme.")
-        
+       
         # Créer un tableau pour NSFR avec les colonnes Année, ASF, RSF, NSFR%
         nsfr_years = []
         for year in range(2024, 2024+horizon+1):
@@ -259,14 +259,14 @@ def show():
                     "RSF": f"{resultats_horizon[year]['RSF']:,.2f}".replace(",", " "),
                     "NSFR%": f"{resultats_horizon[year]['NSFR']:,.2f}%"
                 })
-        
+       
         nsfr_table = pd.DataFrame(nsfr_years)
         st.table(nsfr_table)
-        
+       
         # NSFR details expander for each year
         #st.markdown("###### Les rubriques COREP impactées par le capital planning dans RSF")
         show_rsf_tab()
-    
+   
         ######################################################################
         #st.markdown("###### Les rubriques COREP impactées par le capital planning dans ASF")
         show_asf_tab()
@@ -277,7 +277,7 @@ def show():
             if year in resultats_horizon:
                 with st.expander(f"Détails de calcul NSFR pour {year}"):
                     st.markdown(f"##### Année {year}")
-                    
+                   
                     # Afficher métriques principales
                     pwc_orange = "#f47721"
                     pwc_dark_gray = "#3d3d3d"
@@ -290,7 +290,7 @@ def show():
                     with col1:
                         st.markdown(
                             f"""
-                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                                         box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
                                 <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">NSFR</h4>
                                 <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
@@ -304,7 +304,7 @@ def show():
                     with col2:
                         st.markdown(
                             f"""
-                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                                         box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
                                 <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">ASF</h4>
                                 <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
@@ -318,7 +318,7 @@ def show():
                     with col3:
                         st.markdown(
                             f"""
-                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                                         box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
                                 <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">RSF</h4>
                                 <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
@@ -375,7 +375,7 @@ def show():
             st.session_state.last_changed = "retail"
 
         # Affichage
-        st.markdown("###  Ventilation du Capital Planning sur les Créances Clientèle")
+        st.markdown("#### Répartition du Capital Planning sur les Créances Clientèle")
 
         col1, col2, col3 = st.columns([1, 1, 1])
 
@@ -473,7 +473,7 @@ def show():
                     with col1:
                         st.markdown(
                             f"""
-                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                                         box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
                                 <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio Solvabilité</h4>
                                 <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
@@ -487,7 +487,7 @@ def show():
                     with col2:
                         st.markdown(
                             f"""
-                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                                         box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
                                 <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Fonds Propres</h4>
                                 <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
@@ -501,7 +501,7 @@ def show():
                     with col3:
                         st.markdown(
                             f"""
-                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px; 
+                            <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                                         box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
                                 <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">RWA</h4>
                                 <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
@@ -524,7 +524,7 @@ def show():
                                   # Formatage des montants
                                 df_c01_affiche["Montant (EUR)"] = df_c01_affiche["Montant (EUR)"].apply(format_number_espace)
                                 st.dataframe(df_c01_affiche, use_container_width=True)
-                                
+                               
                     else:
                                 st.warning(" Colonne 'row' manquante dans le dataframe C0100.")
                     if "blocs_rwa" in resultats_solva[annee]:
@@ -555,7 +555,7 @@ def show():
                     "Levier": f"{resultats_levier[annee]['ratio']:.2f}%"
                 })
           # Formatage des montants
-      
+     
         st.dataframe(pd.DataFrame(tableau_levier), use_container_width=True)
 
         for annee in annees:
@@ -655,7 +655,7 @@ def show():
 
         # ====================== SOLVABILITÉ RATIO (Placeholder) ======================
 
-        
+       
         # ====================== RÉSUMÉ DES RÉSULTATS ======================
         st.subheader("Résumé des Résultats")
         result_data = []
@@ -667,7 +667,7 @@ def show():
         result_data.append({
             "Ratio": "LCR",
             "Valeur Baseline (2024)": f"{lcr_baseline:.2f}%",
-            **{f"Valeur Baseline Projeté Année {2024+i+1}": f"{resultats_horizon[2024+i+1]['LCR']*100:.2f}%" 
+            **{f"Valeur Baseline Projeté Année {2024+i+1}": f"{resultats_horizon[2024+i+1]['LCR']*100:.2f}%"
             for i in range(horizon) if 2024+i+1 in resultats_horizon},
             "Conformité": "Conforme" if lcr_baseline >= 100 else "Non conforme"
         })
@@ -675,7 +675,7 @@ def show():
         result_data.append({
             "Ratio": "NSFR",
             "Valeur Baseline (2024)": f"{nsfr_baseline:.2f}%",
-            **{f"Valeur Baseline Projeté Année {2024+i+1}": f"{resultats_horizon[2024+i+1]['NSFR']:.2f}%" 
+            **{f"Valeur Baseline Projeté Année {2024+i+1}": f"{resultats_horizon[2024+i+1]['NSFR']:.2f}%"
             for i in range(horizon) if 2024+i+1 in resultats_horizon},
             "Conformité": "Conforme" if nsfr_baseline >= 100 else "Non conforme"
         })
@@ -686,7 +686,7 @@ def show():
         result_data.append({
             "Ratio": "Levier",
             "Valeur Baseline (2024)": f"{levier_baseline:.2f}%",
-            **{f"Valeur Baseline Projeté Année {2024+i+1}": f"{resultats_levier.get(str(2024+i+1), {}).get('ratio', 0):.2f}%" 
+            **{f"Valeur Baseline Projeté Année {2024+i+1}": f"{resultats_levier.get(str(2024+i+1), {}).get('ratio', 0):.2f}%"
             for i in range(horizon) if str(2024+i+1) in resultats_levier},
             "Conformité": "Conforme" if levier_baseline >= 3 else "Non conforme"  # 3% is typical minimum requirement
         })
@@ -696,7 +696,7 @@ def show():
         result_data.append({
             "Ratio": "Solvabilité",
             "Valeur Baseline (2024)": f"{solva_baseline:.2f}%",
-            **{f"Valeur Baseline Projeté Année {2024+i+1}": f"{resultats_solva.get(str(2024+i+1), {}).get('ratio', 0):.2f}%" 
+            **{f"Valeur Baseline Projeté Année {2024+i+1}": f"{resultats_solva.get(str(2024+i+1), {}).get('ratio', 0):.2f}%"
             for i in range(horizon) if str(2024+i+1) in resultats_solva},
             "Conformité": "Conforme" if solva_baseline >= 8 else "Non conforme"  # 8% is typical minimum requirement
         })
