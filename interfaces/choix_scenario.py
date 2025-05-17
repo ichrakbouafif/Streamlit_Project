@@ -1,9 +1,9 @@
 import streamlit as st
 import config
-import numpy as np
 import traceback
 import pandas as pd
 from backend.stress_test import event1 as bst
+from backend.stress_test import event2 as bst2
 from backend.lcr.utils import affiche_LB_lcr, affiche_outflow_lcr, affiche_inflow_lcr
 from backend.lcr.feuille_72 import calcul_HQLA
 from backend.lcr.feuille_73 import calcul_outflow
@@ -32,7 +32,7 @@ def show():
         key="scenario_type_radio"
     )
 
-    scenario_type_key = "idiosyncratique" if "Idiosyncratique" in scenario_type else "macroéconomique"
+    scenario_type_key = "idiosyncratique" if "idiosyncratique" in scenario_type else "macroéconomique"
     st.session_state.scenario_type = scenario_type_key
 
     available_events = list(config.scenarios[scenario_type_key].keys())
@@ -64,6 +64,8 @@ def afficher_configuration_evenements(selected_events, scenario_type):
 
         if event == "Retrait massif des dépôts":
             executer_retrait_depots()
+        elif event == "Tirage PNU":
+            executer_tirage_pnu()
         else:
             st.warning("Cette fonctionnalité n'est pas encore implémentée.")
     
@@ -903,3 +905,115 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
                     afficher_corep_levier_detaille(annee_data["df_c4700"], key_prefix=key_prefix)
                 else:
                     st.info("Aucun détail COREP levier valide disponible pour cette année.")
+
+############################### Evenement 2 : Tirage PNU ###############################
+def executer_tirage_pnu():
+    bilan = bst.charger_bilan()
+    params = afficher_parametres_tirage_pnu()
+
+    if st.button("Exécuter le stress test - Tirage PNU", key="executer_tirage_pnu", use_container_width=True):
+        with st.spinner("Exécution du stress test Tirage PNU en cours..."):
+            try:
+                st.session_state.bilan_original = bilan.copy()
+
+                bilan_stresse = bst2.appliquer_stress_tirage_pnu(
+                    bilan_df=bilan,
+                    pourcentage=params['pourcentage'],
+                    inclure_corpo=params['inclure_corpo'],
+                    inclure_retail=params['inclure_retail'],
+                    inclure_hypo=params['inclure_hypo'],
+                    impact_dettes=params['impact_dettes'],
+                    impact_portefeuille=params['impact_portefeuille']
+                )
+
+                st.session_state.bilan_stresse = bilan_stresse
+                st.success("Stress test exécuté avec succès!")
+                afficher_resultats_tirage_pnu(bilan_stresse, params)
+
+                if st.button("Valider ce scénario", key="valider_tirage_pnu"):
+                    st.success("Scénario validé avec succès!")
+
+                st.session_state.stress_test_executed = True
+                return params
+
+            except Exception as e:
+                st.error(f"Erreur lors de l'exécution du stress test: {str(e)}")
+                st.session_state.stress_test_executed = False
+                return None
+
+    return None
+def afficher_parametres_tirage_pnu():
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### <span style='font-size:18px;'>Paramètres du tirage PNU</span>", unsafe_allow_html=True)
+        pourcentage = st.slider("Pourcentage de tirage PNU (%)", 0, 100, 30, 5) / 100.0
+        inclure_corpo = st.checkbox("Inclure segment Corporate", value=True)
+        inclure_retail = st.checkbox("Inclure segment Retail", value=True)
+        inclure_hypo = st.checkbox("Inclure prêts hypothécaires", value=False)
+
+    with col2:
+        st.markdown("#### <span style='font-size:18px;'>Répartition de l’impact</span>", unsafe_allow_html=True)
+
+        if "impact_portefeuille" not in st.session_state:
+            st.session_state.impact_portefeuille = 15
+        if "impact_dettes" not in st.session_state:
+            st.session_state.impact_dettes = 85
+        if "last_changed_impact" not in st.session_state:
+            st.session_state.last_changed_impact = "portefeuille"
+
+        def on_change_portefeuille():
+            st.session_state.last_changed_impact = "portefeuille"
+            st.session_state.impact_dettes = 100 - st.session_state.impact_portefeuille
+
+        def on_change_dettes():
+            st.session_state.last_changed_impact = "dettes"
+            st.session_state.impact_portefeuille = 100 - st.session_state.impact_dettes
+
+        st.slider(
+            "Portefeuille (%)",
+            0, 100,
+            key="impact_portefeuille",
+            step=5,
+            on_change=on_change_portefeuille
+        )
+
+        st.slider(
+            "Dettes envers établissements de crédit (%)",
+            0, 100,
+            key="impact_dettes",
+            step=5,
+            on_change=on_change_dettes
+        )
+
+    # Conversion en décimales
+    impact_portefeuille = st.session_state.impact_portefeuille / 100.0
+    impact_dettes = st.session_state.impact_dettes / 100.0
+
+    return {
+        "pourcentage": pourcentage,
+        "inclure_corpo": inclure_corpo,
+        "inclure_retail": inclure_retail,
+        "inclure_hypo": inclure_hypo,
+        "impact_dettes": impact_dettes,
+        "impact_portefeuille": impact_portefeuille
+    }
+
+
+def afficher_resultats_tirage_pnu(bilan_stresse, params):
+    st.subheader("Impact sur le bilan (Tirage PNU)")
+    postes_concernes = ["Créances clientèle", "Portefeuille", "Dettes envers établissements de crédit(passif)"]
+    bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes)
+    st.dataframe(bilan_filtre)
+
+    st.subheader("Impact sur la liquidité (LCR)")
+    afficher_resultats_lcr(bilan_stresse, postes_concernes)
+
+    st.subheader("Impact sur le ratio NSFR")
+    afficher_resultats_nsfr(bilan_stresse, postes_concernes)
+
+    st.subheader("Impact sur le ratio de solvabilité")
+    afficher_resultats_solva(bilan_stresse, postes_concernes, params)
+
+    st.subheader("Impact sur le ratio de levier")
+    afficher_resultats_levier(bilan_stresse, postes_concernes, params)
