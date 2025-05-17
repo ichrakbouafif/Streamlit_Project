@@ -914,34 +914,38 @@ def executer_tirage_pnu():
     if st.button("Exécuter le stress test - Tirage PNU", key="executer_tirage_pnu", use_container_width=True):
         with st.spinner("Exécution du stress test Tirage PNU en cours..."):
             try:
+                # Store original in session state
                 st.session_state.bilan_original = bilan.copy()
-
+                
+                # Apply stress
                 bilan_stresse = bst2.appliquer_tirage_pnu(
                     bilan_df=bilan,
                     pourcentage=params["pourcentage"],
                     horizon=params["horizon"],
                     poids_portefeuille=params["impact_portefeuille"],
                     poids_dettes=params["impact_dettes"],
-                    annee = "2024"
+                    annee="2024"
                 )
-
+                
+                # Store stressed version
                 st.session_state.bilan_stresse = bilan_stresse
                 st.success("Stress test exécuté avec succès!")
                 afficher_resultats_tirage_pnu(bilan_stresse, params)
-
+                
                 if st.button("Valider ce scénario", key="valider_tirage_pnu"):
                     st.success("Scénario validé avec succès!")
-
+                
+                # Set the stress test executed flag
                 st.session_state.stress_test_executed = True
+                
                 return params
-
+                
             except Exception as e:
                 st.error(f"Erreur lors de l'exécution du stress test: {str(e)}")
                 st.session_state.stress_test_executed = False
                 return None
 
     return None
-
 
 def afficher_parametres_tirage_pnu():
     col1, col2 = st.columns(2)
@@ -956,7 +960,7 @@ def afficher_parametres_tirage_pnu():
         inclure_hypo = st.checkbox("Inclure prêts hypothécaires", value=True)
 
     with col2:
-        st.markdown("#### <span style='font-size:18px;'>Répartition de l’impact</span>", unsafe_allow_html=True)
+        st.markdown("#### <span style='font-size:18px;'>Répartition de l'impact</span>", unsafe_allow_html=True)
 
         if "impact_portefeuille" not in st.session_state:
             st.session_state.impact_portefeuille = 15
@@ -1003,14 +1007,38 @@ def afficher_parametres_tirage_pnu():
         "horizon": horizon
     }
 
-
-
-def afficher_resultats_tirage_pnu(bilan_stresse, horizon=1, pourcentage=0.1, poids_portefeuille=0.15, poids_dettes=0.85):
+def afficher_resultats_tirage_pnu(bilan_stresse, params):
     st.subheader("Impact sur le bilan (Tirage PNU)")
     postes_concernes = ["Créances clientèle", "Portefeuille", "Dettes envers les établissements de crédit (passif)"]
-    bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes,horizon=3)
+    bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
+    
+    # Section principale des résultats
     st.markdown("### Résultats du stress test")
+    
+    # Afficher les ratios dans des cartes
+    afficher_ratios_tirage_pnu()
+    
+    # Section LCR - Correction de l'appel de fonction en passant params comme second argument
+    st.subheader("Impact sur la liquidité (LCR)")
+    # Correction ici: passage de params au lieu de postes_concernes
+    recap_data = afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=params['horizon'])
+    if recap_data:  # Vérifier que recap_data n'est pas None
+        afficher_tableau_recapitulatif(recap_data, "LCR")
+    
+    # Section NSFR
+    st.subheader("Impact sur le ratio NSFR")
+
+
+
+def afficher_ratios_tirage_pnu():
+    # Définition des variables de couleur si elles ne sont pas déjà définies
+    pwc_light_beige = "#F2F2E9"  # Définir une couleur par défaut
+    pwc_orange = "#D04A02"      # Définir une couleur par défaut
+    pwc_soft_black = "#2D2D2D"  # Définir une couleur par défaut
+    pwc_brown = "#85200C"       # Définir une couleur par défaut
+    pwc_dark_gray = "#414141"   # Définir une couleur par défaut
+    
     bilan = bst.charger_bilan()
     df_72, df_73, df_74 = bst.charger_lcr()
     col1, col2, col3 = st.columns(3)
@@ -1042,12 +1070,75 @@ def afficher_resultats_tirage_pnu(bilan_stresse, horizon=1, pourcentage=0.1, poi
         </div>
         """, unsafe_allow_html=True)
 
-    df_72, df_73, df_74 = bst.charger_lcr()
-    df_72_updated = bst2.propager_impact_portefeuille_vers_df72(df_72, bilan_stresse, annee="2024", pourcentage=0.1, horizon=3, poids_portefeuille=0.15)
-    st.dataframe(df_72_updated)
+def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
+    try:
+        df_72, df_73, df_74 = bst.charger_lcr()
+        annees = [2024 + i for i in range(horizon + 1)]
+        recap_data = []
 
-    df_74_updated = bst2.propager_impact_vers_df74(df_74, bilan_stresse, annee="2024", pourcentage=0.1, horizon=3)
-    st.dataframe(df_74_updated)
+        for annee in annees:
+            print(f"\n=== Debugging LCR for {annee} ===")  # Debug
+            
+            # Get params correctly from the params argument
+            pourcentage = params["pourcentage"]
+            poids_portefeuille = params["impact_portefeuille"]
+            poids_dettes = params["impact_dettes"]
 
-    df_73_updated = bst2.propager_impact_vers_df73(df_73, bilan_stresse, annee="2024", pourcentage=0.1, horizon=3)
-    st.dataframe(df_73_updated)
+            print(f"Pourcentage: {pourcentage}, Poids Portefeuille: {poids_portefeuille}, Poids Dettes: {poids_dettes}")  # Debug
+            
+            # Propagate impacts
+            df_72_annee = bst2.propager_impact_portefeuille_vers_df72(
+                df_72.copy(), bilan_stresse, annee=annee, 
+                pourcentage=pourcentage, horizon=horizon,
+                poids_portefeuille=poids_portefeuille
+            )
+            print("=== Debugging propagation 72 done  ===")
+            df_74_annee = bst2.propager_impact_vers_df74(
+                df_74.copy(), bilan_stresse, annee=annee,
+                pourcentage=pourcentage, horizon=horizon
+            )
+            print("=== Debugging propagation 74 done  ===")
+
+            df_73_annee = bst2.propager_impact_vers_df73(
+                df_73.copy(), bilan_stresse, annee=annee,
+                pourcentage=pourcentage, horizon=horizon,
+                poids_dettes=poids_dettes
+            )
+            print("=== Debugging propagation 73 done  ===")
+
+            print("=== Debugging propagation done  ===")
+            
+            # Calculate components
+            HQLA = calcul_HQLA(df_72_annee)
+            print("=== Debugging HQLA done  ===",HQLA)
+            outflow = calcul_outflow(df_73_annee)
+            print("=== Debugging Outflow done  ===",outflow)
+            inflow = calcul_inflow(df_74_annee)
+            print("=== Debugging Inflow done  ===",inflow)
+            
+            # Debug: Check components
+            print("HQLA:", HQLA)
+            print("Outflow:", outflow)
+            print("Inflow:", inflow)
+            
+            if None in (HQLA, outflow, inflow):
+                raise ValueError("One of LCR components is None!")
+                
+            LCR = Calcul_LCR(inflow, outflow, HQLA)
+            
+            recap_data.append({
+                "Année": annee,
+                "HQLA": HQLA,
+                "Inflows": inflow,
+                "Outflows": outflow,
+                "LCR (%)": LCR * 100,
+                "df_72": df_72_annee,
+                "df_73": df_73_annee,
+                "df_74": df_74_annee
+            })
+        
+        # Moved outside the loop to display the table only once
+        return recap_data
+    except Exception as e:
+        st.error(f"Erreur lors du calcul du LCR: {str(e)}")
+        return None
