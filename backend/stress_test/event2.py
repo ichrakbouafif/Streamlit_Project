@@ -68,3 +68,49 @@ def appliquer_tirage_pnu(bilan_df, pourcentage, horizon=3, annee="2024",
         bilan_df = ajuster_annees_suivantes(bilan_df, poste_dettes, annee_cible, -impact_dettes) 
 
     return bilan_df
+
+
+mapping_bilan_LCR_NSFR_E2 = {
+    "Créances clientèle": [
+        ("row_0050", "df_74"),  # Inflow – Monies from retail customers
+    ],
+    "Portefeuille": [
+        ("row_0070", "df_72"),  
+        ("row_0820", "df_80"), 
+        ("row_1060", "df_80"), 
+    ],
+    "Dettes envers les établissements de crédit (passif)": [
+        ("row_0230", "df_73"), # outflow 
+        ("row_0250", "df_73"), # outflow 
+        ("row_0260", "df_73"), # outflow 
+        ("row_0480", "df_73"), # outflow 
+        ("row_0490", "df_73"), # outflow 
+        ("row_0300", "df_81"), # ASF from finantial cus and central banks - liabilities provided by finantial customers
+    ],
+}
+
+def propager_impact_portefeuille_vers_df72(df_72, bilan_df, annee="2024", pourcentage=0.1, horizon=3, poids_portefeuille=0.15):
+    """
+    Propagation de l'impact du portefeuille vers la ligne row_0070 de df_72 suite au tirage PNU.
+    On applique : row_0070 = row_0070 - impact_portefeuille
+    """
+    df_72 = df_72.copy()
+    
+    poste_engagements = "Engagements de garantie donnés"
+
+    # Récupérer la valeur initiale du poste engagements
+    valeur_initiale = get_valeur_poste_bilan(bilan_df, poste_engagements, annee)
+    print(f"Valeur initiale pour {poste_engagements} en {annee} : {valeur_initiale}")
+    if valeur_initiale is None:
+        raise ValueError(f"Poste '{poste_engagements}' introuvable ou sans valeur pour {annee}.")
+
+    tirage_total = (valeur_initiale * pourcentage) / horizon
+    print(f"Tirage total : {tirage_total}")
+
+    impact_portefeuille = tirage_total * poids_portefeuille
+
+        # Mettre à jour la ligne 'row_0070' dans df_72
+    mask = df_72["row"] == 70
+    df_72.loc[mask, "0010"] = df_72.loc[mask, "0010"] - impact_portefeuille
+
+    return df_72

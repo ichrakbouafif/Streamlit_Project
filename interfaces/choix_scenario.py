@@ -1005,20 +1005,12 @@ def afficher_parametres_tirage_pnu():
 
 
 
-def afficher_resultats_tirage_pnu(bilan_stresse, params):
+def afficher_resultats_tirage_pnu(bilan_stresse, horizon=1, pourcentage=0.1, poids_portefeuille=0.15, poids_dettes=0.85):
     st.subheader("Impact sur le bilan (Tirage PNU)")
     postes_concernes = ["Créances clientèle", "Portefeuille", "Dettes envers les établissements de crédit (passif)"]
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes,horizon=3)
     st.dataframe(bilan_filtre)
-
-    st.subheader("Impact sur la liquidité (LCR)")
-    afficher_resultats_lcr(bilan_stresse, postes_concernes)
-
-    st.subheader("Impact sur le ratio NSFR")
-    afficher_resultats_nsfr(bilan_stresse, postes_concernes)
-
-    st.subheader("Impact sur le ratio de solvabilité")
-    afficher_resultats_solva(bilan_stresse, postes_concernes, params)
-
-    st.subheader("Impact sur le ratio de levier")
-    afficher_resultats_levier(bilan_stresse, postes_concernes, params)
+    st.markdown("### Résultats du stress test")
+    df_72, df_73, df_74 = bst.charger_lcr()
+    df_res = bst2.propager_impact_portefeuille_vers_df72(df_72, bilan_stresse, annee="2024", pourcentage=0.1, horizon=3, poids_portefeuille=0.15)
+    st.dataframe(df_res)
