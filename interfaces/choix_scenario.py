@@ -662,7 +662,7 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
     # Créer le dataframe récapitulatif selon le type de ratio
     if ratio_type == "LCR":
         recap_df = pd.DataFrame([{
-            "Année": x["Année"],
+            "Année": f"{x['Année']:,.0f}".replace(",", ""),
             "HQLA": f"{x['HQLA']:,.2f}".replace(",", " ").replace(".", "."),
             "Inflows": f"{x['Inflows']:,.2f}".replace(",", " ").replace(".", "."),
             "Outflows": f"{x['Outflows']:,.2f}".replace(",", " ").replace(".", "."),
@@ -670,7 +670,7 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
         } for x in recap_data])
     elif ratio_type == "NSFR":
         recap_df = pd.DataFrame([{
-            "Année": x["Année"],
+            "Année": f"{x['Année']:,.0f}".replace(",", ""),
             "ASF": f"{x['ASF']:,.2f}".replace(",", " ").replace(".", "."),
             "RSF": f"{x['RSF']:,.2f}".replace(",", " ").replace(".", "."),
             f"{ratio_type} (%)": f"{x[f'{ratio_type} (%)']:.2f}%"
@@ -954,7 +954,7 @@ def afficher_parametres_tirage_pnu():
         st.markdown("#### <span style='font-size:18px;'>Paramètres du tirage PNU</span>", unsafe_allow_html=True)
 
         pourcentage = st.slider("Pourcentage de tirage PNU (%)", 0, 100, 10, 5) / 100.0
-        horizon = st.slider("Horizon de stress (années)", 0, 3, 3, 1)
+        horizon = st.slider("Horizon de stress (années)", 1, 3, 3, 1)
         inclure_corpo = st.checkbox("Inclure segment Corporate", value=True)
         inclure_retail = st.checkbox("Inclure segment Retail", value=True)
         inclure_hypo = st.checkbox("Inclure prêts hypothécaires", value=True)
@@ -1009,7 +1009,7 @@ def afficher_parametres_tirage_pnu():
 
 def afficher_resultats_tirage_pnu(bilan_stresse, params):
     st.subheader("Impact sur le bilan (Tirage PNU)")
-    postes_concernes = ["Créances clientèle", "Portefeuille", "Dettes envers les établissements de crédit (passif)"]
+    postes_concernes = ["Créances clientèle", "Portefeuille", "Dettes envers les établissements de crédit (passif)","Engagements de garantie donnés"]
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
     
@@ -1073,59 +1073,69 @@ def afficher_ratios_tirage_pnu():
 def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
     try:
         df_72, df_73, df_74 = bst.charger_lcr()
-        annees = [2024 + i for i in range(horizon + 1)]
+        #annees = [2025 + i for i in range(horizon + 1)]
         recap_data = []
+        # Get params correctly from the params argument
+        pourcentage = params["pourcentage"]
+        poids_portefeuille = params["impact_portefeuille"]
+        poids_dettes = params["impact_dettes"]
 
-        for annee in annees:
-            print(f"\n=== Debugging LCR for {annee} ===")  # Debug
-            
-            # Get params correctly from the params argument
-            pourcentage = params["pourcentage"]
-            poids_portefeuille = params["impact_portefeuille"]
-            poids_dettes = params["impact_dettes"]
+        # Ajouter les valeurs de 2024 sans stress
+        recap_data.append({
+            "Année": 2024,
+            "HQLA": calcul_HQLA(df_72),
+            "Inflows": calcul_inflow(df_74),
+            "Outflows": calcul_outflow(df_73),
+            "LCR (%)": Calcul_LCR(calcul_inflow(df_74), calcul_outflow(df_73), calcul_HQLA(df_72)) * 100,
+            "df_72": df_72.copy(),
+            "df_73": df_73.copy(),
+            "df_74": df_74.copy()
+        })
 
-            print(f"Pourcentage: {pourcentage}, Poids Portefeuille: {poids_portefeuille}, Poids Dettes: {poids_dettes}")  # Debug
-            
-            # Propagate impacts
+
+        annees = [2025, 2026, 2027][:horizon]
+
+        # Initialisation avec les valeurs de 2024
+        df72_prec, df73_prec, df74_prec = df_72.copy(), df_73.copy(), df_74.copy()
+
+        for idx, annee in enumerate(annees):
+            if horizon == 1 and annee > 2025:
+                # Dupliquer les valeurs de 2025 si horizon = 1
+                recap_data.append({
+                    "Année": annee,
+                    "HQLA": recap_data[-1]["HQLA"],
+                    "Inflows": recap_data[-1]["Inflows"],
+                    "Outflows": recap_data[-1]["Outflows"],
+                    "LCR (%)": recap_data[-1]["LCR (%)"],
+                    "df_72": recap_data[-1]["df_72"],
+                    "df_73": recap_data[-1]["df_73"],
+                    "df_74": recap_data[-1]["df_74"]
+                })
+                continue
+
+            # Appliquer le choc sur les df précèdents
             df_72_annee = bst2.propager_impact_portefeuille_vers_df72(
-                df_72.copy(), bilan_stresse, annee=annee, 
+                df72_prec.copy(), bilan_stresse, annee=annee, 
                 pourcentage=pourcentage, horizon=horizon,
                 poids_portefeuille=poids_portefeuille
             )
-            print("=== Debugging propagation 72 done  ===")
+
             df_74_annee = bst2.propager_impact_vers_df74(
-                df_74.copy(), bilan_stresse, annee=annee,
+                df74_prec.copy(), bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon
             )
-            print("=== Debugging propagation 74 done  ===")
 
             df_73_annee = bst2.propager_impact_vers_df73(
-                df_73.copy(), bilan_stresse, annee=annee,
+                df73_prec.copy(), bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon,
                 poids_dettes=poids_dettes
             )
-            print("=== Debugging propagation 73 done  ===")
 
-            print("=== Debugging propagation done  ===")
-            
-            # Calculate components
             HQLA = calcul_HQLA(df_72_annee)
-            print("=== Debugging HQLA done  ===",HQLA)
             outflow = calcul_outflow(df_73_annee)
-            print("=== Debugging Outflow done  ===",outflow)
             inflow = calcul_inflow(df_74_annee)
-            print("=== Debugging Inflow done  ===",inflow)
-            
-            # Debug: Check components
-            print("HQLA:", HQLA)
-            print("Outflow:", outflow)
-            print("Inflow:", inflow)
-            
-            if None in (HQLA, outflow, inflow):
-                raise ValueError("One of LCR components is None!")
-                
             LCR = Calcul_LCR(inflow, outflow, HQLA)
-            
+
             recap_data.append({
                 "Année": annee,
                 "HQLA": HQLA,
@@ -1136,6 +1146,10 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
                 "df_73": df_73_annee,
                 "df_74": df_74_annee
             })
+
+            # Sauvegarder les df pour l'année suivante
+            df72_prec, df73_prec, df74_prec = df_72_annee, df_73_annee, df_74_annee
+
         
         # Moved outside the loop to display the table only once
         return recap_data
