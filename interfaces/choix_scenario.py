@@ -1011,6 +1011,43 @@ def afficher_resultats_tirage_pnu(bilan_stresse, horizon=1, pourcentage=0.1, poi
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes,horizon=3)
     st.dataframe(bilan_filtre)
     st.markdown("### Résultats du stress test")
+    bilan = bst.charger_bilan()
     df_72, df_73, df_74 = bst.charger_lcr()
-    df_res = bst2.propager_impact_portefeuille_vers_df72(df_72, bilan_stresse, annee="2024", pourcentage=0.1, horizon=3, poids_portefeuille=0.15)
-    st.dataframe(df_res)
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown(f"""
+        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Part Loans MB (Outflow)</h4>
+            <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">{bst2.part_loans_mb_outflow(df_73, bilan)}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown(f"""
+        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Part Crédits Clientèle (Inflow)</h4>
+            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">{bst2.part_credit_clientele_inflow(df_74, bilan)}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown(f"""
+        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Part Dépôts MB (Inflow)</h4>
+            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">{bst2.part_depots_mb_inflow(df_74, bilan)}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    df_72, df_73, df_74 = bst.charger_lcr()
+    df_72_updated = bst2.propager_impact_portefeuille_vers_df72(df_72, bilan_stresse, annee="2024", pourcentage=0.1, horizon=3, poids_portefeuille=0.15)
+    st.dataframe(df_72_updated)
+
+    df_74_updated = bst2.propager_impact_vers_df74(df_74, bilan_stresse, annee="2024", pourcentage=0.1, horizon=3)
+    st.dataframe(df_74_updated)
+
+    df_73_updated = bst2.propager_impact_vers_df73(df_73, bilan_stresse, annee="2024", pourcentage=0.1, horizon=3)
+    st.dataframe(df_73_updated)
