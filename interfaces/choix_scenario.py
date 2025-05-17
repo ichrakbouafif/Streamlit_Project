@@ -916,14 +916,13 @@ def executer_tirage_pnu():
             try:
                 st.session_state.bilan_original = bilan.copy()
 
-                bilan_stresse = bst2.appliquer_stress_tirage_pnu(
+                bilan_stresse = bst2.appliquer_tirage_pnu(
                     bilan_df=bilan,
-                    pourcentage=params['pourcentage'],
-                    inclure_corpo=params['inclure_corpo'],
-                    inclure_retail=params['inclure_retail'],
-                    inclure_hypo=params['inclure_hypo'],
-                    impact_dettes=params['impact_dettes'],
-                    impact_portefeuille=params['impact_portefeuille']
+                    pourcentage=params["pourcentage"],
+                    horizon=params["horizon"],
+                    poids_portefeuille=params["impact_portefeuille"],
+                    poids_dettes=params["impact_dettes"],
+                    annee = "2024"
                 )
 
                 st.session_state.bilan_stresse = bilan_stresse
@@ -942,15 +941,19 @@ def executer_tirage_pnu():
                 return None
 
     return None
+
+
 def afficher_parametres_tirage_pnu():
     col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("#### <span style='font-size:18px;'>Paramètres du tirage PNU</span>", unsafe_allow_html=True)
-        pourcentage = st.slider("Pourcentage de tirage PNU (%)", 0, 100, 30, 5) / 100.0
+
+        pourcentage = st.slider("Pourcentage de tirage PNU (%)", 0, 100, 10, 5) / 100.0
+        horizon = st.slider("Horizon de stress (années)", 0, 3, 3, 1)
         inclure_corpo = st.checkbox("Inclure segment Corporate", value=True)
         inclure_retail = st.checkbox("Inclure segment Retail", value=True)
-        inclure_hypo = st.checkbox("Inclure prêts hypothécaires", value=False)
+        inclure_hypo = st.checkbox("Inclure prêts hypothécaires", value=True)
 
     with col2:
         st.markdown("#### <span style='font-size:18px;'>Répartition de l’impact</span>", unsafe_allow_html=True)
@@ -996,14 +999,16 @@ def afficher_parametres_tirage_pnu():
         "inclure_retail": inclure_retail,
         "inclure_hypo": inclure_hypo,
         "impact_dettes": impact_dettes,
-        "impact_portefeuille": impact_portefeuille
+        "impact_portefeuille": impact_portefeuille,
+        "horizon": horizon
     }
+
 
 
 def afficher_resultats_tirage_pnu(bilan_stresse, params):
     st.subheader("Impact sur le bilan (Tirage PNU)")
-    postes_concernes = ["Créances clientèle", "Portefeuille", "Dettes envers établissements de crédit(passif)"]
-    bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes)
+    postes_concernes = ["Créances clientèle", "Portefeuille", "Dettes envers les établissements de crédit (passif)"]
+    bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes,horizon=3)
     st.dataframe(bilan_filtre)
 
     st.subheader("Impact sur la liquidité (LCR)")
