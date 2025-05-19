@@ -1,7 +1,11 @@
-import os
 import pandas as pd
-import shutil
+import streamlit as st
 from backend.stress_test.event1 import ajuster_annees_suivantes,get_valeur_poste_bilan
+from config import style_table
+
+
+
+##############################################  Constantes  ####################################################
 
 
 def part_loans_mb_outflow(df_73, bilan):
@@ -36,6 +40,14 @@ def part_depots_mb_inflow(df_74, bilan):
     except Exception as e:
         print(f"[Erreur part_depots_mb_inflow] : {e}")
         return 0.0
+
+
+
+
+
+
+#####################################  IMPACT PNU SUR BILAN  ##########################################
+
 
 
 def get_capital_planning(bilan_df, poste_bilan, annee="2025"):
@@ -123,6 +135,11 @@ mapping_bilan_LCR_NSFR_E2 = {
         ("row_0300", "df_81"), # ASF from finantial cus and central banks - liabilities provided by finantial customers
     ],
 }
+
+
+########################################      LCR      ########################################
+
+
 
 def propager_impact_portefeuille_vers_df72(df_72, bilan_df, annee="2024", pourcentage=0.1, horizon=3, poids_portefeuille=0.15):
     """
@@ -228,12 +245,242 @@ def propager_impact_vers_df73(df_73, bilan_df, pourcentage=0.1, horizon=3, annee
     print(f"Impact 230 : {impact_230}")
     impact_480 = - (pourcentage * retail) / horizon
     print(f"Impact 480 : {impact_480}")
-    impact_499 = - ((pourcentage * hypo) + (pourcentage * corpo)) / horizon
-    print(f"Impact 499 : {impact_499}")
+    impact_490 = - ((pourcentage * hypo) + (pourcentage * corpo)) / horizon
+    print(f"Impact 490 : {impact_490}")
 
 
     df_73.loc[df_73["row"] == 230, "0010"] += impact_230
     df_73.loc[df_73["row"] == 480, "0010"] += impact_480
-    df_73.loc[df_73["row"] == 490, "0010"] += impact_499
+    df_73.loc[df_73["row"] == 490, "0010"] += impact_490
 
     return df_73
+
+
+#################################       NSFR       #####################################
+def extract_other_liabilities_data(user_selections=None):
+    # Data from the pasted line for "Other liabilities"
+    data = {
+        "Row": ["0300", "Total"],
+        "Rubrique": [
+            "Other liabilities",
+            "TOTAL SELECTED ITEMS"
+        ],
+        "Included_in_calculation": ["Yes", "Yes"],
+        "Amount_less_than_6M": [466211782, 0],
+        "Amount_6M_to_1Y": [108096124, 0],
+        "Amount_greater_than_1Y": [1435000000, 0],
+        "Available_stable_funding": [1489048062, 0]
+    }
+
+    # Update with user selections if provided
+    if user_selections:
+        for row, selection in user_selections.items():
+            if row in data["Row"]:
+                idx = data["Row"].index(row)
+                data["Included_in_calculation"][idx] = "Yes" if selection else "No"
+    
+    df = pd.DataFrame(data)
+    
+    # Calculate only for included rows
+    included_mask = df["Included_in_calculation"] == "Yes"
+    
+    # Calculate totals for included rows only
+    df.loc[df["Row"] == "Total", "Amount_less_than_6M"] = (
+        df[included_mask & (df["Row"] != "Total")]["Amount_less_than_6M"].sum()
+    )
+    df.loc[df["Row"] == "Total", "Amount_6M_to_1Y"] = (
+        df[included_mask & (df["Row"] != "Total")]["Amount_6M_to_1Y"].sum()
+    )
+    df.loc[df["Row"] == "Total", "Amount_greater_than_1Y"] = (
+        df[included_mask & (df["Row"] != "Total")]["Amount_greater_than_1Y"].sum()
+    )
+    df.loc[df["Row"] == "Total", "Available_stable_funding"] = (
+        df[included_mask & (df["Row"] != "Total")]["Available_stable_funding"].sum()
+    )
+    
+    # Total per row
+    df["Total_amount"] = (
+        df["Amount_less_than_6M"] + 
+        df["Amount_6M_to_1Y"] + 
+        df["Amount_greater_than_1Y"]
+    )
+    
+    # Calculate weights for time buckets for included rows
+    df["Poids < 6M"] = 0
+    df["Poids 6M-1Y"] = 0
+    df["Poids > 1Y"] = 0
+    
+    for idx in df.index:
+        if df.loc[idx, "Included_in_calculation"] == "Yes" and df.loc[idx, "Total_amount"] > 0:
+            df.loc[idx, "Poids < 6M"] = (
+                df.loc[idx, "Amount_less_than_6M"] / 
+                df.loc[idx, "Total_amount"]
+            )
+            df.loc[idx, "Poids 6M-1Y"] = (
+                df.loc[idx, "Amount_6M_to_1Y"] / 
+                df.loc[idx, "Total_amount"]
+            )
+            df.loc[idx, "Poids > 1Y"] = (
+                df.loc[idx, "Amount_greater_than_1Y"] / 
+                df.loc[idx, "Total_amount"]
+            )
+    
+    # Format numbers
+    for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", 
+                "Total_amount", "Available_stable_funding"]:
+        df[col] = df[col].apply(lambda x: f"{float(x):,.0f}" if x != "" else "")
+    
+    # Format percentages
+    for col in ["Poids < 6M", "Poids 6M-1Y", "Poids > 1Y"]:
+        df[col] = df[col].apply(lambda x: f"{float(x):.2%}" if x != 0 else "0.00%")
+    
+    return df
+
+def create_summary_table_other_liabilities(user_selections=None):
+    df = extract_other_liabilities_data(user_selections)
+    
+    summary_table = pd.DataFrame({
+        "Row": df["Row"],
+        "Rubrique": [
+            "Other liabilities",
+            "TOTAL "
+        ],
+        "Inclus dans le calcul": ["Oui" if x == "Yes" else "Non" for x in df["Included_in_calculation"]],
+        "Montant < 6M (€)": df["Amount_less_than_6M"],
+        "Montant 6M-1A (€)": df["Amount_6M_to_1Y"],
+        "Montant > 1A (€)": df["Amount_greater_than_1Y"],
+        "Montant total (€)": df["Total_amount"],
+        "Poids < 6M": df["Poids < 6M"],
+        "Poids 6M-1A": df["Poids 6M-1Y"],
+        "Poids > 1A": df["Poids > 1Y"],
+        "Financement stable disponible (€)": df["Available_stable_funding"]
+    })
+    
+    return summary_table
+
+def show_other_liabilities_tab():
+    st.markdown("###### Les rubriques COREP impactées par le capital planning dans Other Liabilities")
+
+    # Create checkbox for Other Liabilities row
+    other_liab_rows = ["0300"]
+    other_liab_selections = {}
+
+    cols = st.columns(len(other_liab_rows))
+    for i, row in enumerate(other_liab_rows):
+        with cols[i]:
+            other_liab_selections[row] = st.checkbox(
+                f"Inclure ligne {row}",
+                value=True,
+                key=f"other_liab_{row}"
+            )
+
+    # Get Other Liabilities table with user selections
+    table_other_liab = create_summary_table_other_liabilities(other_liab_selections)
+    styled_other_liab = style_table(table_other_liab, highlight_columns=["Poids < 6M", "Poids 6M-1A", "Poids > 1A"])
+    st.markdown(styled_other_liab.to_html(), unsafe_allow_html=True)
+
+
+def propager_impact_vers_df81(df_81, bilan_df, annee="2024", pourcentage=0.1, horizon=3, poids_dettes=0.85):
+    """
+    Propage l'impact du tirage PNU vers df_81 (ligne 300 - ASF) en utilisant les poids de maturité.
+    Mise à jour de la ligne 300 selon :
+    row_0300 = row_0300 + (impact_dette + capital_planning_dette) * poids_maturité
+
+    Args:
+        df_81: DataFrame df81 à modifier
+        bilan_df: DataFrame du bilan
+        annee: Année de référence (default "2024")
+        pourcentage: Pourcentage du tirage PNU (default 0.1)
+        horizon: Nombre d'années d'impact (default 3)
+        poids_dettes: Poids des dettes (default 0.85)
+
+    Returns:
+        DataFrame df81 modifié
+    """
+    df_81 = df_81.copy()
+
+    try:
+        # 1. Récupérer les poids à partir de la fonction extract_other_liabilities_data
+        poids_df = extract_other_liabilities_data()
+        row_300_data = poids_df[poids_df["Row"] == "0300"].iloc[0]
+
+        poids_less_6m = float(row_300_data["Poids < 6M"].strip('%')) / 100
+        poids_6m_1y = float(row_300_data["Poids 6M-1Y"].strip('%')) / 100
+        poids_greater_1y = float(row_300_data["Poids > 1Y"].strip('%')) / 100
+
+        # 2. Calculer l'impact total du tirage PNU
+        poste_engagements = "Engagements de garantie donnés"
+        poste_dettes = "Dettes envers les établissements de crédit (passif)"
+
+        valeur_engagements = get_valeur_poste_bilan(bilan_df, poste_engagements, annee)
+        if valeur_engagements is None:
+            raise ValueError(f"Valeur engagements non trouvée pour {annee}")
+
+        tirage_total = (valeur_engagements * pourcentage) / horizon
+        impact_dette = tirage_total * poids_dettes
+
+        # 3. Récupérer le capital planning
+        capital_dette = get_capital_planning(bilan_df, poste_dettes, annee=str(int(annee) + 1))
+        total_impact = impact_dette + capital_dette
+
+        # 4. Répartir par maturité
+        amount_less_6m = total_impact * poids_less_6m
+        amount_6m_1y = total_impact * poids_6m_1y
+        amount_greater_1y = total_impact * poids_greater_1y
+
+        # 5. Appliquer à la ligne 300
+        mask_300 = df_81["row"] == 300
+        if mask_300.any():
+            idx = df_81[mask_300].index[0]
+
+            df_81.at[idx, '0010'] = (df_81.at[idx, '0010'] if pd.notnull(df_81.at[idx, '0010']) else 0) + amount_less_6m
+            df_81.at[idx, '0020'] = (df_81.at[idx, '0020'] if pd.notnull(df_81.at[idx, '0020']) else 0) + amount_6m_1y
+            df_81.at[idx, '0030'] = (df_81.at[idx, '0030'] if pd.notnull(df_81.at[idx, '0030']) else 0) + amount_greater_1y
+            df_81.at[idx, '0100'] = (df_81.at[idx, '0100'] if pd.notnull(df_81.at[idx, '0100']) else 0) + total_impact
+
+    except IndexError:
+        print("Ligne 0300 non trouvée dans les données Other Liabilities")
+    except Exception as e:
+        print(f"Erreur dans propager_impact_vers_df81: {str(e)}")
+
+    return df_81
+
+def propager_impact_vers_df80(df_80, bilan_df, annee="2024", pourcentage=0.1, horizon=3, poids_portefeuille=0.15):
+    """
+    Propage l'impact du tirage PNU vers df_80 sur les lignes :
+    - row 820 : ajout de (impact + capital planning) * poids_portefeuille
+    - row 1060 : retrait de impact * poids_portefeuille
+    
+    Args:
+        df_80: DataFrame df80 à modifier
+        bilan_df: DataFrame du bilan
+        annee: Année de référence (default "2024")
+        pourcentage: Pourcentage du tirage PNU (default 0.1)
+        horizon: Nombre d'années d'impact (default 3)
+        poids_portefeuille: Poids du portefeuille (default 0.15)
+        
+    Returns:
+        DataFrame df80 modifié
+    """
+    df_80 = df_80.copy()
+
+    poste_engagements = "Engagements de garantie donnés"
+    poste_creances = "Créances clientèle"
+
+    valeur_engagements = get_valeur_poste_bilan(bilan_df, poste_engagements, "2024")
+    print("val engag df 80 =  ", valeur_engagements, "ANNNEE 2024")
+    if valeur_engagements is None:
+        raise ValueError(f"Valeur engagements non trouvée pour {annee}")
+
+    tirage_total = (valeur_engagements * pourcentage) / horizon
+    impact_creances = tirage_total * poids_portefeuille
+    capital_creances = get_capital_planning(bilan_df, poste_creances, annee=str(int(annee) + 1))
+
+    # Application directe à la ligne 820
+    df_80.loc[df_80['row'] == 820, '0010'] += (impact_creances + capital_creances) * poids_portefeuille
+
+    # Diminution de la ligne 1060
+    df_80.loc[df_80['row'] == 1060, '0010'] -= impact_creances * poids_portefeuille
+
+    return df_80
+

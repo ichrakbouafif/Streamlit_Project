@@ -1029,6 +1029,13 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
 
+    bst2.show_other_liabilities_tab()
+    # Correction ici: passage de params au lieu de postes_concernes
+    recap_data = afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=params['horizon'])
+    if recap_data:  # Vérifier que recap_data n'est pas None
+        afficher_tableau_recapitulatif(recap_data, "NSFR")
+
+
 
 
 def afficher_ratios_tirage_pnu():
@@ -1149,6 +1156,76 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
 
             # Sauvegarder les df pour l'année suivante
             df72_prec, df73_prec, df74_prec = df_72_annee, df_73_annee, df_74_annee
+
+        
+        # Moved outside the loop to display the table only once
+        return recap_data
+    except Exception as e:
+        st.error(f"Erreur lors du calcul du LCR: {str(e)}")
+        return None
+    
+def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
+    try:
+        df_80, df_81 = bst.charger_nsfr()
+        recap_data = []
+        pourcentage = params["pourcentage"]
+        poids_portefeuille = params["impact_portefeuille"]
+        poids_dettes = params["impact_dettes"]
+
+        # Ajouter les valeurs de 2024 sans stress
+        recap_data.append({
+            "Année": 2024,
+            "ASF": calcul_ASF(df_81),
+            "RSF": calcul_RSF(df_80),
+            "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81),calcul_RSF(df_80)),
+            "df_80": df_80.copy(),
+            "df_81": df_81.copy()
+        })
+
+        annees = [2025, 2026, 2027][:horizon]
+
+        # Initialisation avec les valeurs de 2024
+        df80_prec, df81_prec = df_80.copy(), df_81.copy()
+
+        for idx, annee in enumerate(annees):
+            if horizon == 1 and annee > 2025:
+                # Dupliquer les valeurs de 2025 si horizon = 1
+                recap_data.append({
+                    "Année": annee,
+                    "ASF": recap_data[-1]["ASF"],
+                    "RSF": recap_data[-1]["RSF"],
+                    "NSFR (%)": recap_data[-1]["NSFR (%)"],
+                    "df_80": recap_data[-1]["df_80"],
+                    "df_81": recap_data[-1]["df_81"]                })
+                continue
+
+            # Appliquer le choc sur les df précèdents
+            df_80_annee = bst2.propager_impact_vers_df80(
+                df80_prec.copy(), bilan_stresse, annee=annee, 
+                pourcentage=pourcentage, horizon=horizon,
+                poids_portefeuille=poids_portefeuille
+            )
+            df_81_annee = bst2.propager_impact_vers_df81(
+                df81_prec.copy(), bilan_stresse, annee=annee, 
+                pourcentage=pourcentage, horizon=horizon,
+                poids_dettes=poids_dettes
+            )
+
+            ASF = calcul_ASF(df_81_annee)
+            RSF = calcul_RSF(df_80_annee)
+            NSFR = Calcul_NSFR(ASF , RSF)
+
+            recap_data.append({
+                "Année": annee,
+                "ASF": ASF,
+                "RSF": RSF,
+                "NSFR (%)": NSFR,
+                "df_80": df_80_annee,
+                "df_81": df_81_annee,
+            })
+
+            # Sauvegarder les df pour l'année suivante
+            df80_prec, df81_prec = df_80_annee, df_81_annee
 
         
         # Moved outside the loop to display the table only once
