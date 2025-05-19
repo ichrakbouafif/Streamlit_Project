@@ -1,5 +1,9 @@
 import streamlit as st
 from interfaces import homepage, importation_donnees, calcul_ratios, choix_scenario, resultats_graphiques
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 st.set_page_config(page_title="Application de Stress Testing Bancaire", layout="wide")
 

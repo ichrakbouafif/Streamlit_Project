@@ -4,6 +4,8 @@ import traceback
 import pandas as pd
 from backend.stress_test import event1 as bst
 from backend.stress_test import event2 as bst2
+from backend.stress_test import capital_pnu
+
 from backend.lcr.utils import affiche_LB_lcr, affiche_outflow_lcr, affiche_inflow_lcr
 from backend.lcr.feuille_72 import calcul_HQLA
 from backend.lcr.feuille_73 import calcul_outflow
@@ -15,6 +17,7 @@ from backend.nsfr.feuille_81 import calcul_ASF
 # Import additional modules for leverage and solvency
 from backend.levier.calcul_ratio_levier import charger_donnees_levier, calculer_ratio_levier_double_etape
 from backend.solvabilite.calcul_ratios_capital_stressé import charger_donnees,calculer_ratios_solva_double_etape
+from backend.stress_test.capital import executer_stress_pnu_capital_pluriannuel
 
 def show():
     st.title("Choix des scénarios")
@@ -1035,6 +1038,19 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     if recap_data:  # Vérifier que recap_data n'est pas None
         afficher_tableau_recapitulatif(recap_data, "NSFR")
 
+    from backend.ratios_baseline.capital_projete import simuler_solvabilite_pluriannuelle
+    # Section slova
+    st.subheader("Impact sur le ratio de solvabilité")
+    if "resultats_solva" in st.session_state:
+        resultats_proj = st.session_state["resultats_solva"]
+        # Use resultats as needed
+    else:
+        st.warning("Résultats de solvabilité non disponibles.")
+    recap_data = afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj)
+
+    if recap_data:
+        afficher_tableau_recapitulatif(recap_data, "solvabilité")
+
 
 
 
@@ -1232,4 +1248,103 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
         return recap_data
     except Exception as e:
         st.error(f"Erreur lors du calcul du LCR: {str(e)}")
+        return None
+    
+def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
+    try:
+        st.markdown("## 🔍 Résultats du stress test PNU – Capital")
+
+        horizon = params.get("horizon", 3)
+        pourcentage = params.get("pourcentage", 0.10)
+
+        # === Étape 1 : Lecture du bilan
+        bilan = pd.read_excel("data/bilan.xlsx").iloc[2:].reset_index(drop=True)
+        bilan.columns = bilan.columns.fillna("Poste")
+        bilan = bilan.rename(columns={bilan.columns[0]: "Poste", bilan.columns[1]: "2024"})
+
+        # === Étape 2 : Initialisation des tirages par segment cochés
+        tirage_par_segment = {}
+
+        if params.get("inclure_corpo", False):
+            ligne_corpo = bilan[bilan["Poste"].str.contains("Dont Corpo", case=False, na=False)]
+            if not ligne_corpo.empty:
+                valeur_corpo = ligne_corpo["2024"].values[0]
+                tirage_par_segment["C0700_0009_1"] = valeur_corpo * pourcentage
+
+        if params.get("inclure_retail", False):
+            ligne_retail = bilan[bilan["Poste"].str.contains("Dont Retail", case=False, na=False)]
+            if not ligne_retail.empty:
+                valeur_retail = ligne_retail["2024"].values[0]
+                tirage_par_segment["C0700_0008_1"] = valeur_retail * pourcentage
+
+        if params.get("inclure_hypo", False):
+            ligne_hypo = bilan[bilan["Poste"].str.contains("Dont Hypo", case=False, na=False)]
+            if not ligne_hypo.empty:
+                valeur_hypo = ligne_hypo["2024"].values[0]
+                tirage_par_segment["C0700_0010_1"] = valeur_hypo * pourcentage
+
+        if not tirage_par_segment:
+            st.warning(" Aucun segment sélectionné ou lignes 'Dont' manquantes dans le bilan.")
+            return None
+
+        # === Étape 3 : Exécution du stress pluriannuel
+        resultats_stress = executer_stress_pnu_capital_pluriannuel(
+            resultats_proj=resultats_proj,
+            annee_debut="2025",
+            tirages_par_segment=tirage_par_segment,
+            horizon=horizon,
+            debug=True
+        )
+
+        # === Étape 4 : Construction du tableau récapitulatif pour affichage
+        recap_data = []
+        for i in range(horizon):
+            annee = str(2025 + i)
+            resultat = resultats_stress.get(annee)
+            if not resultat:
+                continue
+
+            recap_data.append({
+                "Année": annee,
+                "Fonds propres": resultats_proj[annee]["fonds_propres"],
+                "RWA total": resultat["rwa_total_stresse"],
+                "Ratio de solvabilité (%)": resultat["ratio_solva_stresse"]
+            })
+
+        # === Étape 5 : Affichage du tableau récapitulatif formaté
+        if recap_data:
+            from backend.ratios_baseline.capital_projete import format_large_number  # si tu veux formatter
+
+            st.markdown("## Tableau récapitulatif – PNU Capital")
+            df_recap = pd.DataFrame(recap_data)
+            df_recap["Fonds propres"] = df_recap["Fonds propres"].apply(lambda x: f"{x:,.2f}")
+            df_recap["RWA total"] = df_recap["RWA total"].apply(lambda x: f"{x:,.2f}")
+            df_recap["Ratio de solvabilité (%)"] = df_recap["Ratio de solvabilité (%)"].apply(lambda x: f"{x:.2f}%")
+            st.dataframe(df_recap, use_container_width=True)
+
+        # === Étape 6 : Affichage détaillé (C0700 recalculés par bloc)
+        for annee in resultats_stress:
+            result = resultats_stress[annee]
+            with st.expander(f" Détails de l'année {annee}"):
+                st.metric("Ratio de solvabilité stressé", f"{result['ratio_solva_stresse']:.2f}%")
+                st.write(f"RWA stressé : {result['rwa_total_stresse']:,.0f}")
+                st.write(f"Δ RWA : {result['delta_rwa_total']:,.0f}")
+
+                st.markdown("### Blocs C0700 recalculés")
+                for nom_bloc, df in result["blocs_stresses"].items():
+                    nom_affiche = {
+                        "C0700_0008_1": "Retail",
+                        "C0700_0009_1": "Corporate",
+                        "C0700_0010_1": "Hypothécaire"
+                    }.get(nom_bloc, nom_bloc)
+                    st.markdown(f"**{nom_affiche}**")
+                    st.dataframe(df)
+
+        # Important: Return the recap_data for use in the main display function
+        return recap_data
+
+    except Exception as e:
+        st.error(f"Erreur dans le stress PNU capital : {e}")
+        import traceback
+        st.error(traceback.format_exc())
         return None

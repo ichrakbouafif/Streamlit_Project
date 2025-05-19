@@ -433,6 +433,7 @@ def show():
                 pourcentage_retail=poids_retail,
                 pourcentage_corporate=poids_corporate
             )
+            st.session_state["resultats_solva"] = resultats_solva
         resultats_levier = simuler_levier_pluriannuel(bilan, df_c01, df_c4700, annees=annees[1:])
 
         # === AFFICHAGE SOLVABILITÉ ===
