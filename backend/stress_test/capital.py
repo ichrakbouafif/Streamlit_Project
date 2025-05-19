@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 def recuperer_corep_principal_projete(resultats, annee: str):
     """
     Récupère les tableaux COREP principaux projetés pour une année donnée.

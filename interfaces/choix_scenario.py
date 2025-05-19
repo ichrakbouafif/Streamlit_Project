@@ -4,7 +4,6 @@ import traceback
 import pandas as pd
 from backend.stress_test import event1 as bst
 from backend.stress_test import event2 as bst2
-from backend.stress_test import capital_pnu
 
 from backend.lcr.utils import affiche_LB_lcr, affiche_outflow_lcr, affiche_inflow_lcr
 from backend.lcr.feuille_72 import calcul_HQLA
@@ -17,6 +16,9 @@ from backend.nsfr.feuille_81 import calcul_ASF
 # Import additional modules for leverage and solvency
 from backend.levier.calcul_ratio_levier import charger_donnees_levier, calculer_ratio_levier_double_etape
 from backend.solvabilite.calcul_ratios_capital_stressé import charger_donnees,calculer_ratios_solva_double_etape
+
+#import backend.stress_test.capital_pnu as capital_pnu
+
 from backend.stress_test.capital import executer_stress_pnu_capital_pluriannuel
 
 def show():
@@ -1049,7 +1051,7 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     recap_data = afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj)
 
     if recap_data:
-        afficher_tableau_recapitulatif(recap_data, "solvabilité")
+        afficher_tableau_recapitulatif(recap_data, "Solvabilité")
 
 
 
