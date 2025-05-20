@@ -1035,6 +1035,7 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     st.subheader("Impact sur le ratio NSFR")
 
     bst2.show_other_liabilities_tab()
+    bst2.show_rsf_lines_tab()
     # Correction ici: passage de params au lieu de postes_concernes
     recap_data = afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=params['horizon'])
     if recap_data:  # Vérifier que recap_data n'est pas None
@@ -1220,8 +1221,7 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
             # Appliquer le choc sur les df précèdents
             df_80_annee = bst2.propager_impact_vers_df80(
                 df80_prec.copy(), bilan_stresse, annee=annee, 
-                pourcentage=pourcentage, horizon=horizon,
-                poids_portefeuille=poids_portefeuille
+                pourcentage=pourcentage, horizon=horizon
             )
             df_81_annee = bst2.propager_impact_vers_df81(
                 df81_prec.copy(), bilan_stresse, annee=annee, 
