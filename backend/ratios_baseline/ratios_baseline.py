@@ -55,7 +55,7 @@ def get_capital_planning(bilan_df, poste_bilan, annee="2025"):
     return 0
 
 # Récupérer la valeur de capital planning avec ajustement conditionnel
-def get_CP_LCR(bilan_df, poste_bilan, annee="2025"):
+""" def get_CP_LCR(bilan_df, poste_bilan, annee="2025"):
     bilan_df = bilan_df.reset_index(drop=True)
     poste_bilan_lower = poste_bilan.strip().lower()
     index_poste = bilan_df["Poste du Bilan"].astype(str).str.strip().str.lower() == poste_bilan_lower
@@ -74,6 +74,51 @@ def get_CP_LCR(bilan_df, poste_bilan, annee="2025"):
                     return 0.71 * valeur
                 elif poste_bilan_lower == "dettes envers les établissements de crédit (passif)":
                     return 0.09 * valeur
+                else:
+                    return valeur
+    return 0
+ """
+def get_CP_LCR(bilan_df, poste_bilan, annee="2025", df_73=None, df_74=None):
+    """
+    Récupère la valeur de capital planning avec ajustement conditionnel basé sur les pourcentages calculés dynamiquement
+    
+    Args:
+        bilan_df: DataFrame du bilan
+        poste_bilan: Nom du poste du bilan à rechercher
+        annee: Année de référence (default "2025")
+        df_73: DataFrame pour calculer part_loans_mb_outflow (optionnel)
+        df_74: DataFrame pour calculer part_credit_clientele_inflow et part_depots_mb_inflow (optionnel)
+        
+    Returns:
+        Valeur ajustée selon les pourcentages calculés ou par défaut
+    """
+    from backend.stress_test import event2 as bst2
+    bilan_df = bilan_df.reset_index(drop=True)
+    poste_bilan_lower = poste_bilan.strip().lower()
+    index_poste = bilan_df["Poste du Bilan"].astype(str).str.strip().str.lower() == poste_bilan_lower
+    index_poste = bilan_df[index_poste].index
+
+    if not index_poste.empty:
+        i = index_poste[0] + 1
+        if i < len(bilan_df) and annee in bilan_df.columns:
+            valeur = bilan_df.loc[i, annee]
+            if pd.notna(valeur):
+                # Calculer les pourcentages dynamiquement si les DataFrames sont fournis
+                if poste_bilan_lower == "créances clientèle":
+                    percentage = bst2.part_credit_clientele_inflow(df_74, bilan_df) / 100
+                    return percentage * valeur
+                
+                elif poste_bilan_lower == "créances banques autres":
+                    percentage = bst2.part_depots_mb_inflow(df_74, bilan_df) / 100
+                    return percentage * valeur
+                
+                elif poste_bilan_lower == "dettes envers les établissements de crédit (passif)":
+                    percentage = bst2.part_loans_mb_outflow(df_73, bilan_df) / 100
+                    return percentage * valeur 
+                
+                elif poste_bilan_lower == "depots clients (passif)":
+                    return 0.6967 * valeur
+                
                 else:
                     return valeur
     return 0
@@ -202,12 +247,12 @@ mapping_bilan_LCR_NSFR = {
     "Report à nouveau (passif)": [
         ("row_X", "df_72"),  # Non considéré LCR
         ("row_X", "df_73"),  # Non considéré LCR
-        ("row_X", "df_74"),  # Non considéré LCR
+        ("row_0030", "df_81"), 
     ],
     "Income Statement - Résultat de l'exercice": [
         ("row_X", "df_72"),  # Non considéré LCR
         ("row_X", "df_73"),  # Non considéré LCR
-        ("row_X", "df_74"),  # Non considéré LCR
+        ("row_0030", "df_81"),  
     ],
 }
 
@@ -641,7 +686,7 @@ def style_table(df, highlight_columns=None):
     return styled_df
 
 def show_outflow_tab():
-    st.markdown("##### Détail du calcul du ratio LCR")
+    st.markdown("#####  ")
     st.markdown("###### Les rubriques COREP impactées par le capital planning dans les outflows LCR")
 
     # Create checkboxes for each row
@@ -712,7 +757,7 @@ def extract_lcr_outflow_data(user_selections=None):
         # Default values if no selections provided
         default_values = {
             "0035": True, "0060": True, "0070": True,
-            "0080": False, "0110": False, "0250": False, "0260": True
+            "0080": True, "0110": True, "0250": False, "0260": True
         }
         df["Included_in_calculation"] = df["Row"].apply(
             lambda x: "Oui" if default_values.get(x, False) else "Non"
@@ -975,6 +1020,17 @@ def propager_CP_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderations=N
     elif poste_bilan == "Dettes envers les établissements de crédit (passif)":
         liabilities_row = liabilities_data[liabilities_data['Row'] == '0300'].iloc[0]
         df_81 = apply_capital_planning_to_df81_liabilities(df_81, delta, liabilities_row)
+    elif poste_bilan in ["Income Statement - Résultat de l'exercice", "Report à nouveau (passif)"]:
+        # Add to row 30 (>1y) in df_81
+        print("doing this now")
+        mask = df_81["row"] == 30
+        if mask.any():
+            idx = df_81[mask].index[0]
+            current_value = df_81.at[idx, '0030'] if pd.notnull(df_81.at[idx, '0030']) else 0
+            print("current valur )))",current_value)
+            print("deltaaaa",delta)
+            df_81.at[idx, '0030'] = current_value + delta
+            print(f"Added {delta} to row 30 (>1y) in df_81 for {poste_bilan}")
     else:
         # Normal processing for other posts
         for (row_num, _), poids in zip(lignes_80, ponderations_80):
@@ -990,7 +1046,6 @@ def propager_CP_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderations=N
             df_81.loc[mask, "0010"] = df_81.loc[mask, "0010"] + part_delta
 
     return df_80, df_81
-
 
 
 def propager_CP_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponderations=None):
@@ -1043,12 +1098,12 @@ def propager_CP_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponderat
     return df_72, df_73, df_74
 
 def calcul_ratios_projete(annee, bilan, df_72, df_73, df_74, df_80, df_81):
-    posts = ["Caisse Banque Centrale / nostro","Créances banques autres","Créances clientèle","Portefeuille","Immobilisations et Autres Actifs","Dettes envers les établissements de crédit (passif)","Depots clients (passif)","Autres passifs (passif)","Income Statement - Résultat de l'exercice"]
+    posts = ["Caisse Banque Centrale / nostro","Créances banques autres","Créances clientèle","Portefeuille","Immobilisations et Autres Actifs","Dettes envers les établissements de crédit (passif)","Depots clients (passif)","Autres passifs (passif)","Income Statement - Résultat de l'exercice", "Report à nouveau (passif)"]
     for poste_bilan in posts:
         print("poste_bilan", poste_bilan)
 
         delta = get_capital_planning(bilan, poste_bilan, annee)
-        delta_lcr =get_CP_LCR(bilan, poste_bilan, annee)
+        delta_lcr =get_CP_LCR(bilan, poste_bilan, annee,df_73,df_74)
         print("delta_lcr", delta_lcr)
         print("delta", delta)
 

@@ -1055,16 +1055,7 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
         afficher_tableau_recapitulatif(recap_data, "Solvabilité")
 
 
-
-
 def afficher_ratios_tirage_pnu():
-    # Définition des variables de couleur si elles ne sont pas déjà définies
-    pwc_light_beige = "#F2F2E9"  # Définir une couleur par défaut
-    pwc_orange = "#D04A02"      # Définir une couleur par défaut
-    pwc_soft_black = "#2D2D2D"  # Définir une couleur par défaut
-    pwc_brown = "#85200C"       # Définir une couleur par défaut
-    pwc_dark_gray = "#414141"   # Définir une couleur par défaut
-    
     bilan = bst.charger_bilan()
     df_72, df_73, df_74 = bst.charger_lcr()
     col1, col2, col3 = st.columns(3)
@@ -1073,7 +1064,7 @@ def afficher_ratios_tirage_pnu():
         st.markdown(f"""
         <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                     box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
-            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Part Loans MB (Outflow)</h4>
+            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Part Loans (Outflow)</h4>
             <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">{bst2.part_loans_mb_outflow(df_73, bilan)}%</p>
         </div>
         """, unsafe_allow_html=True)
@@ -1091,7 +1082,7 @@ def afficher_ratios_tirage_pnu():
         st.markdown(f"""
         <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                     box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
-            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Part Dépôts MB (Inflow)</h4>
+            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Part Dépôts (Inflow)</h4>
             <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">{bst2.part_depots_mb_inflow(df_74, bilan)}%</p>
         </div>
         """, unsafe_allow_html=True)

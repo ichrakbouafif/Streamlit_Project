@@ -110,7 +110,7 @@ def show():
             st.write("- Actifs liquides de haute qualité (par exemple : bons du Trésor, obligations d'État)")
             st.write("- Sorties nettes de trésorerie sur 30 jours (composées de remboursements de prêts, de retraits de dépôts, etc.)")
             st.write("**Interprétation:** Un LCR supérieur à 100 % signifie que la banque dispose d'une réserve suffisante d'actifs liquides pour faire face à ses obligations à court terme.")
-       
+
         # Créer un tableau pour LCR avec les colonnes Année, HQLA, Inflow, Outflow, LCR%
         lcr_years = []
         for year in range(2024, 2024+horizon+1):
@@ -129,6 +129,9 @@ def show():
        
         # LCR details expander for each year
         #st.markdown("###### Les rubriques COREP impactées par le capital planning dans les sorties LCR")
+        st.markdown("##### Détail du calcul du ratio LCR")
+        from interfaces.choix_scenario import afficher_ratios_tirage_pnu
+        afficher_ratios_tirage_pnu()
         show_outflow_tab()
 
         pwc_orange = "#f47721"
