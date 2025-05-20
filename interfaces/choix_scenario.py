@@ -1242,8 +1242,6 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
     
 def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
     try:
-        st.markdown("## 🔍 Résultats du stress test PNU – Capital")
-
         horizon = params.get("horizon", 3)
         pourcentage = params.get("pourcentage", 0.10)
 
@@ -1311,7 +1309,7 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
             annee_debut="2025",
             tirages_par_segment=tirage_par_segment,
             horizon=horizon,
-            debug=True
+            debug=False
         )
 
                 # === Étape 4 : Construction du tableau récapitulatif pour affichage
@@ -1336,8 +1334,6 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
         # === Étape 5 : Affichage du tableau récapitulatif formaté
         if recap_data:
             from backend.ratios_baseline.capital_projete import format_large_number  # si tu veux formatter
-
-            st.markdown("## Tableau récapitulatif – PNU Capital")
             df_recap = pd.DataFrame(recap_data)
             df_recap["Fonds propres"] = df_recap["Fonds propres"].apply(lambda x: f"{x:,.2f}")
             df_recap["RWA total"] = df_recap["RWA total"].apply(lambda x: f"{x:,.2f}")
