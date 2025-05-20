@@ -258,18 +258,17 @@ def propager_impact_vers_df73(df_73, bilan_df, pourcentage=0.1, horizon=3, annee
 
 #################################       NSFR       #####################################
 def extract_other_liabilities_data(user_selections=None):
-    # Data from the pasted line for "Other liabilities"
+    # Data for "Other liabilities" only - no Total row
     data = {
-        "Row": ["0300", "Total"],
+        "Row": ["0300"],
         "Rubrique": [
             "Other liabilities",
-            "TOTAL SELECTED ITEMS"
         ],
-        "Included_in_calculation": ["Yes", "Yes"],
-        "Amount_less_than_6M": [466211782, 0],
-        "Amount_6M_to_1Y": [108096124, 0],
-        "Amount_greater_than_1Y": [1435000000, 0],
-        "Available_stable_funding": [1489048062, 0]
+        "Included_in_calculation": ["Yes"],
+        "Amount_less_than_6M": [466211782],
+        "Amount_6M_to_1Y": [108096124],
+        "Amount_greater_than_1Y": [1435000000],
+        "Available_stable_funding": [1489048062]
     }
 
     # Update with user selections if provided
@@ -279,60 +278,46 @@ def extract_other_liabilities_data(user_selections=None):
                 idx = data["Row"].index(row)
                 data["Included_in_calculation"][idx] = "Yes" if selection else "No"
     
+    # Create DataFrame
     df = pd.DataFrame(data)
     
     # Calculate only for included rows
     included_mask = df["Included_in_calculation"] == "Yes"
     
-    # Calculate totals for included rows only
-    df.loc[df["Row"] == "Total", "Amount_less_than_6M"] = (
-        df[included_mask & (df["Row"] != "Total")]["Amount_less_than_6M"].sum()
-    )
-    df.loc[df["Row"] == "Total", "Amount_6M_to_1Y"] = (
-        df[included_mask & (df["Row"] != "Total")]["Amount_6M_to_1Y"].sum()
-    )
-    df.loc[df["Row"] == "Total", "Amount_greater_than_1Y"] = (
-        df[included_mask & (df["Row"] != "Total")]["Amount_greater_than_1Y"].sum()
-    )
-    df.loc[df["Row"] == "Total", "Available_stable_funding"] = (
-        df[included_mask & (df["Row"] != "Total")]["Available_stable_funding"].sum()
+    # Calculate totals only for included rows
+    df["Total_amount"] = 0
+    df.loc[included_mask, "Total_amount"] = (
+        df.loc[included_mask, "Amount_less_than_6M"] + 
+        df.loc[included_mask, "Amount_6M_to_1Y"] + 
+        df.loc[included_mask, "Amount_greater_than_1Y"]
     )
     
-    # Total per row
-    df["Total_amount"] = (
-        df["Amount_less_than_6M"] + 
-        df["Amount_6M_to_1Y"] + 
-        df["Amount_greater_than_1Y"]
+    # Calculate weights only for included rows
+    df["Weight_less_than_6M"] = 0
+    df["Weight_6M_to_1Y"] = 0
+    df["Weight_greater_than_1Y"] = 0
+    
+    df.loc[included_mask, "Weight_less_than_6M"] = (
+        df.loc[included_mask, "Amount_less_than_6M"] / 
+        df.loc[included_mask, "Total_amount"]
     )
-    
-    # Calculate weights for time buckets for included rows
-    df["Poids < 6M"] = 0
-    df["Poids 6M-1Y"] = 0
-    df["Poids > 1Y"] = 0
-    
-    for idx in df.index:
-        if df.loc[idx, "Included_in_calculation"] == "Yes" and df.loc[idx, "Total_amount"] > 0:
-            df.loc[idx, "Poids < 6M"] = (
-                df.loc[idx, "Amount_less_than_6M"] / 
-                df.loc[idx, "Total_amount"]
-            )
-            df.loc[idx, "Poids 6M-1Y"] = (
-                df.loc[idx, "Amount_6M_to_1Y"] / 
-                df.loc[idx, "Total_amount"]
-            )
-            df.loc[idx, "Poids > 1Y"] = (
-                df.loc[idx, "Amount_greater_than_1Y"] / 
-                df.loc[idx, "Total_amount"]
-            )
-    
-    # Format numbers
-    for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", 
-                "Total_amount", "Available_stable_funding"]:
-        df[col] = df[col].apply(lambda x: f"{float(x):,.0f}" if x != "" else "")
+    df.loc[included_mask, "Weight_6M_to_1Y"] = (
+        df.loc[included_mask, "Amount_6M_to_1Y"] / 
+        df.loc[included_mask, "Total_amount"]
+    )
+    df.loc[included_mask, "Weight_greater_than_1Y"] = (
+        df.loc[included_mask, "Amount_greater_than_1Y"] / 
+        df.loc[included_mask, "Total_amount"]
+    )
     
     # Format percentages
-    for col in ["Poids < 6M", "Poids 6M-1Y", "Poids > 1Y"]:
-        df[col] = df[col].apply(lambda x: f"{float(x):.2%}" if x != 0 else "0.00%")
+    for col in ["Weight_less_than_6M", "Weight_6M_to_1Y", "Weight_greater_than_1Y"]:
+        df[col] = df[col].apply(lambda x: f"{x:.2%}" if x != 0 else "0.00%")
+    
+    # Format large numbers
+    for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", 
+                "Total_amount", "Available_stable_funding"]:
+        df[col] = df[col].apply(lambda x: f"{x:,.0f}".replace(",", " "))
     
     return df
 
@@ -343,16 +328,15 @@ def create_summary_table_other_liabilities(user_selections=None):
         "Row": df["Row"],
         "Rubrique": [
             "Other liabilities",
-            "TOTAL "
         ],
         "Inclus dans le calcul": ["Oui" if x == "Yes" else "Non" for x in df["Included_in_calculation"]],
         "Montant < 6M": df["Amount_less_than_6M"],
         "Montant 6M-1A": df["Amount_6M_to_1Y"],
         "Montant > 1A": df["Amount_greater_than_1Y"],
         "Montant total": df["Total_amount"],
-        "Poids < 6M": df["Poids < 6M"],
-        "Poids 6M-1A": df["Poids 6M-1Y"],
-        "Poids > 1A": df["Poids > 1Y"],
+        "Poids < 6M": df["Weight_less_than_6M"],
+        "Poids 6M-1A": df["Weight_6M_to_1Y"],
+        "Poids > 1A": df["Weight_greater_than_1Y"],
         "Financement stable disponible": df["Available_stable_funding"]
     })
     
@@ -370,7 +354,7 @@ def show_other_liabilities_tab():
         with cols[i]:
             other_liab_selections[row] = st.checkbox(
                 f"Inclure ligne {row}",
-                value=True,
+                value=True,  # Default to checked
                 key=f"other_liab_{row}"
             )
 
@@ -379,6 +363,7 @@ def show_other_liabilities_tab():
     styled_other_liab = style_table(table_other_liab, highlight_columns=["Poids < 6M", "Poids 6M-1A", "Poids > 1A"])
     st.markdown(styled_other_liab.to_html(), unsafe_allow_html=True)
 
+
 def get_rsf_rows_details(user_selections=None):
     data = {
         "Row": ["820", "1060"],
@@ -386,89 +371,96 @@ def get_rsf_rows_details(user_selections=None):
             "Other loans to non-financial customers (unencumbered or encumbered < 1 year)",
             "Committed facilities"
         ],
-        "Inclus_dans_le_calcul": ["Oui", "Oui"],
-        "Montant_moins_de_6M": [1_398_399_253, 515_703],
-        "Montant_6M_a_1A": [57_733_609, 2_748_191],
-        "Montant_plus_de_1A": [1_359_266_078, 1_175_868_996],
-        "Facteur_RSF_moins_de_6M": [0.50, 0.05],
-        "Facteur_RSF_6M_a_1A": [0.50, 0.05],
-        "Facteur_RSF_plus_de_1A": [0.85, 0.05],
-        "Financement_stable_requis": [1_883_442_598, 58_956_645]
+        "Included_in_calculation": ["Yes", "Yes"],
+        "Amount_less_than_6M": [1398399253, 515703],
+        "Amount_6M_to_1Y": [57733609, 2748191],
+        "Amount_greater_than_1Y": [1359266078, 1175868996],
+        "RSF_factor_less_than_6M": [0.50, 0.05],
+        "RSF_factor_6M_to_1Y": [0.50, 0.05],
+        "RSF_factor_greater_than_1Y": [0.85, 0.05],
+        "Required_stable_funding": [1883442598, 58956645]
     }
 
+    # Update with user selections if provided
     if user_selections:
         for row, selection in user_selections.items():
             if row in data["Row"]:
                 idx = data["Row"].index(row)
-                data["Inclus_dans_le_calcul"][idx] = "Oui" if selection else "Non"
+                data["Included_in_calculation"][idx] = "Yes" if selection else "No"
 
+    # Create DataFrame
     df = pd.DataFrame(data)
-
-    included_mask = df["Inclus_dans_le_calcul"] == "Oui"
-
-    # Vérification des montants avec la feuille
-    df["Montant_total"] = 0
-    df.loc[included_mask, "Montant_total"] = (
-        df.loc[included_mask, "Montant_moins_de_6M"] +
-        df.loc[included_mask, "Montant_6M_a_1A"] +
-        df.loc[included_mask, "Montant_plus_de_1A"]
-    )
-
-    # Vérification des calculs RSF avec la feuille
-    df["RSF_calcule"] = (
-        df["Montant_moins_de_6M"] * df["Facteur_RSF_moins_de_6M"] +
-        df["Montant_6M_a_1A"] * df["Facteur_RSF_6M_a_1A"] +
-        df["Montant_plus_de_1A"] * df["Facteur_RSF_plus_de_1A"]
+    
+    # Calculate only for included rows
+    included_mask = df["Included_in_calculation"] == "Yes"
+    
+    # Calculate totals only for included rows
+    df["Total_amount"] = 0
+    df.loc[included_mask, "Total_amount"] = (
+        df.loc[included_mask, "Amount_less_than_6M"] + 
+        df.loc[included_mask, "Amount_6M_to_1Y"] + 
+        df.loc[included_mask, "Amount_greater_than_1Y"]
     )
     
-    # Vérification si le RSF calculé correspond au RSF fourni
-    df["Verification_RSF"] = df["RSF_calcule"].round(0) == df["Financement_stable_requis"].round(0)
-
-    df["Poids_moins_de_6M"] = 0
-    df["Poids_6M_a_1A"] = 0
-    df["Poids_plus_de_1A"] = 0
-
-    df.loc[included_mask, "Poids_moins_de_6M"] = (
-        df.loc[included_mask, "Montant_moins_de_6M"] / df.loc[included_mask, "Montant_total"]
+    # Calculate weights only for included rows
+    df["Weight_less_than_6M"] = 0
+    df["Weight_6M_to_1Y"] = 0
+    df["Weight_greater_than_1Y"] = 0
+    
+    df.loc[included_mask, "Weight_less_than_6M"] = (
+        df.loc[included_mask, "Amount_less_than_6M"] / 
+        df.loc[included_mask, "Total_amount"]
     )
-    df.loc[included_mask, "Poids_6M_a_1A"] = (
-        df.loc[included_mask, "Montant_6M_a_1A"] / df.loc[included_mask, "Montant_total"]
+    df.loc[included_mask, "Weight_6M_to_1Y"] = (
+        df.loc[included_mask, "Amount_6M_to_1Y"] / 
+        df.loc[included_mask, "Total_amount"]
     )
-    df.loc[included_mask, "Poids_plus_de_1A"] = (
-        df.loc[included_mask, "Montant_plus_de_1A"] / df.loc[included_mask, "Montant_total"]
+    df.loc[included_mask, "Weight_greater_than_1Y"] = (
+        df.loc[included_mask, "Amount_greater_than_1Y"] / 
+        df.loc[included_mask, "Total_amount"]
     )
-
-    for col in ["Poids_moins_de_6M", "Poids_6M_a_1A", "Poids_plus_de_1A"]:
+    
+    # Verify RSF calculation
+    df["RSF_calculated"] = (
+        df["Amount_less_than_6M"] * df["RSF_factor_less_than_6M"] +
+        df["Amount_6M_to_1Y"] * df["RSF_factor_6M_to_1Y"] +
+        df["Amount_greater_than_1Y"] * df["RSF_factor_greater_than_1Y"]
+    )
+    
+    # Format percentages
+    for col in ["Weight_less_than_6M", "Weight_6M_to_1Y", "Weight_greater_than_1Y"]:
         df[col] = df[col].apply(lambda x: f"{x:.2%}" if x != 0 else "0.00%")
-
-    for col in ["Montant_moins_de_6M", "Montant_6M_a_1A", "Montant_plus_de_1A",
-                "Montant_total", "Financement_stable_requis", "RSF_calcule"]:
-        df[col] = df[col].apply(lambda x: f"{x:,.0f}")
-
+    
+    # Format large numbers
+    for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", 
+                "Total_amount", "Required_stable_funding", "RSF_calculated"]:
+        df[col] = df[col].apply(lambda x: f"{x:,.0f}".replace(",", " "))
+    
     return df
 
 def create_rsf_rows_summary_table(user_selections=None):
     df = get_rsf_rows_details(user_selections)
-
+    
     summary_table = pd.DataFrame({
-        "Ligne": df["Row"],
-        "Rubrique": df["Rubrique"],  # Gardé en anglais comme demandé
-        "Inclus dans le calcul": df["Inclus_dans_le_calcul"],
-        "Montant < 6M": df["Montant_moins_de_6M"],
-        "Montant 6M-1A": df["Montant_6M_a_1A"],
-        "Montant > 1A": df["Montant_plus_de_1A"],
-        "Montant total": df["Montant_total"],
-        "Poids < 6M": df["Poids_moins_de_6M"],
-        "Poids 6M-1A": df["Poids_6M_a_1A"],
-        "Poids > 1A": df["Poids_plus_de_1A"],
-        "Financement stable requis": df["Financement_stable_requis"]
+        "Row": df["Row"],
+        "Rubrique": df["Rubrique"],
+        "Inclus dans le calcul": ["Oui" if x == "Yes" else "Non" for x in df["Included_in_calculation"]],
+        "Montant < 6M": df["Amount_less_than_6M"],
+        "Montant 6M-1A": df["Amount_6M_to_1Y"],
+        "Montant > 1A": df["Amount_greater_than_1Y"],
+        "Montant total": df["Total_amount"],
+        "Poids < 6M": df["Weight_less_than_6M"],
+        "Poids 6M-1A": df["Weight_6M_to_1Y"],
+        "Poids > 1A": df["Weight_greater_than_1Y"],
+        "Financement stable requis": df["Required_stable_funding"]
     })
-
+    
     return summary_table
 
 def show_rsf_lines_tab():
     st.markdown("###### Les rubriques COREP impactées par l'évenement dans lignes 820 et 1060")
 
+    # Create checkboxes for each row
     rsf_rows = ["820", "1060"]
     rsf_selections = {}
 
@@ -477,15 +469,16 @@ def show_rsf_lines_tab():
         with cols[i]:
             rsf_selections[row] = st.checkbox(
                 f"Inclure ligne {row}",
-                value=True,
+                value=True,  # Default to checked
                 key=f"rsf_row_{row}"
             )
 
+    # Get table with user selections
     table = create_rsf_rows_summary_table(rsf_selections)
     styled = style_table(table, highlight_columns=["Poids < 6M", "Poids 6M-1A", "Poids > 1A"])
     st.markdown(styled.to_html(), unsafe_allow_html=True)
 
-
+    
 def propager_impact_vers_df81(df_81, bilan_df, annee="2024", pourcentage=0.1, horizon=3, poids_dettes=0.85):
     """
     Propage l'impact du tirage PNU vers df_81 (ligne 300 - ASF) en utilisant les poids de maturité.

@@ -285,7 +285,7 @@ def extract_rsf_data(user_selections=None):
     # Format large numbers
     for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", 
                 "Total_amount", "Required_stable_funding"]:
-        df[col] = df[col].apply(lambda x: f"{x:,.0f}")
+        df[col] = df[col].apply(lambda x: f"{x:,.0f}".replace(",", " "))
     
     return df
 
@@ -296,18 +296,18 @@ def create_summary_table_rsf(user_selections=None):
     summary_table = pd.DataFrame({
         "Row": df["Row"],
         "Rubrique": [
-            "Titres non-HQLA et actions échangées en bourse (non grevés ou grevés < 1 an)",
-            "Autres prêts aux clients non financiers (non grevés ou grevés < 1 an)"
+            "non- HQLA securities and exchange traded equities unencumbered or encumbered for a residual maturity of less than one year",
+            "other loans to non-financial customers other than central banks unencumbered or encumbered for a residual maturity of less than one year"
         ],
         "Inclus dans le calcul": ["Oui" if x == "Yes" else "Non" for x in df["Included_in_calculation"]],
-        "Montant < 6M (€)": df["Amount_less_than_6M"],
-        "Montant 6M-1A (€)": df["Amount_6M_to_1Y"],
-        "Montant > 1A (€)": df["Amount_greater_than_1Y"],
-        "Montant total (€)": df["Total_amount"],
+        "Montant < 6M": df["Amount_less_than_6M"],
+        "Montant 6M-1A": df["Amount_6M_to_1Y"],
+        "Montant > 1A": df["Amount_greater_than_1Y"],
+        "Montant total": df["Total_amount"],
         "Poids < 6M": df["Weight_less_than_6M"],
         "Poids 6M-1A": df["Weight_6M_to_1Y"],
         "Poids > 1A": df["Weight_greater_than_1Y"],
-        "Financement stable requis (€)": df["Required_stable_funding"]
+        "Financement stable requis": df["Required_stable_funding"]
     })
     
     return summary_table
@@ -412,7 +412,7 @@ def extract_asf_data(user_selections=None):
     # Format numbers
     for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", 
                 "Total_amount", "Available_stable_funding"]:
-        df[col] = df[col].apply(lambda x: f"{float(x):,.0f}" if x != "" else "")
+        df[col] = df[col].apply(lambda x: f"{float(x):,.0f}".replace(",", " ") if x != "" else "")
     
     # Format percentages
     for col in ["Poids_%_par_type", "Poids < 6M", "Poids 6M-1Y", "Poids > 1Y"]:
@@ -426,21 +426,21 @@ def create_summary_table_asf(user_selections=None):
     summary_table = pd.DataFrame({
         "Row": df["Row"],
         "Rubrique": [
-            "Dépôts stables de détail",
-            "Autres dépôts de détail",
-            "ASF provenant d'autres clients non financiers",
-            "TOTAL DES ÉLÉMENTS SÉLECTIONNÉS"
+            "Stable retail deposits",
+            "Other retail deposits",
+            "ASF from other non-financial customers (except central banks)",
+            "TOTAL"
         ],
         "Inclus dans le calcul": ["Oui" if x == "Yes" else "Non" for x in df["Included_in_calculation"]],
-        "Montant < 6M (€)": df["Amount_less_than_6M"],
-        "Montant 6M-1A (€)": df["Amount_6M_to_1Y"],
-        "Montant > 1A (€)": df["Amount_greater_than_1Y"],
-        "Montant total (€)": df["Total_amount"],
+        "Montant < 6M": df["Amount_less_than_6M"],
+        "Montant 6M-1A": df["Amount_6M_to_1Y"],
+        "Montant > 1A": df["Amount_greater_than_1Y"],
+        "Montant total": df["Total_amount"],
         "Poids % par type": df["Poids_%_par_type"],
         "Poids < 6M": df["Poids < 6M"],
         "Poids 6M-1A": df["Poids 6M-1Y"],
         "Poids > 1A": df["Poids > 1Y"],
-        "Financement stable disponible (€)": df["Available_stable_funding"]
+        "Financement stable disponible": df["Available_stable_funding"]
     })
     
     return summary_table
@@ -537,7 +537,7 @@ def extract_other_liabilities_data(user_selections=None):
     # Format numbers
     for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", 
                 "Total_amount", "Available_stable_funding"]:
-        df[col] = df[col].apply(lambda x: f"{float(x):,.0f}" if x != "" else "")
+        df[col] = df[col].apply(lambda x: f"{float(x):,.0f}".replace(",", " ") if x != "" else "")
     
     # Format percentages
     for col in ["Poids < 6M", "Poids 6M-1Y", "Poids > 1Y"]:
@@ -555,14 +555,14 @@ def create_summary_table_other_liabilities(user_selections=None):
             "TOTAL "
         ],
         "Inclus dans le calcul": ["Oui" if x == "Yes" else "Non" for x in df["Included_in_calculation"]],
-        "Montant < 6M (€)": df["Amount_less_than_6M"],
-        "Montant 6M-1A (€)": df["Amount_6M_to_1Y"],
-        "Montant > 1A (€)": df["Amount_greater_than_1Y"],
-        "Montant total (€)": df["Total_amount"],
+        "Montant < 6M": df["Amount_less_than_6M"],
+        "Montant 6M-1A": df["Amount_6M_to_1Y"],
+        "Montant > 1A": df["Amount_greater_than_1Y"],
+        "Montant total": df["Total_amount"],
         "Poids < 6M": df["Poids < 6M"],
         "Poids 6M-1A": df["Poids 6M-1Y"],
         "Poids > 1A": df["Poids > 1Y"],
-        "Financement stable disponible (€)": df["Available_stable_funding"]
+        "Financement stable disponible": df["Available_stable_funding"]
     })
     
     return summary_table
@@ -912,21 +912,21 @@ def extract_liabilities_data():
         "Row": ["0300", "Total"],
         "Rubrique": ["Other liabilities", "TOTAL"],
         "Inclus dans le calcul": ["Oui", "Oui"],
-        "Montant < 6M (€)": ["466,211,782", "466,211,782"],
-        "Montant 6M-1A (€)": ["108,096,124", "108,096,124"],
-        "Montant > 1A (€)": ["1,435,000,000", "1,435,000,000"],
-        "Montant total (€)": ["2,009,307,906", "2,009,307,906"],
+        "Montant < 6M": ["466,211,782", "466,211,782"],
+        "Montant 6M-1A": ["108,096,124", "108,096,124"],
+        "Montant > 1A": ["1,435,000,000", "1,435,000,000"],
+        "Montant total": ["2,009,307,906", "2,009,307,906"],
         "Poids < 6M": ["23.20%", "23.20%"],
         "Poids 6M-1A": ["5.38%", "5.38%"],
         "Poids > 1A": ["71.42%", "71.42%"],
-        "Financement stable disponible (€)": ["1,489,048,062", "1,489,048,062"]
+        "Financement stable disponible": ["1,489,048,062", "1,489,048,062"]
     }
     
     df = pd.DataFrame(data)
     
     # Clean numeric columns
-    numeric_cols = ["Montant < 6M (€)", "Montant 6M-1A (€)", "Montant > 1A (€)", 
-                   "Montant total (€)", "Financement stable disponible (€)"]
+    numeric_cols = ["Montant < 6M", "Montant 6M-1A", "Montant > 1A", 
+                   "Montant total", "Financement stable disponible"]
     for col in numeric_cols:
         df[col] = df[col].str.replace(",", "").str.replace(" ", "").astype(float)
     
