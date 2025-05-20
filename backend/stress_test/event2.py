@@ -482,19 +482,6 @@ def show_rsf_lines_tab():
 def propager_impact_vers_df81(df_81, bilan_df, annee="2024", pourcentage=0.1, horizon=3, poids_dettes=0.85):
     """
     Propage l'impact du tirage PNU vers df_81 (ligne 300 - ASF) en utilisant les poids de maturité.
-    Mise à jour de la ligne 300 selon :
-    row_0300 = row_0300 + (impact_dette + capital_planning_dette) * poids_maturité
-
-    Args:
-        df_81: DataFrame df81 à modifier
-        bilan_df: DataFrame du bilan
-        annee: Année de référence (default "2024")
-        pourcentage: Pourcentage du tirage PNU (default 0.1)
-        horizon: Nombre d'années d'impact (default 3)
-        poids_dettes: Poids des dettes (default 0.85)
-
-    Returns:
-        DataFrame df81 modifié
     """
     df_81 = df_81.copy()
 
@@ -503,33 +490,27 @@ def propager_impact_vers_df81(df_81, bilan_df, annee="2024", pourcentage=0.1, ho
         poids_df = extract_other_liabilities_data()
         row_300_data = poids_df[poids_df["Row"] == "0300"].iloc[0]
 
-        poids_less_6m = float(row_300_data["Poids < 6M"].strip('%')) / 100
-        poids_6m_1y = float(row_300_data["Poids 6M-1Y"].strip('%')) / 100
-        poids_greater_1y = float(row_300_data["Poids > 1Y"].strip('%')) / 100
+        poids_less_6m = float(row_300_data["Weight_less_than_6M"].strip('%')) / 100
+        poids_6m_1y = float(row_300_data["Weight_6M_to_1Y"].strip('%')) / 100
+        poids_greater_1y = float(row_300_data["Weight_greater_than_1Y"].strip('%')) / 100
 
         # 2. Calculer l'impact total du tirage PNU
         poste_engagements = "Engagements de garantie donnés"
         poste_dettes = "Dettes envers les établissements de crédit (passif)"
 
         valeur_engagements = get_valeur_poste_bilan(bilan_df, poste_engagements, "2024")
-        print(f"Valeur engagements trouvée pour 2024 df 81 = ",valeur_engagements )
         if valeur_engagements is None:
             raise ValueError(f"Valeur engagements non trouvée pour 2024 df 81")
 
         tirage_total = (valeur_engagements * pourcentage) / horizon
         impact_dette = tirage_total * poids_dettes
-        print("impact dette df 81 = ",impact_dette)
 
         # 3. Récupérer le capital planning
         capital_dette = get_capital_planning(bilan_df, poste_dettes, annee=str(int(annee)))
-        print("capital dette 81",capital_dette)
         total_impact = impact_dette + capital_dette
-        print("total impact df 81 =",total_impact)
 
         # 4. Répartir par maturité
-        print("poid less 6M", poids_less_6m)
         amount_less_6m = total_impact * poids_less_6m
-        print("amout lrss 6M",amount_less_6m)
         amount_6m_1y = total_impact * poids_6m_1y
         amount_greater_1y = total_impact * poids_greater_1y
 
@@ -537,12 +518,9 @@ def propager_impact_vers_df81(df_81, bilan_df, annee="2024", pourcentage=0.1, ho
         mask_300 = df_81["row"] == 300
         if mask_300.any():
             idx = df_81[mask_300].index[0]
-            print("old value = ",df_81.at[idx, '0010'] )
-
             df_81.at[idx, '0010'] = (df_81.at[idx, '0010'] if pd.notnull(df_81.at[idx, '0010']) else 0) + amount_less_6m
             df_81.at[idx, '0020'] = (df_81.at[idx, '0020'] if pd.notnull(df_81.at[idx, '0020']) else 0) + amount_6m_1y
             df_81.at[idx, '0030'] = (df_81.at[idx, '0030'] if pd.notnull(df_81.at[idx, '0030']) else 0) + amount_greater_1y
-            #df_81.at[idx, '0100'] = (df_81.at[idx, '0100'] if pd.notnull(df_81.at[idx, '0100']) else 0) + total_impact
 
     except IndexError:
         print("Ligne 0300 non trouvée dans les données Other Liabilities")
@@ -554,19 +532,6 @@ def propager_impact_vers_df81(df_81, bilan_df, annee="2024", pourcentage=0.1, ho
 def propager_impact_vers_df80(df_80, bilan_df, annee="2024", pourcentage=0.1, horizon=3):
     """
     Propage l'impact du tirage PNU vers df_80 (lignes 820 et 1060) en utilisant les poids de maturité.
-    Mise à jour selon :
-    - ligne 820 : ajout de (impact + capital planning) réparti selon les poids de maturité
-    - ligne 1060 : retrait de impact réparti selon les poids de maturité
-    
-    Args:
-        df_80: DataFrame df80 à modifier
-        bilan_df: DataFrame du bilan
-        annee: Année de référence (default "2024")
-        pourcentage: Pourcentage du tirage PNU (default 0.1)
-        horizon: Nombre d'années d'impact (default 3)
-        
-    Returns:
-        DataFrame df80 modifié
     """
     df_80 = df_80.copy()
 
@@ -576,22 +541,21 @@ def propager_impact_vers_df80(df_80, bilan_df, annee="2024", pourcentage=0.1, ho
         
         # Poids pour la ligne 820
         row_820_data = poids_df[poids_df["Row"] == "820"].iloc[0]
-        poids_820_less_6m = float(row_820_data["Poids_moins_de_6M"].strip('%')) / 100
-        poids_820_6m_1y = float(row_820_data["Poids_6M_a_1A"].strip('%')) / 100
-        poids_820_greater_1y = float(row_820_data["Poids_plus_de_1A"].strip('%')) / 100
+        poids_820_less_6m = float(row_820_data["Weight_less_than_6M"].strip('%')) / 100
+        poids_820_6m_1y = float(row_820_data["Weight_6M_to_1Y"].strip('%')) / 100
+        poids_820_greater_1y = float(row_820_data["Weight_greater_than_1Y"].strip('%')) / 100
         
         # Poids pour la ligne 1060
         row_1060_data = poids_df[poids_df["Row"] == "1060"].iloc[0]
-        poids_1060_less_6m = float(row_1060_data["Poids_moins_de_6M"].strip('%')) / 100
-        poids_1060_6m_1y = float(row_1060_data["Poids_6M_a_1A"].strip('%')) / 100
-        poids_1060_greater_1y = float(row_1060_data["Poids_plus_de_1A"].strip('%')) / 100
+        poids_1060_less_6m = float(row_1060_data["Weight_less_than_6M"].strip('%')) / 100
+        poids_1060_6m_1y = float(row_1060_data["Weight_6M_to_1Y"].strip('%')) / 100
+        poids_1060_greater_1y = float(row_1060_data["Weight_greater_than_1Y"].strip('%')) / 100
 
         # 2. Calculer l'impact total du tirage PNU
         poste_engagements = "Engagements de garantie donnés"
         poste_creances = "Créances clientèle"
 
         valeur_engagements = get_valeur_poste_bilan(bilan_df, poste_engagements,"2024")
-        print(f"Valeur engagements trouvée pour 2024 df 80")
         if valeur_engagements is None:
             raise ValueError(f"Valeur engagements non trouvée pour 2024")
 
@@ -617,21 +581,17 @@ def propager_impact_vers_df80(df_80, bilan_df, annee="2024", pourcentage=0.1, ho
         mask_820 = df_80["row"] == 820
         if mask_820.any():
             idx = df_80[mask_820].index[0]
-            
             df_80.at[idx, '0010'] = (df_80.at[idx, '0010'] if pd.notnull(df_80.at[idx, '0010']) else 0) + amount_820_less_6m
             df_80.at[idx, '0020'] = (df_80.at[idx, '0020'] if pd.notnull(df_80.at[idx, '0020']) else 0) + amount_820_6m_1y
             df_80.at[idx, '0030'] = (df_80.at[idx, '0030'] if pd.notnull(df_80.at[idx, '0030']) else 0) + amount_820_greater_1y
-            #df_80.at[idx, '0100'] = (df_80.at[idx, '0100'] if pd.notnull(df_80.at[idx, '0100']) else 0) + total_impact_820
 
         # 7. Appliquer à la ligne 1060
         mask_1060 = df_80["row"] == 1060
         if mask_1060.any():
             idx = df_80[mask_1060].index[0]
-            
             df_80.at[idx, '0010'] = (df_80.at[idx, '0010'] if pd.notnull(df_80.at[idx, '0010']) else 0) + amount_1060_less_6m
             df_80.at[idx, '0020'] = (df_80.at[idx, '0020'] if pd.notnull(df_80.at[idx, '0020']) else 0) + amount_1060_6m_1y
             df_80.at[idx, '0030'] = (df_80.at[idx, '0030'] if pd.notnull(df_80.at[idx, '0030']) else 0) + amount_1060_greater_1y
-            #df_80.at[idx, '0100'] = (df_80.at[idx, '0100'] if pd.notnull(df_80.at[idx, '0100']) else 0) - total_impact_1060
 
     except IndexError as e:
         print(f"Ligne non trouvée dans les données RSF: {str(e)}")
