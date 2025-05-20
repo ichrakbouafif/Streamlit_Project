@@ -519,19 +519,24 @@ def propager_impact_vers_df81(df_81, bilan_df, annee="2024", pourcentage=0.1, ho
         poste_dettes = "Dettes envers les établissements de crédit (passif)"
 
         valeur_engagements = get_valeur_poste_bilan(bilan_df, poste_engagements, "2024")
-        print(f"Valeur engagements trouvée pour 2024 df 81")
+        print(f"Valeur engagements trouvée pour 2024 df 81 = ",valeur_engagements )
         if valeur_engagements is None:
             raise ValueError(f"Valeur engagements non trouvée pour 2024 df 81")
 
         tirage_total = (valeur_engagements * pourcentage) / horizon
         impact_dette = tirage_total * poids_dettes
+        print("impact dette df 81 = ",impact_dette)
 
         # 3. Récupérer le capital planning
-        capital_dette = get_capital_planning(bilan_df, poste_dettes, annee=str(int(annee) + 1))
+        capital_dette = get_capital_planning(bilan_df, poste_dettes, annee=str(int(annee)))
+        print("capital dette 81",capital_dette)
         total_impact = impact_dette + capital_dette
+        print("total impact df 81 =",total_impact)
 
         # 4. Répartir par maturité
+        print("poid less 6M", poids_less_6m)
         amount_less_6m = total_impact * poids_less_6m
+        print("amout lrss 6M",amount_less_6m)
         amount_6m_1y = total_impact * poids_6m_1y
         amount_greater_1y = total_impact * poids_greater_1y
 
@@ -539,6 +544,7 @@ def propager_impact_vers_df81(df_81, bilan_df, annee="2024", pourcentage=0.1, ho
         mask_300 = df_81["row"] == 300
         if mask_300.any():
             idx = df_81[mask_300].index[0]
+            print("old value = ",df_81.at[idx, '0010'] )
 
             df_81.at[idx, '0010'] = (df_81.at[idx, '0010'] if pd.notnull(df_81.at[idx, '0010']) else 0) + amount_less_6m
             df_81.at[idx, '0020'] = (df_81.at[idx, '0020'] if pd.notnull(df_81.at[idx, '0020']) else 0) + amount_6m_1y
@@ -600,7 +606,7 @@ def propager_impact_vers_df80(df_80, bilan_df, annee="2024", pourcentage=0.1, ho
         impact_creances = tirage_total
         
         # 3. Récupérer le capital planning
-        capital_creances = get_capital_planning(bilan_df, poste_creances, annee=str(int(annee) + 1))
+        capital_creances = get_capital_planning(bilan_df, poste_creances, annee=str(int(annee)))
         total_impact_820 = impact_creances + capital_creances
         total_impact_1060 = impact_creances
 
