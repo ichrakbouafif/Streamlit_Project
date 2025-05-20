@@ -518,9 +518,10 @@ def propager_impact_vers_df81(df_81, bilan_df, annee="2024", pourcentage=0.1, ho
         poste_engagements = "Engagements de garantie donnés"
         poste_dettes = "Dettes envers les établissements de crédit (passif)"
 
-        valeur_engagements = get_valeur_poste_bilan(bilan_df, poste_engagements, annee)
+        valeur_engagements = get_valeur_poste_bilan(bilan_df, poste_engagements, "2024")
+        print(f"Valeur engagements trouvée pour 2024 df 81")
         if valeur_engagements is None:
-            raise ValueError(f"Valeur engagements non trouvée pour {annee}")
+            raise ValueError(f"Valeur engagements non trouvée pour 2024 df 81")
 
         tirage_total = (valeur_engagements * pourcentage) / horizon
         impact_dette = tirage_total * poids_dettes
@@ -590,9 +591,10 @@ def propager_impact_vers_df80(df_80, bilan_df, annee="2024", pourcentage=0.1, ho
         poste_engagements = "Engagements de garantie donnés"
         poste_creances = "Créances clientèle"
 
-        valeur_engagements = get_valeur_poste_bilan(bilan_df, poste_engagements, annee)
+        valeur_engagements = get_valeur_poste_bilan(bilan_df, poste_engagements,"2024")
+        print(f"Valeur engagements trouvée pour 2024 df 80")
         if valeur_engagements is None:
-            raise ValueError(f"Valeur engagements non trouvée pour {annee}")
+            raise ValueError(f"Valeur engagements non trouvée pour 2024")
 
         tirage_total = (valeur_engagements * pourcentage) / horizon
         impact_creances = tirage_total
