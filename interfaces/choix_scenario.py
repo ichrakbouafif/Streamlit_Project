@@ -1051,9 +1051,6 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
         st.warning("Résultats de solvabilité non disponibles.")
     recap_data = afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj)
 
-    if recap_data:
-        afficher_tableau_recapitulatif(recap_data, "Solvabilité")
-
 
 def afficher_ratios_tirage_pnu():
     bilan = bst.charger_bilan()
@@ -1250,28 +1247,56 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
         horizon = params.get("horizon", 3)
         pourcentage = params.get("pourcentage", 0.10)
 
-        # === Étape 1 : Lecture du bilan
-        bilan = pd.read_excel("data/bilan.xlsx").iloc[2:].reset_index(drop=True)
-        bilan.columns = bilan.columns.fillna("Poste")
-        bilan = bilan.rename(columns={bilan.columns[0]: "Poste", bilan.columns[1]: "2024"})
+            # === Étape 1 : Lecture du bilan
+        import os
+        dossier = "data"
+        bilan_path = os.path.join(dossier, "bilan.xlsx")
 
+        # === BILAN ===
+        if not os.path.exists(bilan_path):
+            st.error(f"Fichier de bilan non trouvé : {bilan_path}")
+            return None, None, None, None
+
+        bilan = pd.read_excel(bilan_path)
+        bilan = bilan.iloc[2:].reset_index(drop=True)
+
+        if "Unnamed: 1" in bilan.columns:
+            bilan = bilan.drop(columns=["Unnamed: 1"])
+
+        for i, col in enumerate(bilan.columns):
+            if str(col).startswith("Unnamed: 6"):
+                bilan = bilan.iloc[:, :i]
+                break
+
+        bilan.columns.values[0] = "Poste du Bilan"
+        bilan.columns.values[1] = "2024"
+        bilan.columns.values[2] = "2025"
+        bilan.columns.values[3] = "2026"
+        bilan.columns.values[4] = "2027"
+        bilan = bilan.dropna(how="all").reset_index(drop=True)
+
+        if 25 in bilan.index:
+            bilan = bilan.drop(index=25).reset_index(drop=True)
+
+       
+       
         # === Étape 2 : Initialisation des tirages par segment cochés
         tirage_par_segment = {}
 
         if params.get("inclure_corpo", False):
-            ligne_corpo = bilan[bilan["Poste"].str.contains("Dont Corpo", case=False, na=False)]
+            ligne_corpo = bilan[bilan["Poste du Bilan"].str.contains("Dont Corpo", case=False, na=False)]
             if not ligne_corpo.empty:
                 valeur_corpo = ligne_corpo["2024"].values[0]
                 tirage_par_segment["C0700_0009_1"] = valeur_corpo * pourcentage
 
         if params.get("inclure_retail", False):
-            ligne_retail = bilan[bilan["Poste"].str.contains("Dont Retail", case=False, na=False)]
+            ligne_retail = bilan[bilan["Poste du Bilan"].str.contains("Dont Retail", case=False, na=False)]
             if not ligne_retail.empty:
                 valeur_retail = ligne_retail["2024"].values[0]
                 tirage_par_segment["C0700_0008_1"] = valeur_retail * pourcentage
 
         if params.get("inclure_hypo", False):
-            ligne_hypo = bilan[bilan["Poste"].str.contains("Dont Hypo", case=False, na=False)]
+            ligne_hypo = bilan[bilan["Poste du Bilan"].str.contains("Dont Hypo", case=False, na=False)]
             if not ligne_hypo.empty:
                 valeur_hypo = ligne_hypo["2024"].values[0]
                 tirage_par_segment["C0700_0010_1"] = valeur_hypo * pourcentage
@@ -1289,7 +1314,7 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
             debug=True
         )
 
-        # === Étape 4 : Construction du tableau récapitulatif pour affichage
+                # === Étape 4 : Construction du tableau récapitulatif pour affichage
         recap_data = []
         for i in range(horizon):
             annee = str(2025 + i)
@@ -1297,11 +1322,15 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
             if not resultat:
                 continue
 
+            fonds_propres = resultats_proj[annee]["fonds_propres"]
+            rwa_total = resultat["rwa_total_stresse"]
+            ratio = (fonds_propres / rwa_total) * 100 if rwa_total > 0 else 0
+
             recap_data.append({
                 "Année": annee,
-                "Fonds propres": resultats_proj[annee]["fonds_propres"],
-                "RWA total": resultat["rwa_total_stresse"],
-                "Ratio de solvabilité (%)": resultat["ratio_solva_stresse"]
+                "Fonds propres": fonds_propres,
+                "RWA total": rwa_total,
+                "Ratio de solvabilité (%)": ratio
             })
 
         # === Étape 5 : Affichage du tableau récapitulatif formaté
@@ -1319,9 +1348,44 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
         for annee in resultats_stress:
             result = resultats_stress[annee]
             with st.expander(f" Détails de l'année {annee}"):
-                st.metric("Ratio de solvabilité stressé", f"{result['ratio_solva_stresse']:.2f}%")
-                st.write(f"RWA stressé : {result['rwa_total_stresse']:,.0f}")
-                st.write(f"Δ RWA : {result['delta_rwa_total']:,.0f}")
+                fonds_propres = resultats_proj[annee]["fonds_propres"]
+                rwa_stresse = result["rwa_total_stresse"]
+                ratio = (fonds_propres / rwa_stresse) * 100 if rwa_stresse > 0 else 0
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio de Solvabilité</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
+                            {ratio:.2f}%
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col2:
+                    st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Fonds Propres (Tier 1)</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                            {format_large_number(fonds_propres)}
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col3:
+                    st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">RWA total stressé</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                            {format_large_number(rwa_stresse)}
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
 
                 st.markdown("### Blocs C0700 recalculés")
                 for nom_bloc, df in result["blocs_stresses"].items():

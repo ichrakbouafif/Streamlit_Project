@@ -138,25 +138,25 @@ def calculer_ratios_transformation(df_ref, debug=False):
     Ces ratios seront utilisés pour les calculs futurs.
     """
     ratios = {}
-    
+   
     for row_type, name in [(70.0, "on_balance"), (80.0, "off_balance"), (110.0, "derivatives")]:
         ligne = df_ref[df_ref["row"] == row_type]
-        
+       
         if not ligne.empty:
             # Récupération de l'exposition (0200) et du RWA (0215 ou 0220)
             rwa_col = "0215" if "0215" in ligne.columns else "0220"
-            
+           
             rwa = ligne[rwa_col].values[0] if not pd.isna(ligne[rwa_col].values[0]) else 0
             expo = ligne["0200"].values[0] if "0200" in ligne.columns and not pd.isna(ligne["0200"].values[0]) else 0
-            
+           
             # Calcul du ratio RWA/exposition
             if expo != 0:
                 ratio = round(rwa / expo, 4)
             else:
                 ratio = 0.25  # Valeur par défaut si exposition = 0
-                
+               
             ratios[row_type] = ratio
-            
+           
             if debug:
                 st.write(f"Ratio calculé pour ligne {row_type} ({name}): {ratio}")
                 st.write(f"  - RWA: {rwa}, Exposition: {expo}")
@@ -164,7 +164,7 @@ def calculer_ratios_transformation(df_ref, debug=False):
             ratios[row_type] = 0.25  # Valeur par défaut si ligne non trouvée
             if debug:
                 st.warning(f"Ligne {row_type} ({name}) non trouvée, utilisation ratio par défaut 0.25")
-    
+   
     return ratios
 def calculer_0220(row, ratios, debug=False):
     """
@@ -338,25 +338,37 @@ def calculer_ratio_solvabilite_stresse(df_c01: pd.DataFrame, rwa_total_stresse: 
         float: ratio de solvabilité (Tier 1 / RWA) exprimé en %
     """
     if df_c01.empty or rwa_total_stresse == 0:
+        if debug:
+            st.warning("❌ Données C01 ou RWA stressé manquants")
         return 0.0
 
-    # Récupérer la valeur de Tier 1 Capital : ligne 1.1.1.2.1 (row 010) col "0100"
-    tier1_row = df_c01[df_c01["row"] == 10.0]  # ligne 010
-    if tier1_row.empty or "0100" not in df_c01.columns:
+    if "0100" not in df_c01.columns:
+        if debug:
+            st.warning("❌ Colonne 0100 manquante dans df_c01")
+        return 0.0
+
+    tier1_row = df_c01[df_c01["row"] == 10.0]
+    if tier1_row.empty:
+        if debug:
+            st.warning("❌ Ligne row 10.0 manquante dans df_c01")
         return 0.0
 
     tier1_value = tier1_row["0100"].values[0]
     if pd.isna(tier1_value) or tier1_value == 0:
+        if debug:
+            st.warning("❌ Tier 1 vide ou nul")
         return 0.0
 
     ratio = (tier1_value / rwa_total_stresse) * 100
 
     if debug:
-        st.write(f" Tier 1: {tier1_value:,.2f}")
-        st.write(f" RWA stressé: {rwa_total_stresse:,.2f}")
-        st.write(f" Ratio de solvabilité stressé: {ratio:.2f}%")
+        st.markdown("### 🔍 Détail du calcul du ratio de solvabilité")
+        st.write(f"Tier 1 (ligne 10.0, col 0100) : {tier1_value:,.2f}")
+        st.write(f"RWA total stressé : {rwa_total_stresse:,.2f}")
+        st.write(f"Ratio de solvabilité : {ratio:.2f}%")
 
     return round(ratio, 2)
+
 def executer_stress_pnu_capital(
     resultats_proj: dict,
     annee: str,
@@ -443,13 +455,6 @@ def executer_stress_pnu_capital_pluriannuel(
     """
     Applique le stress PNU capital sur les blocs C0700 cochés à partir d’une année donnée,
     en répartissant l’impact sur l’horizon sélectionné (ex: 3 ans).
-
-    Returns:
-        dict: Pour chaque année, contient:
-            - blocs_stresses: blocs C0700 recalculés
-            - rwa_total_stresse
-            - delta_rwa_total
-            - ratio_solva_stresse
     """
     resultats_stress = {}
 
@@ -489,8 +494,15 @@ def executer_stress_pnu_capital_pluriannuel(
 
         rwa_total_stresse = rwa_total_projete + delta_rwa_total
 
-        # 4. Calcul du ratio de solvabilité stressé
-        fonds_propres = df_c01["0100"].sum() if "0100" in df_c01.columns else 0
+        # 4. Calcul du ratio de solvabilité stressé (CET1 / RWA)
+        fonds_propres = 0
+        if not df_c01.empty and "0100" in df_c01.columns:
+            tier1_row = df_c01[df_c01["row"] == 10.0]
+            if not tier1_row.empty:
+                fonds_propres = tier1_row["0100"].values[0]
+                if pd.isna(fonds_propres):
+                    fonds_propres = 0
+
         ratio_solva_stresse = (fonds_propres / rwa_total_stresse) * 100 if rwa_total_stresse > 0 else 0
 
         resultats_stress[annee] = {
@@ -501,6 +513,7 @@ def executer_stress_pnu_capital_pluriannuel(
         }
 
     return resultats_stress
+
 import pandas as pd
 import streamlit as st
 
@@ -599,3 +612,4 @@ import streamlit as st
         import traceback
         st.error(traceback.format_exc())
  """
+
