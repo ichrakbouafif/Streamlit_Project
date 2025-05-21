@@ -105,15 +105,15 @@ def get_CP_LCR(bilan_df, poste_bilan, annee="2025", df_73=None, df_74=None):
             if pd.notna(valeur):
                 # Calculer les pourcentages dynamiquement si les DataFrames sont fournis
                 if poste_bilan_lower == "créances clientèle":
-                    percentage = bst2.part_credit_clientele_inflow(df_74, bilan_df) / 100
+                    percentage = bst2.part_credit_clientele_inflow() / 100
                     return percentage * valeur
                 
                 elif poste_bilan_lower == "créances banques autres":
-                    percentage = bst2.part_depots_mb_inflow(df_74, bilan_df) / 100
+                    percentage = bst2.part_depots_mb_inflow() / 100
                     return percentage * valeur
                 
                 elif poste_bilan_lower == "dettes envers les établissements de crédit (passif)":
-                    percentage = bst2.part_loans_mb_outflow(df_73, bilan_df) / 100
+                    percentage = bst2.part_loans_mb_outflow() / 100
                     return percentage * valeur 
                 
                 elif poste_bilan_lower == "depots clients (passif)":

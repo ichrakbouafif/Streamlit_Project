@@ -2,13 +2,16 @@ import pandas as pd
 import streamlit as st
 from backend.stress_test.event1 import ajuster_annees_suivantes,get_valeur_poste_bilan
 from config import style_table
+from backend.stress_test import event1 as bst
 
 
 
 ##############################################  Constantes  ####################################################
 
 
-def part_loans_mb_outflow(df_73, bilan):
+def part_loans_mb_outflow():
+    bilan = bst.charger_bilan()
+    df_72, df_73, df_74 = bst.charger_lcr()
     try:
         valeur_outflow_mb = df_73.loc[df_73['row'] == 230]['0010'].values[0]
         print("valeur_outflow_mb = ", valeur_outflow_mb)
@@ -19,7 +22,9 @@ def part_loans_mb_outflow(df_73, bilan):
         print(f"[Erreur part_loans_mb_outflow] : {e}")
         return 0.0
 
-def part_credit_clientele_inflow(df_74, bilan):
+def part_credit_clientele_inflow():
+    bilan = bst.charger_bilan()
+    df_72, df_73, df_74 = bst.charger_lcr()
     try:
         valeur_inflow_credit = df_74.loc[df_74['row'] == 50]['0010'].values[0]
         print("valeur_inflow_credit = ", valeur_inflow_credit)
@@ -30,7 +35,9 @@ def part_credit_clientele_inflow(df_74, bilan):
         print(f"[Erreur part_credit_clientele_inflow] : {e}")
         return 0.0
 
-def part_depots_mb_inflow(df_74, bilan):
+def part_depots_mb_inflow():
+    bilan = bst.charger_bilan()
+    df_72, df_73, df_74 = bst.charger_lcr()
     try:
         valeur_inflow_mb = df_74.loc[df_74['row'] == 160]['0010'].values[0]
         print("valeur_inflow_mb = ", valeur_inflow_mb)
@@ -177,9 +184,9 @@ def propager_impact_vers_df74(df_74, bilan_df, annee="2024", pourcentage=0.1, ho
     df_74 = df_74.copy()
     
     # Étape 1 : calcul des parts (toujours sur l’année 2024)
-    part_mb = part_depots_mb_inflow(df_74, bilan_df)
+    part_mb = part_depots_mb_inflow()
     print(f"Part Dépôts MB (Inflow) : {part_mb}")
-    part_credit = part_credit_clientele_inflow(df_74, bilan_df)
+    part_credit = part_credit_clientele_inflow()
     print(f"Part Crédits Clientèle (Inflow) : {part_credit}")
 
     # Étape 2 : tirage total
@@ -200,8 +207,10 @@ def propager_impact_vers_df74(df_74, bilan_df, annee="2024", pourcentage=0.1, ho
     # Étape 4 : application de l’impact pour chaque année cible
     
 
-    impact_160 = (part_mb / 100) * capital_banques
-    impact_50 = (part_credit / 100) * (capital_creances + tirage_total)
+    #impact_160 = (part_mb / 100) * capital_banques
+    #impact_50 = (part_credit / 100) * (capital_creances + tirage_total)
+    impact_50 = (part_credit / 100) * tirage_total
+    impact_160 = 0
 
         # Appliquer impact ligne 160
     mask_160 = df_74["row"] == 160
@@ -226,7 +235,8 @@ def propager_impact_vers_df73(df_73, bilan_df, pourcentage=0.1, horizon=3, annee
     poste_corpo = "Dont Corpo"
 
     # Valeurs fixes
-    part_loans_mb = part_loans_mb_outflow(df_73, bilan_df) / 100
+    pt_out_loans = part_loans_mb_outflow() / 100
+    print("pt_out_loans",pt_out_loans)
     valeur_initiale = get_valeur_poste_bilan(bilan_df, poste_engagements, "2024")
     print(f"Valeur initiale pourrrrrrrrr {poste_engagements} en {annee} : {valeur_initiale}")
     tirage_total = (valeur_initiale * pourcentage) / horizon
@@ -238,20 +248,20 @@ def propager_impact_vers_df73(df_73, bilan_df, pourcentage=0.1, horizon=3, annee
 
     # Impact dettes annuel
     impact_annuel_dettes = tirage_total * poids_dettes
-    capital_dette = get_capital_planning(bilan_df, poste_dettes, annee=str(int(annee) + 1))
-    print(f"capital dette : {capital_dette}")
+    print("imp dette", impact_annuel_dettes)
+    
 
-    impact_230 = part_loans_mb * (impact_annuel_dettes + capital_dette)
+    impact_230 = pt_out_loans * impact_annuel_dettes 
     print(f"Impact 230 : {impact_230}")
     impact_480 = - (pourcentage * retail) / horizon
     print(f"Impact 480 : {impact_480}")
-    impact_490 = - ((pourcentage * hypo) + (pourcentage * corpo)) / horizon
+    impact_490 =  ((pourcentage * hypo) + (pourcentage * corpo)) / horizon
     print(f"Impact 490 : {impact_490}")
 
 
     df_73.loc[df_73["row"] == 230, "0010"] += impact_230
     df_73.loc[df_73["row"] == 480, "0010"] += impact_480
-    df_73.loc[df_73["row"] == 490, "0010"] += impact_490
+    df_73.loc[df_73["row"] == 490, "0010"] -= impact_490
 
     return df_73
 
@@ -506,13 +516,13 @@ def propager_impact_vers_df81(df_81, bilan_df, annee="2024", pourcentage=0.1, ho
         impact_dette = tirage_total * poids_dettes
 
         # 3. Récupérer le capital planning
-        capital_dette = get_capital_planning(bilan_df, poste_dettes, annee=str(int(annee)))
-        total_impact = impact_dette + capital_dette
+        #capital_dette = get_capital_planning(bilan_df, poste_dettes, annee=str(int(annee)))
+        #total_impact = impact_dette + capital_dette
 
         # 4. Répartir par maturité
-        amount_less_6m = total_impact * poids_less_6m
-        amount_6m_1y = total_impact * poids_6m_1y
-        amount_greater_1y = total_impact * poids_greater_1y
+        amount_less_6m = impact_dette * poids_less_6m
+        amount_6m_1y = impact_dette * poids_6m_1y
+        amount_greater_1y = impact_dette * poids_greater_1y
 
         # 5. Appliquer à la ligne 300
         mask_300 = df_81["row"] == 300
@@ -563,8 +573,8 @@ def propager_impact_vers_df80(df_80, bilan_df, annee="2024", pourcentage=0.1, ho
         impact_creances = tirage_total
         
         # 3. Récupérer le capital planning
-        capital_creances = get_capital_planning(bilan_df, poste_creances, annee=str(int(annee)))
-        total_impact_820 = impact_creances + capital_creances
+        #capital_creances = get_capital_planning(bilan_df, poste_creances, annee=str(int(annee)))
+        total_impact_820 = impact_creances 
         total_impact_1060 = impact_creances
 
         # 4. Répartir par maturité pour la ligne 820 (ajout)

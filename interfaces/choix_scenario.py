@@ -1053,8 +1053,6 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
 
 
 def afficher_ratios_tirage_pnu():
-    bilan = bst.charger_bilan()
-    df_72, df_73, df_74 = bst.charger_lcr()
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -1062,7 +1060,7 @@ def afficher_ratios_tirage_pnu():
         <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                     box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
             <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Part Loans (Outflow)</h4>
-            <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">{bst2.part_loans_mb_outflow(df_73, bilan)}%</p>
+            <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">{bst2.part_loans_mb_outflow()}%</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1071,7 +1069,7 @@ def afficher_ratios_tirage_pnu():
         <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                     box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
             <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Part Crédits Clientèle (Inflow)</h4>
-            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">{bst2.part_credit_clientele_inflow(df_74, bilan)}%</p>
+            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">{bst2.part_credit_clientele_inflow()}%</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1080,7 +1078,7 @@ def afficher_ratios_tirage_pnu():
         <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
                     box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
             <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Part Dépôts (Inflow)</h4>
-            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">{bst2.part_depots_mb_inflow(df_74, bilan)}%</p>
+            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">{bst2.part_depots_mb_inflow()}%</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1092,84 +1090,98 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
 
         resultats_horizon = st.session_state['resultats_horizon']
         
-        # Vérifier que les données de 2024 sont bien disponibles
+        # Verify base year exists
         if 2024 not in resultats_horizon:
-            st.error("Les données de l'année 2024 ne sont pas disponibles dans les résultats.")
+            st.error("Les données de l'année 2024 ne sont pas disponibles.")
             return None
 
-        # Récupération des données de base pour 2024
-        df_72 = resultats_horizon[2024]['df_72']
-        df_73 = resultats_horizon[2024]['df_73']
-        df_74 = resultats_horizon[2024]['df_74']
-
-        
-
-        # Paramètres de stress
+        recap_data = []
         pourcentage = params["pourcentage"]
-        poids_portefeuille = params["impact_portefeuille"]
+        poids_portefeuille = params["impact_portefeuille"] 
         poids_dettes = params["impact_dettes"]
 
-        recap_data = []
+        # 2024 - No stress
+        df_72 = resultats_horizon[2024]['df_72'].copy()
+        df_73 = resultats_horizon[2024]['df_73'].copy()
+        df_74 = resultats_horizon[2024]['df_74'].copy()
 
-        # Résultats 2024 (sans stress)
         recap_data.append({
             "Année": 2024,
             "HQLA": calcul_HQLA(df_72),
             "Inflows": calcul_inflow(df_74),
             "Outflows": calcul_outflow(df_73),
             "LCR (%)": Calcul_LCR(calcul_inflow(df_74), calcul_outflow(df_73), calcul_HQLA(df_72)) * 100,
-            "df_72": df_72.copy(),
-            "df_73": df_73.copy(),
-            "df_74": df_74.copy()
+            "df_72": df_72,
+            "df_73": df_73,
+            "df_74": df_74
         })
 
-        annees = [2025, 2026, 2027][:horizon]
-        df72_prec, df73_prec, df74_prec = df_72.copy(), df_73.copy(), df_74.copy()
+        # Process subsequent years
+        for annee in [2025, 2026, 2027][:horizon]:
+            if annee not in resultats_horizon:
+                st.error(f"Données de base pour {annee} manquantes dans session state")
+                return None
 
-        for annee in annees:
+            # Get base DF for current year from session state
+            df_72 = resultats_horizon[annee]['df_72'].copy()
+            df_73 = resultats_horizon[annee]['df_73'].copy() 
+            df_74 = resultats_horizon[annee]['df_74'].copy()
 
-            # Application du stress
-            df_72_annee = bst2.propager_impact_portefeuille_vers_df72(
-                df72_prec.copy(), bilan_stresse, annee=annee, 
+            # Apply cumulative stress from all previous years
+            for prev_year in range(2025, annee):
+                df_72 = bst2.propager_impact_portefeuille_vers_df72(
+                    df_72, bilan_stresse, annee=prev_year,
+                    pourcentage=pourcentage, horizon=horizon,
+                    poids_portefeuille=poids_portefeuille
+                )
+                
+                df_74 = bst2.propager_impact_vers_df74(
+                    df_74, bilan_stresse, annee=prev_year,
+                    pourcentage=pourcentage, horizon=horizon
+                )
+                
+                df_73 = bst2.propager_impact_vers_df73(
+                    df_73, bilan_stresse, annee=prev_year,
+                    pourcentage=pourcentage, horizon=horizon,
+                    poids_dettes=poids_dettes
+                )
+
+            # Apply current year's stress
+            df_72 = bst2.propager_impact_portefeuille_vers_df72(
+                df_72, bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon,
                 poids_portefeuille=poids_portefeuille
             )
-
-            df_74_annee = bst2.propager_impact_vers_df74(
-                df74_prec.copy(), bilan_stresse, annee=annee,
+            
+            df_74 = bst2.propager_impact_vers_df74(
+                df_74, bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon
             )
-
-            df_73_annee = bst2.propager_impact_vers_df73(
-                df73_prec.copy(), bilan_stresse, annee=annee,
+            
+            df_73 = bst2.propager_impact_vers_df73(
+                df_73, bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon,
                 poids_dettes=poids_dettes
             )
 
-            HQLA = calcul_HQLA(df_72_annee)
-            outflow = calcul_outflow(df_73_annee)
-            inflow = calcul_inflow(df_74_annee)
-            LCR = Calcul_LCR(inflow, outflow, HQLA)
-
+            # Calculate metrics
             recap_data.append({
                 "Année": annee,
-                "HQLA": HQLA,
-                "Inflows": inflow,
-                "Outflows": outflow,
-                "LCR (%)": LCR * 100,
-                "df_72": df_72_annee,
-                "df_73": df_73_annee,
-                "df_74": df_74_annee
+                "HQLA": calcul_HQLA(df_72),
+                "Inflows": calcul_inflow(df_74),
+                "Outflows": calcul_outflow(df_73),
+                "LCR (%)": Calcul_LCR(calcul_inflow(df_74), calcul_outflow(df_73), calcul_HQLA(df_72)) * 100,
+                "df_72": df_72,
+                "df_73": df_73,
+                "df_74": df_74
             })
-
-            # Préparer les entrées pour l'année suivante
-            df72_prec, df73_prec, df74_prec = df_72_annee, df_73_annee, df_74_annee
 
         return recap_data
 
     except Exception as e:
         st.error(f"Erreur lors du calcul du LCR après tirage PNU : {str(e)}")
         return None
+    
 
 def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
     try:
@@ -1178,60 +1190,74 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
             return None
 
         resultats_horizon = st.session_state['resultats_horizon']
-
+        
+        # Verify base year exists
         if 2024 not in resultats_horizon:
-            st.error("Les données de l'année 2024 ne sont pas disponibles dans les résultats.")
+            st.error("Les données de l'année 2024 ne sont pas disponibles.")
             return None
-
-        df_80 = resultats_horizon[2024]['df_80']
-        df_81 = resultats_horizon[2024]['df_81']
 
         recap_data = []
         pourcentage = params["pourcentage"]
         poids_portefeuille = params["impact_portefeuille"]
         poids_dettes = params["impact_dettes"]
 
-        # Ajouter les valeurs de 2024 sans stress
+        # 2024 - No stress
+        df_80 = resultats_horizon[2024]['df_80'].copy()
+        df_81 = resultats_horizon[2024]['df_81'].copy()
+
         recap_data.append({
             "Année": 2024,
             "ASF": calcul_ASF(df_81),
             "RSF": calcul_RSF(df_80),
             "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81), calcul_RSF(df_80)),
-            "df_80": df_80.copy(),
-            "df_81": df_81.copy()
+            "df_80": df_80,
+            "df_81": df_81
         })
 
-        annees = [2025, 2026, 2027][:horizon]
+        # Process subsequent years
+        for annee in [2025, 2026, 2027][:horizon]:
+            if annee not in resultats_horizon:
+                st.error(f"Données de base pour {annee} manquantes dans session state")
+                return None
 
-        # Initialisation avec les valeurs de 2024
-        df80_prec, df81_prec = df_80.copy(), df_81.copy()
+            # Get base DF for current year from session state
+            df_80 = resultats_horizon[annee]['df_80'].copy()
+            df_81 = resultats_horizon[annee]['df_81'].copy()
 
-        for annee in annees:
-            # Appliquer les stress tests
-            df_80_annee = bst2.propager_impact_vers_df80(
-                df80_prec.copy(), bilan_stresse, annee=annee,
+            # Apply cumulative stress from all previous years
+            for prev_year in range(2025, annee):
+                df_80 = bst2.propager_impact_vers_df80(
+                    df_80, bilan_stresse, annee=prev_year,
+                    pourcentage=pourcentage, horizon=horizon
+                )
+                
+                df_81 = bst2.propager_impact_vers_df81(
+                    df_81, bilan_stresse, annee=prev_year,
+                    pourcentage=pourcentage, horizon=horizon,
+                    poids_dettes=poids_dettes
+                )
+
+            # Apply current year's stress
+            df_80 = bst2.propager_impact_vers_df80(
+                df_80, bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon
             )
-            df_81_annee = bst2.propager_impact_vers_df81(
-                df81_prec.copy(), bilan_stresse, annee=annee,
+            
+            df_81 = bst2.propager_impact_vers_df81(
+                df_81, bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon,
                 poids_dettes=poids_dettes
             )
 
-            ASF = calcul_ASF(df_81_annee)
-            RSF = calcul_RSF(df_80_annee)
-            NSFR = Calcul_NSFR(ASF, RSF)
-
+            # Calculate metrics
             recap_data.append({
                 "Année": annee,
-                "ASF": ASF,
-                "RSF": RSF,
-                "NSFR (%)": NSFR,
-                "df_80": df_80_annee,
-                "df_81": df_81_annee
+                "ASF": calcul_ASF(df_81),
+                "RSF": calcul_RSF(df_80),
+                "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81), calcul_RSF(df_80)),
+                "df_80": df_80,
+                "df_81": df_81
             })
-
-            df80_prec, df81_prec = df_80_annee, df_81_annee
 
         return recap_data
 
