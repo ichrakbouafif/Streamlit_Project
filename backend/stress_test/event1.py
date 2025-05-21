@@ -113,6 +113,32 @@ def ajuster_annees_suivantes(bilan_df, poste, annee_depart, variation):
 
     return bilan_df
 
+def afficher_postes_concernes(bilan_df, postes, horizon=1):
+    """
+    Affiche les lignes associées aux postes concernés pour les années de 2024 à 2024 + horizon,
+    avec formatage des montants en '123 456 789.12'.
+    """
+    # Générer dynamiquement la liste des années en fonction de l'horizon
+    annees_base = [str(2024 + i) for i in range(horizon + 1)]
+
+    resultats = []
+
+    for poste in postes:
+        idx = bilan_df[bilan_df["Poste du Bilan"].astype(str).str.strip() == poste].index
+        if not idx.empty:
+            ligne_valeurs = bilan_df.loc[idx[0], ["Poste du Bilan"] + annees_base]
+            resultats.append(ligne_valeurs)
+
+    df_resultats = pd.DataFrame(resultats).set_index("Poste du Bilan")
+
+    # Format personnalisé
+    def format_custom(x):
+        if pd.isna(x):
+            return ""
+        return f"{x:,.2f}".replace(",", " ")
+
+    return df_resultats.applymap(format_custom)
+
 
 def appliquer_stress_retrait_depots(bilan_df, pourcentage, horizon=1, annee="2025",
                                     poids_portefeuille=0.5, poids_creances=0.5):
@@ -264,31 +290,85 @@ mapping_bilan_LCR_NSFR_retrait_depots = {
     ],
 }
 
-def afficher_postes_concernes(bilan_df, postes, horizon=1):
+########################################      LCR      ########################################
+def propager_retrait_depots_vers_df72(df_72, bilan_df, annee="2024", pourcentage=0.15, horizon=1, poids_portefeuille=0.15):
     """
-    Affiche les lignes associées aux postes concernés pour les années de 2024 à 2024 + horizon,
-    avec formatage des montants en '123 456 789.12'.
+    Propage l'impact du retrait massif des dépôts vers la ligne 70 de df_72.
+    Formule : row_70 = row_70 - impact_portefeuille
     """
-    # Générer dynamiquement la liste des années en fonction de l'horizon
-    annees_base = [str(2024 + i) for i in range(horizon + 1)]
+    df_72 = df_72.copy()
 
-    resultats = []
+    poste_depots = "Depots clients (passif)"
 
-    for poste in postes:
-        idx = bilan_df[bilan_df["Poste du Bilan"].astype(str).str.strip() == poste].index
-        if not idx.empty:
-            ligne_valeurs = bilan_df.loc[idx[0], ["Poste du Bilan"] + annees_base]
-            resultats.append(ligne_valeurs)
+    # Récupérer la valeur des dépôts en année de référence
+    valeur_initiale = get_valeur_poste_bilan(bilan_df, poste_depots, "2024")
+    if valeur_initiale is None:
+        raise ValueError(f"Poste '{poste_depots}' introuvable ou sans valeur pour 2024.")
 
-    df_resultats = pd.DataFrame(resultats).set_index("Poste du Bilan")
+    # Calcul de l'impact portefeuille
+    retrait_total = (valeur_initiale * pourcentage) / horizon
+    impact_portefeuille = retrait_total * poids_portefeuille
 
-    # Format personnalisé
-    def format_custom(x):
-        if pd.isna(x):
-            return ""
-        return f"{x:,.2f}".replace(",", " ")
+    # Appliquer à la ligne row 70 de df_72 (colonne "0010")
+    mask = df_72["row"] == 70
+    df_72.loc[mask, "0010"] = df_72.loc[mask, "0010"] - impact_portefeuille
 
-    return df_resultats.applymap(format_custom)
+    return df_72
+
+
+
+
+
+
+
+
+def propager_retrait_depots_vers_df73(df_73, bilan_df, annee="2024", pourcentage=0.15, horizon=1, poids_portefeuille=0.15):
+    """
+    Propage l'impact du retrait massif des dépôts vers la ligne 70 de df_72.
+    Formule : row_70 = row_70 - impact_portefeuille
+    """
+    df_73 = df_73.copy()
+
+    poste_depots = "Depots clients (passif)"
+
+    # Récupérer la valeur des dépôts en année de référence
+    valeur_initiale = get_valeur_poste_bilan(bilan_df, poste_depots,"2024")
+    if valeur_initiale is None:
+        raise ValueError(f"Poste '{poste_depots}' introuvable ou sans valeur pour.")
+
+    # Calcul de l'impact portefeuille
+    retrait_total = (valeur_initiale * pourcentage) / horizon
+    impact_portefeuille = retrait_total * poids_portefeuille
+
+    # Appliquer à la ligne row 70 de df_72 (colonne "0010")
+    mask = df_73["row"] == 70
+    df_73.loc[mask, "0010"] = df_73.loc[mask, "0010"] - impact_portefeuille
+
+    return df_73
+def propager_retrait_depots_vers_df74(df_74, bilan_df, annee="2024", pourcentage=0.15, horizon=1, poids_portefeuille=0.15):
+    """
+    Propage l'impact du retrait massif des dépôts vers la ligne 70 de df_72.
+    Formule : row_70 = row_70 - impact_portefeuille
+    """
+    df_74 = df_74.copy()
+
+    poste_depots = "Depots clients (passif)"
+
+    # Récupérer la valeur des dépôts en année de référence
+    valeur_initiale = get_valeur_poste_bilan(bilan_df, poste_depots, "2024")
+    if valeur_initiale is None:
+        raise ValueError(f"Poste '{poste_depots}' introuvable ou sans valeur pour {annee}.")
+
+    # Calcul de l'impact portefeuille
+    retrait_total = (valeur_initiale * pourcentage) / horizon
+    impact_portefeuille = retrait_total * poids_portefeuille
+
+    # Appliquer à la ligne row 70 de df_72 (colonne "0010")
+    mask = df_74["row"] == 70
+    df_74.loc[mask, "0010"] = df_74.loc[mask, "0010"] - impact_portefeuille
+
+    return df_74
+
 
 
 def get_delta_bilan(original_df, stressed_df, poste_bilan, annee):
@@ -445,20 +525,6 @@ def sauvegarder_bilan_stresse(bilan_stresse, output_filename="bilan_stresse.xlsx
     return output_path
 
 
-def sauvegarder_corep_modifie(original_path, df_72, df_73, df_74, output_filename="LCR_stresse.xlsx", output_dir="data"):
-    """
-    Crée une copie du fichier COREP original et remplace les feuilles.
-    """
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, output_filename)
-    
-    shutil.copyfile(original_path, output_path)
-    
-    with pd.ExcelWriter(output_path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
-        df_72.to_excel(writer, sheet_name="C7200_TOTAL", index=False)
-        df_73.to_excel(writer, sheet_name="C7300_TOTAL", index=False)
-        df_74.to_excel(writer, sheet_name="C7400_TOTAL", index=False)
-    
-    return output_path
+
 
 

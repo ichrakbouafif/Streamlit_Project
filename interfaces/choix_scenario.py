@@ -178,7 +178,9 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
 
     # Section LCR
     st.subheader("Impact sur la liquidité (LCR)")
-    afficher_resultats_lcr(bilan_stresse, postes_concernes,horizon=params['horizon'])
+    recap_data_lcr = afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1)
+    if recap_data_lcr:  # Vérifier que recap_data n'est pas None
+        afficher_tableau_recapitulatif(recap_data_lcr, "LCR")
     
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
@@ -192,59 +194,125 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     st.subheader("Impact sur le ratio de levier")
     afficher_resultats_levier(bilan_stresse, postes_concernes, params)
 
-def afficher_resultats_lcr(bilan_stresse, postes_concernes, horizon=1):
+
+def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
     try:
-        df_72, df_73, df_74 = bst.charger_lcr()
-        annees = [str(2024 + i) for i in range(horizon + 1)]
+        if 'resultats_horizon' not in st.session_state:
+            st.error("Les résultats de base ne sont pas disponibles dans la session.")
+            return None
+
+        resultats_horizon = st.session_state['resultats_horizon']
+
+        if 2024 not in resultats_horizon:
+            st.error("Les données de l'année 2024 ne sont pas disponibles.")
+            return None
+
         recap_data = []
+        pourcentage = params["pourcentage"]
+        poids_portefeuille = params["poids_portefeuille"]
+        poids_creances = params["poids_creances"]
 
-        for annee in annees:
-            df_72_annee, df_73_annee, df_74_annee = df_72.copy(), df_73.copy(), df_74.copy()
+        # 2024 - base year without stress
+        df_72 = resultats_horizon[2024]['df_72'].copy()
+        df_73 = resultats_horizon[2024]['df_73'].copy()
+        df_74 = resultats_horizon[2024]['df_74'].copy()
 
-            for poste in postes_concernes:
-                delta = bst.get_delta_bilan(st.session_state.bilan_original, bilan_stresse, poste, annee)
-                if delta != 0:
-                    df_72_annee, df_73_annee, df_74_annee = bst.propager_delta_vers_COREP_LCR(
-                        poste, delta, df_72_annee, df_73_annee, df_74_annee
-                    )
+        recap_data.append({
+            "Année": 2024,
+            "HQLA": calcul_HQLA(df_72),
+            "Inflows": calcul_inflow(df_74),
+            "Outflows": calcul_outflow(df_73),
+            "LCR (%)": Calcul_LCR(calcul_inflow(df_74), calcul_outflow(df_73), calcul_HQLA(df_72)) * 100,
+            "df_72": df_72,
+            "df_73": df_73,
+            "df_74": df_74
+        })
 
-            HQLA = calcul_HQLA(df_72_annee)
-            outflow = calcul_outflow(df_73_annee)
-            inflow = calcul_inflow(df_74_annee)
-            LCR = Calcul_LCR(inflow, outflow, HQLA)
+        for annee in [2025 + i for i in range(horizon)]:
+            if annee not in resultats_horizon:
+                st.error(f"Données de base pour {annee} manquantes dans session state")
+                return None
+
+            df_72 = resultats_horizon[annee]['df_72'].copy()
+            df_73 = resultats_horizon[annee]['df_73'].copy()
+            df_74 = resultats_horizon[annee]['df_74'].copy()
+
+            # Stress cumulé des années précédentes
+            for prev_year in range(2025, annee):
+                df_72 = bst.propager_retrait_depots_vers_df72(
+                    df_72, bilan_stresse, annee=prev_year,
+                    pourcentage=pourcentage, horizon=horizon,
+                    poids_portefeuille=poids_portefeuille
+                )
+                df_74 = bst.propager_retrait_depots_vers_df74(
+                    df_74, bilan_stresse, annee=prev_year,
+                    pourcentage=pourcentage, horizon=horizon,
+                    poids_portefeuille=poids_portefeuille
+                )
+                df_73 = bst.propager_retrait_depots_vers_df73(
+                    df_73, bilan_stresse, annee=prev_year,
+                    pourcentage=pourcentage, horizon=horizon,
+                    poids_portefeuille=poids_portefeuille
+                )
+
+            # Stress de l'année courante
+            df_72 = bst.propager_retrait_depots_vers_df72(
+                df_72, bilan_stresse, annee=annee,
+                pourcentage=pourcentage, horizon=horizon,
+                poids_portefeuille=poids_portefeuille
+            )
+            df_74 = bst.propager_retrait_depots_vers_df74(
+                df_74, bilan_stresse, annee=annee,
+                pourcentage=pourcentage, horizon=horizon
+            )
+            df_73 = bst.propager_retrait_depots_vers_df73(
+                df_73, bilan_stresse, annee=annee,
+                pourcentage=pourcentage, horizon=horizon,
+                poids_portefeuille=poids_portefeuille
+            )
 
             recap_data.append({
                 "Année": annee,
-                "HQLA": HQLA,
-                "Inflows": inflow,
-                "Outflows": outflow,
-                "LCR (%)": LCR * 100,
-                "df_72": df_72_annee,
-                "df_73": df_73_annee,
-                "df_74": df_74_annee
+                "HQLA": calcul_HQLA(df_72),
+                "Inflows": calcul_inflow(df_74),
+                "Outflows": calcul_outflow(df_73),
+                "LCR (%)": Calcul_LCR(calcul_inflow(df_74), calcul_outflow(df_73), calcul_HQLA(df_72)) * 100,
+                "df_72": df_72,
+                "df_73": df_73,
+                "df_74": df_74
             })
 
-        afficher_tableau_recapitulatif(recap_data, "LCR")
+        return recap_data
 
     except Exception as e:
-        st.error(f"Erreur lors du calcul du LCR: {e}")
+        st.error(f"Erreur lors du calcul du LCR après retrait des dépôts : {str(e)}")
+        return None
+
 
 def afficher_resultats_nsfr(bilan_stresse, postes_concernes, horizon=1):
     try:
-        df_80, df_81 = bst.charger_nsfr()
+        df_80_base, df_81_base = bst.charger_nsfr()
         annees = [str(2024 + i) for i in range(horizon + 1)]
         recap_data = []
+        
+        # Initialize cumulative DataFrames
+        df_80_cumul = df_80_base.copy()
+        df_81_cumul = df_81_base.copy()
 
         for annee in annees:
-            df_80_annee, df_81_annee = df_80.copy(), df_81.copy()
+            # Start with fresh copies of the cumulative DataFrames for this year's calculations
+            df_80_annee = df_80_cumul.copy()
+            df_81_annee = df_81_cumul.copy()
 
             for poste in postes_concernes:
                 delta = bst.get_delta_bilan(st.session_state.bilan_original, bilan_stresse, poste, annee)
                 if delta != 0:
+                    # Apply current year's delta to the cumulative state
                     df_80_annee, df_81_annee = bst.propager_delta_vers_COREP_NSFR(
                         poste, delta, df_80_annee, df_81_annee
                     )
 
+            # Calculate metrics
             ASF = calcul_ASF(df_81_annee)
             RSF = calcul_RSF(df_80_annee)
             NSFR = Calcul_NSFR(ASF, RSF)
@@ -257,6 +325,9 @@ def afficher_resultats_nsfr(bilan_stresse, postes_concernes, horizon=1):
                 "df_80": df_80_annee,
                 "df_81": df_81_annee
             })
+            
+            # Update the cumulative DataFrames with this year's changes for next iteration
+            df_80_cumul, df_81_cumul = df_80_annee.copy(), df_81_annee.copy()
 
         afficher_tableau_recapitulatif(recap_data, "NSFR")
 
