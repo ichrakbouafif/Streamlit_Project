@@ -54,30 +54,7 @@ def get_capital_planning(bilan_df, poste_bilan, annee="2025"):
                 return valeur
     return 0
 
-# Récupérer la valeur de capital planning avec ajustement conditionnel
-""" def get_CP_LCR(bilan_df, poste_bilan, annee="2025"):
-    bilan_df = bilan_df.reset_index(drop=True)
-    poste_bilan_lower = poste_bilan.strip().lower()
-    index_poste = bilan_df["Poste du Bilan"].astype(str).str.strip().str.lower() == poste_bilan_lower
-    index_poste = bilan_df[index_poste].index
 
-    if not index_poste.empty:
-        i = index_poste[0] + 1
-        if i < len(bilan_df) and annee in bilan_df.columns:
-            valeur = bilan_df.loc[i, annee]
-            if pd.notna(valeur):
-                if poste_bilan_lower == "créances clientèle":
-                    return 0.01 * valeur
-                elif poste_bilan_lower == "créances banques autres":
-                    return 0.28 * valeur
-                elif poste_bilan_lower == "depots clients (passif)":
-                    return 0.71 * valeur
-                elif poste_bilan_lower == "dettes envers les établissements de crédit (passif)":
-                    return 0.09 * valeur
-                else:
-                    return valeur
-    return 0
- """
 def get_CP_LCR(bilan_df, poste_bilan, annee="2025", df_73=None, df_74=None):
     """
     Récupère la valeur de capital planning avec ajustement conditionnel basé sur les pourcentages calculés dynamiquement
@@ -212,6 +189,11 @@ mapping_bilan_LCR_NSFR = {
     ],
     "Depots clients (passif)": [
         ("row_0030", "df_73"), ## outflow not covered by DGS
+        ("row_0035", "df_73"), 
+        ("row_0060", "df_73"), 
+        ("row_0070", "df_73"), 
+        ("row_0080", "df_73"), 
+        ("row_0110", "df_73"), 
         ("row_0090", "df_81"), #ASF from retail deposits
         ("row_0110", "df_81"), #ASF from other non finantial customers
         ("row_0130", "df_81"), #ASF from other non finantial customers
@@ -696,7 +678,7 @@ def show_outflow_tab():
     # Default values for checkboxes
     default_values = {
         "0035": True, "0060": True, "0070": True,
-        "0080": False, "0110": False, "0250": False, "0260": True
+        "0080": True, "0110": True, "0250": False, "0260": True
     }
 
     # Create checkboxes in 2 rows (4 in first row, 3 in second)
@@ -1051,6 +1033,39 @@ def propager_CP_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderations=N
 def propager_CP_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponderations=None):
     lignes = get_mapping_df_row_CP(poste_bilan)
     print("lignes = ", lignes)
+
+    # Get weights from outflow tab if this is "Depots clients (passif)"
+    if poste_bilan == "Depots clients (passif)":
+        # Get the outflow table data
+        outflow_data = extract_lcr_outflow_data()
+        
+        # Create a mapping of row numbers to their weights
+        row_weights = {}
+        for _, row in outflow_data.iterrows():
+            if row['Included_in_calculation'] == 'Oui' and row['Weight_proportion'] is not pd.NA:
+                try:
+                    row_num = int(row['Row'])  # Convert "0035" to 35
+                    weight = float(row['Weight_proportion'])
+                    row_weights[row_num] = weight
+                except (ValueError, AttributeError):
+                    continue
+        
+        # Create ponderations based on the mapping
+        if row_weights:
+            ponderations = []
+            target_rows = [35, 60, 70, 80, 110]  # The rows we want to impact
+            
+            for row_num, df_type in lignes:
+                if df_type == "df_73" and row_num in target_rows:
+                    # Use the weight if available, otherwise 0
+                    ponderations.append(row_weights.get(row_num, 0))
+                else:
+                    ponderations.append(0)
+            
+            # Normalize the weights to sum to 1
+            total_weight = sum(ponderations)
+            if total_weight > 0:
+                ponderations = [w/total_weight for w in ponderations]
 
     lignes_72 = [l for l in lignes if l[1] == "df_72"]
     lignes_73 = [l for l in lignes if l[1] == "df_73"]
