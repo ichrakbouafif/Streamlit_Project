@@ -59,7 +59,7 @@ def format_large_number(num):
     """Format number with space as thousands separator and 2 decimal digits"""
     if pd.isna(num) or num == 0:
         return "0"
-    return f"{num:,.2f}".replace(",", " ").replace(".", ".")
+    return f"{num:,.2f}".replace(",", " ")
     
 def afficher_configuration_evenements(selected_events, scenario_type):
     events_dict = config.scenarios[scenario_type]
@@ -184,7 +184,10 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
-    afficher_resultats_nsfr(bilan_stresse, postes_concernes,horizon=params['horizon'])
+    bst.show_asf_lines_tab()
+    recap_data_nsfr = afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=1)
+    if recap_data_nsfr:  # Vérifier que recap_data n'est pas None
+        afficher_tableau_recapitulatif(recap_data_lcr, "NSFR")
     
     # Section Ratio de Solvabilité
     st.subheader("Impact sur le ratio de solvabilité")
@@ -289,50 +292,42 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
         return None
 
 
-def afficher_resultats_nsfr(bilan_stresse, postes_concernes, horizon=1):
+def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=1):
     try:
-        df_80_base, df_81_base = bst.charger_nsfr()
-        annees = [str(2024 + i) for i in range(horizon + 1)]
-        recap_data = []
+        if 'resultats_horizon' not in st.session_state:
+            st.error("Les résultats de base ne sont pas disponibles dans la session.")
+            return None
+
+        resultats_horizon = st.session_state['resultats_horizon']
         
-        # Initialize cumulative DataFrames
-        df_80_cumul = df_80_base.copy()
-        df_81_cumul = df_81_base.copy()
+        # Verify base year exists
+        if 2024 not in resultats_horizon:
+            st.error("Les données de l'année 2024 ne sont pas disponibles.")
+            return None
 
-        for annee in annees:
-            # Start with fresh copies of the cumulative DataFrames for this year's calculations
-            df_80_annee = df_80_cumul.copy()
-            df_81_annee = df_81_cumul.copy()
+        recap_data = []
+        pourcentage = params["pourcentage"]
+        poids_portefeuille = params["poids_portefeuille"]
+        poids_creances = params["poids_creances"]
 
-            for poste in postes_concernes:
-                delta = bst.get_delta_bilan(st.session_state.bilan_original, bilan_stresse, poste, annee)
-                if delta != 0:
-                    # Apply current year's delta to the cumulative state
-                    df_80_annee, df_81_annee = bst.propager_delta_vers_COREP_NSFR(
-                        poste, delta, df_80_annee, df_81_annee
-                    )
+        # 2024 - No stress
+        df_80 = resultats_horizon[2024]['df_80'].copy()
+        df_81 = resultats_horizon[2024]['df_81'].copy()
 
-            # Calculate metrics
-            ASF = calcul_ASF(df_81_annee)
-            RSF = calcul_RSF(df_80_annee)
-            NSFR = Calcul_NSFR(ASF, RSF)
-
-            recap_data.append({
-                "Année": annee,
-                "ASF": ASF,
-                "RSF": RSF,
-                "NSFR (%)": NSFR,
-                "df_80": df_80_annee,
-                "df_81": df_81_annee
-            })
-            
-            # Update the cumulative DataFrames with this year's changes for next iteration
-            df_80_cumul, df_81_cumul = df_80_annee.copy(), df_81_annee.copy()
-
-        afficher_tableau_recapitulatif(recap_data, "NSFR")
+        recap_data.append({
+            "Année": 2024,
+            "ASF": calcul_ASF(df_81),
+            "RSF": calcul_RSF(df_80),
+            "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81), calcul_RSF(df_80)) * 100,
+            "df_80": df_80,
+            "df_81": df_81
+        })
+        return recap_data
 
     except Exception as e:
-        st.error(f"Erreur lors du calcul du NSFR: {e}")
+        st.error(f"Erreur lors du calcul du NSFR après retrait des dépôts : {str(e)}")
+        return None
+
 
 def afficher_resultats_solva(bilan_stresse, postes_concernes, params):
     try:

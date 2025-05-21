@@ -1,6 +1,7 @@
 import os
 import pandas as pd
-import shutil
+import streamlit as st
+from config import style_table
 
 
 
@@ -319,9 +320,6 @@ def propager_retrait_depots_vers_df72(df_72, bilan_df, annee="2024", pourcentage
 
 
 
-
-
-
 def propager_retrait_depots_vers_df73(df_73, bilan_df, annee="2024", pourcentage=0.15, horizon=1, poids_portefeuille=0.15):
     """
     Propage l'impact du retrait massif des dépôts vers la ligne 70 de df_72.
@@ -370,6 +368,165 @@ def propager_retrait_depots_vers_df74(df_74, bilan_df, annee="2024", pourcentage
     return df_74
 
 
+########################################      NSFR      ########################################
+
+
+
+
+def get_asf_rows_details(user_selections=None):
+    """Returns details for ASF rows impacted by deposit withdrawals"""
+    data = {
+        "Row": ["0090", "0110", "0130"],
+        "Rubrique": [
+            "Stable retail deposits",
+            "Other retail deposits",
+            "ASF from other non-financial customers (except central banks)"
+        ],
+        "Included_in_calculation": ["No", "Yes", "Yes"],  # Default 0090 not included
+        "Amount": [70461721, 2687188132, 1854112318],
+        "ASF_factor": [0.95, 0.90, 1.00],  # Adjust factors as needed
+        "ASF_contribution": [70461721*0.95, 2687188132*0.90, 1854112318*1.00]
+    }
+
+    # Update with user selections if provided
+    if user_selections:
+        for row, selection in user_selections.items():
+            if row in data["Row"]:
+                idx = data["Row"].index(row)
+                data["Included_in_calculation"][idx] = "Yes" if selection else "No"
+
+    # Create DataFrame
+    df = pd.DataFrame(data)
+    
+    # Calculate only for included rows
+    included_mask = df["Included_in_calculation"] == "Yes"
+    df["ASF_contribution"] = df["Amount"] * df["ASF_factor"] * included_mask.astype(int)
+    
+    # Format numbers
+    for col in ["Amount", "ASF_contribution"]:
+        df[col] = df[col].apply(lambda x: f"{x:,.0f}".replace(",", " "))
+    
+    return df
+
+def create_asf_rows_summary_table(user_selections=None):
+    """Creates summary table for ASF rows"""
+    df = get_asf_rows_details(user_selections)
+    
+    summary_table = pd.DataFrame({
+        "Row": df["Row"],
+        "Rubrique": df["Rubrique"],
+        "Inclus dans le calcul": ["Oui" if x == "Yes" else "Non" for x in df["Included_in_calculation"]],
+        "Montant": df["Amount"],
+        "Facteur ASF": df["ASF_factor"],
+        "Contribution ASF": df["ASF_contribution"]
+    })
+    
+    return summary_table
+
+def show_asf_lines_tab():
+    """Displays ASF lines tab in Streamlit"""
+    st.markdown("###### Rubriques COREP ASF impactées par le retrait de dépôts (lignes 0090, 0110, 0130)")
+
+    # Create checkboxes for each row
+    asf_rows = ["0090", "0110", "0130"]
+    asf_selections = {}
+
+    cols = st.columns(len(asf_rows))
+    for i, row in enumerate(asf_rows):
+        with cols[i]:
+            # Default to True except for 0090
+            default_value = False if row == "0090" else True
+            asf_selections[row] = st.checkbox(
+                f"Inclure ligne {row}",
+                value=default_value,
+                key=f"asf_row_{row}"
+            )
+
+    # Get table with user selections
+    table = create_asf_rows_summary_table(asf_selections)
+    styled = style_table(table, highlight_columns=["Facteur ASF", "Contribution ASF"])
+    st.markdown(styled.to_html(), unsafe_allow_html=True)
+
+def propager_impact_vers_df81_retrait_depots(df_81, impact_total, annee="2025"):
+    """
+    Propage l'impact du retrait de dépôts vers df_81 (ASF)
+    Lignes impactées: 0090, 0110, 0130
+    """
+    df_81 = df_81.copy()
+    
+    try:
+        # Get ASF weights from user selections
+        asf_selections = {
+            "0090": st.session_state.get(f"asf_row_0090", False),
+            "0110": st.session_state.get(f"asf_row_0110", True),
+            "0130": st.session_state.get(f"asf_row_0130", True)
+        }
+        asf_df = get_asf_rows_details(asf_selections)
+        
+        # Calculate total ASF from included rows
+        included_mask = asf_df["Included_in_calculation"] == "Yes"
+        total_asf = asf_df.loc[included_mask, "Amount"].astype(float).sum()
+        
+        if total_asf == 0:
+            return df_81
+            
+        # Calculate impact per row based on their proportion in total ASF
+        for _, row in asf_df[included_mask].iterrows():
+            row_impact = (float(row["Amount"].replace(" ", "")) / total_asf) * impact_total
+            
+            # Apply to corresponding row in df_81
+            mask = df_81["row"] == int(row["Row"])
+            if mask.any():
+                idx = df_81[mask].index[0]
+                df_81.at[idx, '0010'] = (df_81.at[idx, '0010'] if pd.notnull(df_81.at[idx, '0010']) else 0) - row_impact
+                
+    except Exception as e:
+        print(f"Erreur dans propager_impact_vers_df81_retrait_depots: {str(e)}")
+    
+    return df_81
+
+def propager_impact_vers_df80_retrait_depots(df_80, impact_total, annee="2025"):
+    """
+    Propage l'impact du retrait de dépôts vers df_80 (RSF)
+    Ligne impactée: 0730 (other loans and advances to financial customers)
+    """
+    df_80 = df_80.copy()
+    
+    try:
+        # Get RSF weights (example - adjust based on your actual data)
+        rsf_factors = {
+            "less_than_6M": 0.10,
+            "6M_to_1Y": 0.50,
+            "greater_than_1Y": 1.00
+        }
+        
+        # Distribute impact across maturities (example distribution - adjust as needed)
+        impact_less_6m = impact_total * 0.3  # 30% <6M
+        impact_6m_1y = impact_total * 0.4    # 40% 6M-1Y
+        impact_greater_1y = impact_total * 0.3  # 30% >1Y
+        
+        # Apply to row 0730
+        mask = df_80["row"] == 730
+        if mask.any():
+            idx = df_80[mask].index[0]
+            df_80.at[idx, '0010'] = (df_80.at[idx, '0010'] if pd.notnull(df_80.at[idx, '0010']) else 0) + impact_less_6m
+            df_80.at[idx, '0020'] = (df_80.at[idx, '0020'] if pd.notnull(df_80.at[idx, '0020']) else 0) + impact_6m_1y
+            df_80.at[idx, '0030'] = (df_80.at[idx, '0030'] if pd.notnull(df_80.at[idx, '0030']) else 0) + impact_greater_1y
+                
+    except Exception as e:
+        print(f"Erreur dans propager_impact_vers_df80_retrait_depots: {str(e)}")
+    
+    return df_80
+
+
+
+
+
+
+
+
+
+########################################      old code      ########################################
 
 def get_delta_bilan(original_df, stressed_df, poste_bilan, annee):
     """
@@ -515,14 +672,7 @@ def propager_delta_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderation
     return df_80, df_81
 
 
-def sauvegarder_bilan_stresse(bilan_stresse, output_filename="bilan_stresse.xlsx", output_dir="data"):
-    """
-    Sauvegarde le bilan stressé dans un fichier Excel.
-    """
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, output_filename)
-    bilan_stresse.to_excel(output_path, index=False)
-    return output_path
+
 
 
 
