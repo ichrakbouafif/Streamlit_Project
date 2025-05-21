@@ -6,6 +6,7 @@ def extraire_lignes_non_vides(df, colonne_montant='0010'):
     return pd.DataFrame()
 
 def affiche_LB_lcr(df):
+    df = df.copy()
     # Renommer les colonnes
     df.columns = [
         "Item",                     # Deuxième colonne (Unnamed: 1)
@@ -38,11 +39,12 @@ def affiche_LB_lcr(df):
 
     # Supprimer la colonne "Standard weight (0020)"
     df = df.drop(columns=["Standard weight (0020)"])
-
+    #df = df.set_index("row")
     return df
 
 def affiche_outflow_lcr(df):
     import pandas as pd
+    df = df.copy()
 
     # Ne garder que les 6 premières colonnes
     df = df.iloc[:, :6]
@@ -81,11 +83,12 @@ def affiche_outflow_lcr(df):
 
     # Supprimer la colonne inutile
     df = df.drop(columns=["Standard weight (0040)"])
-
+    #df = df.set_index("row")
     return df
 
 
 def affiche_inflow_lcr(df):
+    df = df.copy()
     # Renommer les colonnes
     df.columns = [
         "Item",                     #  colonne (Unnamed: 1)
@@ -119,6 +122,7 @@ def affiche_inflow_lcr(df):
 
     # Supprimer la colonne "Standard weight (0070)"
     df = df.drop(columns=["Standard weight (0070)"])
+    #df = df.set_index("row")
 
     return df
 

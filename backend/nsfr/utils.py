@@ -7,6 +7,7 @@ def extraire_lignes_non_vides(df, colonne_montant='0010'):
 
 
 def affiche_RSF(df):
+    df = df.copy()
     # Renommer les colonnes
     df.columns = [
         "Item",                     
@@ -57,6 +58,7 @@ def affiche_RSF(df):
 
 
 def affiche_ASF(df):
+    df = df.copy()
     # Renommer les colonnes (sans HQLA)
     df.columns = [
         "Item",                     

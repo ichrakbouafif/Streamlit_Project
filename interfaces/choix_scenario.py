@@ -1086,15 +1086,32 @@ def afficher_ratios_tirage_pnu():
 
 def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
     try:
-        df_72, df_73, df_74 = bst.charger_lcr()
-        #annees = [2025 + i for i in range(horizon + 1)]
-        recap_data = []
-        # Get params correctly from the params argument
+        if 'resultats_horizon' not in st.session_state:
+            st.error("Les résultats de base ne sont pas disponibles dans la session.")
+            return None
+
+        resultats_horizon = st.session_state['resultats_horizon']
+        
+        # Vérifier que les données de 2024 sont bien disponibles
+        if 2024 not in resultats_horizon:
+            st.error("Les données de l'année 2024 ne sont pas disponibles dans les résultats.")
+            return None
+
+        # Récupération des données de base pour 2024
+        df_72 = resultats_horizon[2024]['df_72']
+        df_73 = resultats_horizon[2024]['df_73']
+        df_74 = resultats_horizon[2024]['df_74']
+
+        
+
+        # Paramètres de stress
         pourcentage = params["pourcentage"]
         poids_portefeuille = params["impact_portefeuille"]
         poids_dettes = params["impact_dettes"]
 
-        # Ajouter les valeurs de 2024 sans stress
+        recap_data = []
+
+        # Résultats 2024 (sans stress)
         recap_data.append({
             "Année": 2024,
             "HQLA": calcul_HQLA(df_72),
@@ -1106,28 +1123,12 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
             "df_74": df_74.copy()
         })
 
-
         annees = [2025, 2026, 2027][:horizon]
-
-        # Initialisation avec les valeurs de 2024
         df72_prec, df73_prec, df74_prec = df_72.copy(), df_73.copy(), df_74.copy()
 
-        for idx, annee in enumerate(annees):
-            if horizon == 1 and annee > 2025:
-                # Dupliquer les valeurs de 2025 si horizon = 1
-                recap_data.append({
-                    "Année": annee,
-                    "HQLA": recap_data[-1]["HQLA"],
-                    "Inflows": recap_data[-1]["Inflows"],
-                    "Outflows": recap_data[-1]["Outflows"],
-                    "LCR (%)": recap_data[-1]["LCR (%)"],
-                    "df_72": recap_data[-1]["df_72"],
-                    "df_73": recap_data[-1]["df_73"],
-                    "df_74": recap_data[-1]["df_74"]
-                })
-                continue
+        for annee in annees:
 
-            # Appliquer le choc sur les df précèdents
+            # Application du stress
             df_72_annee = bst2.propager_impact_portefeuille_vers_df72(
                 df72_prec.copy(), bilan_stresse, annee=annee, 
                 pourcentage=pourcentage, horizon=horizon,
@@ -1161,19 +1162,30 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
                 "df_74": df_74_annee
             })
 
-            # Sauvegarder les df pour l'année suivante
+            # Préparer les entrées pour l'année suivante
             df72_prec, df73_prec, df74_prec = df_72_annee, df_73_annee, df_74_annee
 
-        
-        # Moved outside the loop to display the table only once
         return recap_data
+
     except Exception as e:
-        st.error(f"Erreur lors du calcul du LCR: {str(e)}")
+        st.error(f"Erreur lors du calcul du LCR après tirage PNU : {str(e)}")
         return None
-    
+
 def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
     try:
-        df_80, df_81 = bst.charger_nsfr()
+        if 'resultats_horizon' not in st.session_state:
+            st.error("Les résultats de base ne sont pas disponibles dans la session.")
+            return None
+
+        resultats_horizon = st.session_state['resultats_horizon']
+
+        if 2024 not in resultats_horizon:
+            st.error("Les données de l'année 2024 ne sont pas disponibles dans les résultats.")
+            return None
+
+        df_80 = resultats_horizon[2024]['df_80']
+        df_81 = resultats_horizon[2024]['df_81']
+
         recap_data = []
         pourcentage = params["pourcentage"]
         poids_portefeuille = params["impact_portefeuille"]
@@ -1184,7 +1196,7 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
             "Année": 2024,
             "ASF": calcul_ASF(df_81),
             "RSF": calcul_RSF(df_80),
-            "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81),calcul_RSF(df_80)),
+            "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81), calcul_RSF(df_80)),
             "df_80": df_80.copy(),
             "df_81": df_81.copy()
         })
@@ -1194,32 +1206,21 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
         # Initialisation avec les valeurs de 2024
         df80_prec, df81_prec = df_80.copy(), df_81.copy()
 
-        for idx, annee in enumerate(annees):
-            if horizon == 1 and annee > 2025:
-                # Dupliquer les valeurs de 2025 si horizon = 1
-                recap_data.append({
-                    "Année": annee,
-                    "ASF": recap_data[-1]["ASF"],
-                    "RSF": recap_data[-1]["RSF"],
-                    "NSFR (%)": recap_data[-1]["NSFR (%)"],
-                    "df_80": recap_data[-1]["df_80"],
-                    "df_81": recap_data[-1]["df_81"]                })
-                continue
-
-            # Appliquer le choc sur les df précèdents
+        for annee in annees:
+            # Appliquer les stress tests
             df_80_annee = bst2.propager_impact_vers_df80(
-                df80_prec.copy(), bilan_stresse, annee=annee, 
+                df80_prec.copy(), bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon
             )
             df_81_annee = bst2.propager_impact_vers_df81(
-                df81_prec.copy(), bilan_stresse, annee=annee, 
+                df81_prec.copy(), bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon,
                 poids_dettes=poids_dettes
             )
 
             ASF = calcul_ASF(df_81_annee)
             RSF = calcul_RSF(df_80_annee)
-            NSFR = Calcul_NSFR(ASF , RSF)
+            NSFR = Calcul_NSFR(ASF, RSF)
 
             recap_data.append({
                 "Année": annee,
@@ -1227,17 +1228,15 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
                 "RSF": RSF,
                 "NSFR (%)": NSFR,
                 "df_80": df_80_annee,
-                "df_81": df_81_annee,
+                "df_81": df_81_annee
             })
 
-            # Sauvegarder les df pour l'année suivante
             df80_prec, df81_prec = df_80_annee, df_81_annee
 
-        
-        # Moved outside the loop to display the table only once
         return recap_data
+
     except Exception as e:
-        st.error(f"Erreur lors du calcul du LCR: {str(e)}")
+        st.error(f"Erreur lors du calcul du NSFR après tirage PNU : {str(e)}")
         return None
     
 def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
