@@ -2,6 +2,8 @@ import os
 import pandas as pd
 import shutil
 
+
+
 def charger_bilan():
     """
     Charge le fichier de bilan bancaire situé dans le dossier 'data/'.
@@ -72,6 +74,9 @@ def charger_nsfr():
 
     return df_80, df_81
 
+#####################################  IMPACT PNU SUR BILAN  ##########################################
+
+
 
 def get_valeur_poste_bilan(bilan_df, poste_bilan, annee="2024"):
     """
@@ -117,34 +122,43 @@ def appliquer_stress_retrait_depots(bilan_df, pourcentage, horizon=1, annee="202
     poste_portefeuille = "Portefeuille"
     poste_creances = "Créances banques autres"
 
-    valeur_depots = get_valeur_poste_bilan(bilan_df, poste_depots, annee)
-    if valeur_depots is None:
-        raise ValueError(f"Poste '{poste_depots}' non trouvé ou valeur manquante pour {annee}.")
+    annee_precedente = str(int(annee) - 1)
 
-    choc_total = valeur_depots *pourcentage
-    choc_annuel = choc_total / horizon 
+    # Valeur de référence pour le choc : dépôts 2024
+    valeur_depots_2024 = get_valeur_poste_bilan(bilan_df, poste_depots, annee_precedente)
+    if valeur_depots_2024 is None:
+        raise ValueError(f"Poste '{poste_depots}' non trouvé ou valeur manquante pour {annee_precedente}.")
 
+    # Calcul du choc total basé sur les dépôts 2024
+    choc_total = valeur_depots_2024 * pourcentage
+    choc_portefeuille = choc_total * poids_portefeuille
+    choc_creances = choc_total * poids_creances
+
+    # Appliquer le choc à chaque année de l'horizon
     for i in range(horizon):
         target_annee = str(int(annee) + i)
+        annee_ref = str(int(target_annee) - 1)
 
-        # Dépôts clients → baisse
+        # Dépôts clients
         idx_dep = bilan_df[bilan_df["Poste du Bilan"].astype(str).str.strip() == poste_depots].index[0]
-        bilan_df.loc[idx_dep, target_annee] -= choc_annuel
-        bilan_df = ajuster_annees_suivantes(bilan_df, poste_depots, target_annee, choc_annuel)
+        val_ref_dep = bilan_df.loc[idx_dep, annee_ref]
+        cap_planning_dep = bilan_df.loc[idx_dep, target_annee] - val_ref_dep
+        bilan_df.loc[idx_dep, target_annee] = val_ref_dep + cap_planning_dep - choc_total
 
-        # Portefeuille → baisse
-        reduction_portefeuille = choc_annuel * poids_portefeuille
+        # Portefeuille
         idx_port = bilan_df[bilan_df["Poste du Bilan"].astype(str).str.strip() == poste_portefeuille].index[0]
-        bilan_df.loc[idx_port, target_annee] -= reduction_portefeuille
-        bilan_df = ajuster_annees_suivantes(bilan_df, poste_portefeuille, target_annee, reduction_portefeuille)
+        val_ref_port = bilan_df.loc[idx_port, annee_ref]
+        cap_planning_port = bilan_df.loc[idx_port, target_annee] - val_ref_port
+        bilan_df.loc[idx_port, target_annee] = val_ref_port + cap_planning_port - choc_portefeuille
 
-        # Créances banques autres → baisse
-        reduction_creances = choc_annuel * poids_creances
+        # Créances banques autres
         idx_cre = bilan_df[bilan_df["Poste du Bilan"].astype(str).str.strip() == poste_creances].index[0]
-        bilan_df.loc[idx_cre, target_annee] -= reduction_creances
-        bilan_df = ajuster_annees_suivantes(bilan_df, poste_creances, target_annee, reduction_creances)
+        val_ref_cre = bilan_df.loc[idx_cre, annee_ref]
+        cap_planning_cre = bilan_df.loc[idx_cre, target_annee] - val_ref_cre
+        bilan_df.loc[idx_cre, target_annee] = val_ref_cre + cap_planning_cre - choc_creances
 
     return bilan_df
+
 
 mapping_bilan_LCR_NSFR_retrait_depots = {
     "Caisse Banque Centrale / nostro": [

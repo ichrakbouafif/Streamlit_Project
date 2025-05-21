@@ -78,9 +78,9 @@ def afficher_parametres_retrait_depots():
 
     # Initialisation des états
     if "poids_portefeuille" not in st.session_state:
-        st.session_state.poids_portefeuille = 50
+        st.session_state.poids_portefeuille = 15
     if "poids_creances" not in st.session_state:
-        st.session_state.poids_creances = 50
+        st.session_state.poids_creances = 85
     if "last_changed" not in st.session_state:
         st.session_state.last_changed = "portefeuille"
 
