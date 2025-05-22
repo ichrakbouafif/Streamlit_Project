@@ -184,8 +184,9 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
-    bst.show_asf_lines_tab()
-    recap_data_nsfr = afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=1)
+    bst.show_asf_tab_v2()
+    bst.show_asf_tab_financial_customers()
+    recap_data_nsfr = afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3)
     if recap_data_nsfr:  # Vérifier que recap_data n'est pas None
         afficher_tableau_recapitulatif(recap_data_lcr, "NSFR")
     
@@ -291,16 +292,14 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
         st.error(f"Erreur lors du calcul du LCR après retrait des dépôts : {str(e)}")
         return None
 
-
-def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=1):
+def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
     try:
         if 'resultats_horizon' not in st.session_state:
             st.error("Les résultats de base ne sont pas disponibles dans la session.")
             return None
 
         resultats_horizon = st.session_state['resultats_horizon']
-        
-        # Verify base year exists
+
         if 2024 not in resultats_horizon:
             st.error("Les données de l'année 2024 ne sont pas disponibles.")
             return None
@@ -310,7 +309,7 @@ def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=1):
         poids_portefeuille = params["poids_portefeuille"]
         poids_creances = params["poids_creances"]
 
-        # 2024 - No stress
+        # 2024 - scénario de référence
         df_80 = resultats_horizon[2024]['df_80'].copy()
         df_81 = resultats_horizon[2024]['df_81'].copy()
 
@@ -318,15 +317,58 @@ def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=1):
             "Année": 2024,
             "ASF": calcul_ASF(df_81),
             "RSF": calcul_RSF(df_80),
-            "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81), calcul_RSF(df_80)) * 100,
+            "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81), calcul_RSF(df_80)),
             "df_80": df_80,
             "df_81": df_81
         })
+
+        for annee in [2025, 2026, 2027][:horizon]:
+            if annee not in resultats_horizon:
+                st.error(f"Données de base pour {annee} manquantes dans session state")
+                return None
+
+            df_80 = resultats_horizon[annee]['df_80'].copy()
+            df_81 = resultats_horizon[annee]['df_81'].copy()
+
+            # Application cumulative des stress des années précédentes
+            for prev_year in range(2025, annee):
+                df_80 = bst.propager_retrait_depots_vers_df80(
+                    df_80, bilan_stresse, pourcentage_retrait=pourcentage,
+                    poids_creances=poids_creances,
+                    annee=prev_year
+                )
+                df_81 = bst.propager_retrait_depots_vers_df81(
+                    df_81, bilan_stresse, pourcentage_retrait=pourcentage,
+                    annee=prev_year
+                )
+
+            # Application du stress pour l’année courante
+            df_80 = bst.propager_retrait_depots_vers_df80(
+                df_80, bilan_stresse, pourcentage_retrait=pourcentage,
+                poids_creances=poids_creances,
+                annee=annee
+            )
+            df_81 = bst.propager_retrait_depots_vers_df81(
+                df_81, bilan_stresse, pourcentage_retrait=pourcentage,
+                annee=annee
+            )
+
+            recap_data.append({
+                "Année": annee,
+                "ASF": calcul_ASF(df_81),
+                "RSF": calcul_RSF(df_80),
+                "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81), calcul_RSF(df_80)),
+                "df_80": df_80,
+                "df_81": df_81
+            })
+
         return recap_data
 
     except Exception as e:
-        st.error(f"Erreur lors du calcul du NSFR après retrait des dépôts : {str(e)}")
-        return None
+        st.error(f"Erreur lors du calcul du NSFR après retrait dépôts : {str(e)}")
+        st.error(f"Stack trace: {traceback.format_exc()}")
+    return None
+
 
 
 def afficher_resultats_solva(bilan_stresse, postes_concernes, params):

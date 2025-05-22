@@ -186,111 +186,6 @@ def appliquer_stress_retrait_depots(bilan_df, pourcentage, horizon=1, annee="202
 
     return bilan_df
 
-
-mapping_bilan_LCR_NSFR_retrait_depots = {
-    "Caisse Banque Centrale / nostro": [
-        ("row_0050", "df_72"),  # LB: Withdrawable central bank reserves
-        ("row_0150", "df_74"),  # Inflow: Monies due from central banks
-        ("row_0030", "df_80"),  # RSF from central bank assets 
-    ],
-    "Créances banques autres": [
-        ("row_0160", "df_74"),  # Inflow: Monies due from financial customers
-        ("row_0100", "df_74"),  # Inflow: Monies due from CB + financial customers
-        ("row_0730", "df_80"),  # NSFR: RSF from loans to financial customers
-    ],
-    "Créances hypothécaires": [
-        ("row_0030", "df_74"),  # Inflow – monies from non financial customers  
-        ("row_0640", "df_80"),  # RSF from loans to finantial customers
-        
-    ],
-    "Créances clientèle": [
-        ("row_0060", "df_74"),  # Inflow – Monies from retail customers
-        ("row_0070", "df_74"),  # Inflow – Monies from non financial corporate 
-        ("row_0080", "df_74"),  # Inflow – Monies from ..
-        ("row_0090", "df_74"),  # Inflow – Monies from ..
-        ("row_0810", "df_80"), # RSF from loans to non finantial customers 
-    ],
-    "Portefeuille": [
-        ("row_0190", "df_74"),  ## inflow – Monies from ..
-        #("row_0570", "df_80"),  # RSF from securities other than liquid assets non hqla
-        ("row_0580", "df_80"),  # RSF from securities other than liquid assets non hqla
-    ],
-    "Participations": [
-        ("row_X", "df_72"),  # Non considéré LCR
-        ("row_X", "df_73"),  # Non considéré LCR
-        ("row_X", "df_74"),  # Non considéré LCR
-        ("row_0600", "df_80"),  # RSF non hqla traded equities
-    ],
-    "Immobilisations et Autres Actifs": [
-        ("row_X", "df_72"),  # Non considéré LCR
-        ("row_X", "df_73"),  # Non considéré LCR
-        ("row_X", "df_74"),  # Non considéré LCR
-        ("row_1030", "df_80"), # RSF from other assets
-    ],
-    "Dettes envers les établissements de crédit (passif)": [
-        ("row_0230", "df_73"), # outflow non operational deposits by finantial customers
-        ("row_1350", "df_73"), #outflow intra group non operational deposits
-        ("row_0270", "df_81"), # ASF from finantial cus and central banks - liabilities provided by finantial customers
-    ],
-    "Depots clients (passif)": [
-        ("row_0035", "df_73"),("row_0040", "df_73"),("row_0060", "df_73"),("row_0070", "df_73"),("row_0080", "df_73"),("row_0090", "df_73"),("row_0100", "df_73"),("row_0110", "df_73"),   ## outflow retail deposits
-        ("row_0240", "df_73"),  ## outflow Non-operational deposits by other customers
-        ("row_0250", "df_73"), ## outflow covered by DGS
-        ("row_0260", "df_73"), ## outflow not covered by DGS
-        #("row_0070", "df_81"), #ASF from retail deposits
-        ("row_0090", "df_81"), #ASF from retail deposits
-        #("row_0130", "df_81"), #ASF from other non finantial customers
-        ("row_0160", "df_81"), #ASF from other non finantial customers
-
-    ],
-    "Autres passifs (passif)": [
-        ("row_0885", "df_73"), ## outflow other liabilities
-        ("row_0890", "df_73"), ## outflow other liabilities
-        ("row_0918", "df_73"), ## outflow other liabilities
-        ("row_0390", "df_81"), #ASF from other liabilities
-    ],
-    "Comptes de régularisation (passif)": [
-        ("row_0890", "df_73"), ## outflow other liabilities
-        ("row_0430", "df_81"), #ASF from other liabilities
-    ],
-    "Provisions (passif)": [
-        ("row_X", "df_72"),  # Non considéré LCR
-        ("row_X", "df_73"),  # Non considéré LCR
-        ("row_X", "df_74"),  # Non considéré LCR
-        ("row_0430", "df_81"), #ASF from other liabilities
-    ],
-    "Capital souscrit (passif)": [
-        ("row_0030", "df_81"), # ASF common equity tier 1
-        ("row_X", "df_72"),  # Non considéré LCR
-        ("row_X", "df_73"),  # Non considéré LCR
-        ("row_X", "df_74"),  # Non considéré LCR
-    ],
-    "Primes émission (passif)": [
-        ("row_X", "df_72"),  # Non considéré LCR
-        ("row_X", "df_73"),  # Non considéré LCR
-        ("row_X", "df_74"),  # Non considéré LCR
-        ("row_0030", "df_81"), # ASF common equity tier 1
-    ],
-    "Réserves (passif)": [
-        ("row_X", "df_72"),  # Non considéré LCR
-        ("row_X", "df_73"),  # Non considéré LCR
-        ("row_X", "df_74"),  # Non considéré LCR
-        ("row_0030", "df_81"), # ASF common equity tier 1
-    ],
-    "Report à nouveau (passif)": [
-        ("row_X", "df_72"),  # Non considéré LCR
-        ("row_X", "df_73"),  # Non considéré LCR
-        ("row_X", "df_74"),  # Non considéré LCR
-        ("row_0030", "df_81"), # ASF common equity tier 1
-    ],
-    "Income Statement - Résultat de l'exercice": [
-        ("row_X", "df_72"),  # Non considéré LCR
-        ("row_X", "df_73"),  # Non considéré LCR
-        ("row_X", "df_74"),  # Non considéré LCR
-        ("row_0030", "df_81"), # ASF common equity tier 1
-    ],
-}
-
 ########################################      LCR      ########################################
 def propager_retrait_depots_vers_df72(df_72, bilan_df, annee="2024", pourcentage=0.15, horizon=1, poids_portefeuille=0.15):
     """
@@ -370,306 +265,354 @@ def propager_retrait_depots_vers_df74(df_74, bilan_df, annee="2024", pourcentage
 
 ########################################      NSFR      ########################################
 
-
-
-
-def get_asf_rows_details(user_selections=None):
-    """Returns details for ASF rows impacted by deposit withdrawals"""
+def extract_asf_data_v2(user_selections=None):
     data = {
-        "Row": ["0090", "0110", "0130"],
+        "Row": ["0090", "0110", "0130", "Total"],
         "Rubrique": [
             "Stable retail deposits",
             "Other retail deposits",
-            "ASF from other non-financial customers (except central banks)"
+            "ASF from other non-financial customers (except central banks)",
+            "TOTAL "
         ],
-        "Included_in_calculation": ["No", "Yes", "Yes"],  # Default 0090 not included
-        "Amount": [70461721, 2687188132, 1854112318],
-        "ASF_factor": [0.95, 0.90, 1.00],  # Adjust factors as needed
-        "ASF_contribution": [70461721*0.95, 2687188132*0.90, 1854112318*1.00]
+        "Included_in_calculation": ["No", "Yes", "Yes", "Yes"],
+        "Amount_less_than_6M": [70461721, 2687188132, 1854112318, 0],
+        "Amount_6M_to_1Y": [263249, 156025150, 96897231, 0],
+        "Amount_greater_than_1Y": [0, 90419066, 48761102, 0],
+        "Available_stable_funding": [67188721, 2649311020, 1024265877, 0]
     }
 
-    # Update with user selections if provided
     if user_selections:
         for row, selection in user_selections.items():
             if row in data["Row"]:
                 idx = data["Row"].index(row)
                 data["Included_in_calculation"][idx] = "Yes" if selection else "No"
 
-    # Create DataFrame
     df = pd.DataFrame(data)
-    
-    # Calculate only for included rows
+
     included_mask = df["Included_in_calculation"] == "Yes"
-    df["ASF_contribution"] = df["Amount"] * df["ASF_factor"] * included_mask.astype(int)
     
-    # Format numbers
-    for col in ["Amount", "ASF_contribution"]:
-        df[col] = df[col].apply(lambda x: f"{x:,.0f}".replace(",", " "))
-    
+    for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", "Available_stable_funding"]:
+        df[col] = df[col].astype(float)
+
+    df.loc[df["Row"] == "Total", "Amount_less_than_6M"] = df[included_mask & (df["Row"] != "Total")]["Amount_less_than_6M"].sum()
+    df.loc[df["Row"] == "Total", "Amount_6M_to_1Y"] = df[included_mask & (df["Row"] != "Total")]["Amount_6M_to_1Y"].sum()
+    df.loc[df["Row"] == "Total", "Amount_greater_than_1Y"] = df[included_mask & (df["Row"] != "Total")]["Amount_greater_than_1Y"].sum()
+    df.loc[df["Row"] == "Total", "Available_stable_funding"] = df[included_mask & (df["Row"] != "Total")]["Available_stable_funding"].sum()
+
+    df["Total_amount"] = df["Amount_less_than_6M"] + df["Amount_6M_to_1Y"] + df["Amount_greater_than_1Y"]
+
+    total_selected = df[df["Row"] == "Total"]["Total_amount"].values[0]
+
+    df["Poids_%_par_type"] = 0
+    df.loc[included_mask, "Poids_%_par_type"] = df.loc[included_mask, "Total_amount"] / total_selected
+
+    df["Poids < 6M"] = 0
+    df["Poids 6M-1Y"] = 0
+    df["Poids > 1Y"] = 0
+
+    df.loc[included_mask, "Poids < 6M"] = df.loc[included_mask, "Amount_less_than_6M"] / df.loc[included_mask, "Total_amount"]
+    df.loc[included_mask, "Poids 6M-1Y"] = df.loc[included_mask, "Amount_6M_to_1Y"] / df.loc[included_mask, "Total_amount"]
+    df.loc[included_mask, "Poids > 1Y"] = df.loc[included_mask, "Amount_greater_than_1Y"] / df.loc[included_mask, "Total_amount"]
+
+    for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", "Total_amount", "Available_stable_funding"]:
+        df[col] = df[col].apply(lambda x: f"{float(x):,.0f}".replace(",", " ") if x != "" else "")
+
+    for col in ["Poids_%_par_type", "Poids < 6M", "Poids 6M-1Y", "Poids > 1Y"]:
+        df[col] = df[col].apply(lambda x: f"{float(x):.2%}" if x != 0 else "0.00%")
+
     return df
 
-def create_asf_rows_summary_table(user_selections=None):
-    """Creates summary table for ASF rows"""
-    df = get_asf_rows_details(user_selections)
-    
+def create_summary_table_asf_v2(user_selections=None):
+    df = extract_asf_data_v2(user_selections)
+
     summary_table = pd.DataFrame({
         "Row": df["Row"],
         "Rubrique": df["Rubrique"],
         "Inclus dans le calcul": ["Oui" if x == "Yes" else "Non" for x in df["Included_in_calculation"]],
-        "Montant": df["Amount"],
-        "Facteur ASF": df["ASF_factor"],
-        "Contribution ASF": df["ASF_contribution"]
+        "Montant < 6M": df["Amount_less_than_6M"],
+        "Montant 6M-1A": df["Amount_6M_to_1Y"],
+        "Montant > 1A": df["Amount_greater_than_1Y"],
+        "Montant total": df["Total_amount"],
+        "Poids % par type": df["Poids_%_par_type"],
+        "Poids < 6M": df["Poids < 6M"],
+        "Poids 6M-1A": df["Poids 6M-1Y"],
+        "Poids > 1A": df["Poids > 1Y"],
+        "Financement stable disponible": df["Available_stable_funding"]
     })
-    
+
     return summary_table
 
-def show_asf_lines_tab():
-    """Displays ASF lines tab in Streamlit"""
-    st.markdown("###### Rubriques COREP ASF impactées par le retrait de dépôts (lignes 0090, 0110, 0130)")
+def show_asf_tab_v2():
+    st.markdown("###### Les nouvelles rubriques ASF avec montants mis à jour")
 
-    # Create checkboxes for each row
     asf_rows = ["0090", "0110", "0130"]
     asf_selections = {}
 
     cols = st.columns(len(asf_rows))
     for i, row in enumerate(asf_rows):
         with cols[i]:
-            # Default to True except for 0090
-            default_value = False if row == "0090" else True
             asf_selections[row] = st.checkbox(
                 f"Inclure ligne {row}",
-                value=default_value,
-                key=f"asf_row_{row}"
+                value=(row != "0090"),
+                key=f"asf_v2_{row}"
             )
 
-    # Get table with user selections
-    table = create_asf_rows_summary_table(asf_selections)
-    styled = style_table(table, highlight_columns=["Facteur ASF", "Contribution ASF"])
-    st.markdown(styled.to_html(), unsafe_allow_html=True)
+    table_asf = create_summary_table_asf_v2(asf_selections)
+    styled_asf = style_table(
+        table_asf,
+        highlight_columns=["Poids % par type", "Poids < 6M", "Poids 6M-1A", "Poids > 1A"]
+    )
+    st.markdown(styled_asf.to_html(), unsafe_allow_html=True)
 
-def propager_impact_vers_df81_retrait_depots(df_81, impact_total, annee="2025"):
-    """
-    Propage l'impact du retrait de dépôts vers df_81 (ASF)
-    Lignes impactées: 0090, 0110, 0130
-    """
-    df_81 = df_81.copy()
-    
-    try:
-        # Get ASF weights from user selections
-        asf_selections = {
-            "0090": st.session_state.get(f"asf_row_0090", False),
-            "0110": st.session_state.get(f"asf_row_0110", True),
-            "0130": st.session_state.get(f"asf_row_0130", True)
-        }
-        asf_df = get_asf_rows_details(asf_selections)
-        
-        # Calculate total ASF from included rows
-        included_mask = asf_df["Included_in_calculation"] == "Yes"
-        total_asf = asf_df.loc[included_mask, "Amount"].astype(float).sum()
-        
-        if total_asf == 0:
-            return df_81
-            
-        # Calculate impact per row based on their proportion in total ASF
-        for _, row in asf_df[included_mask].iterrows():
-            row_impact = (float(row["Amount"].replace(" ", "")) / total_asf) * impact_total
-            
-            # Apply to corresponding row in df_81
-            mask = df_81["row"] == int(row["Row"])
-            if mask.any():
-                idx = df_81[mask].index[0]
-                df_81.at[idx, '0010'] = (df_81.at[idx, '0010'] if pd.notnull(df_81.at[idx, '0010']) else 0) - row_impact
-                
-    except Exception as e:
-        print(f"Erreur dans propager_impact_vers_df81_retrait_depots: {str(e)}")
-    
-    return df_81
 
-def propager_impact_vers_df80_retrait_depots(df_80, impact_total, annee="2025"):
+import pandas as pd
+import streamlit as st
+
+def extract_rsf_data_financial_customers(user_selections=None):
+    data = {
+        "Row": ["730", "Total"],
+        "Rubrique": [
+            "Other loans and advances to financial customers",
+            "TOTAL SELECTED ITEMS"
+        ],
+        "Included_in_calculation": ["Yes", "Yes"],
+        "Amount_less_than_6M": [3035906378, 0],
+        "Amount_6M_to_1Y": [264969774, 0],
+        "Amount_greater_than_1Y": [662511893, 0],
+        "Available_stable_funding": [1098587418, 0]
+    }
+
+    if user_selections:
+        for row, selection in user_selections.items():
+            if row in data["Row"]:
+                idx = data["Row"].index(row)
+                data["Included_in_calculation"][idx] = "Yes" if selection else "No"
+
+    df = pd.DataFrame(data)
+
+    included_mask = df["Included_in_calculation"] == "Yes"
+
+    df.loc[df["Row"] == "Total", "Amount_less_than_6M"] = (
+        df[included_mask & (df["Row"] != "Total")]["Amount_less_than_6M"].sum()
+    )
+    df.loc[df["Row"] == "Total", "Amount_6M_to_1Y"] = (
+        df[included_mask & (df["Row"] != "Total")]["Amount_6M_to_1Y"].sum()
+    )
+    df.loc[df["Row"] == "Total", "Amount_greater_than_1Y"] = (
+        df[included_mask & (df["Row"] != "Total")]["Amount_greater_than_1Y"].sum()
+    )
+    df.loc[df["Row"] == "Total", "Available_stable_funding"] = (
+        df[included_mask & (df["Row"] != "Total")]["Available_stable_funding"].sum()
+    )
+
+    df["Total_amount"] = (
+        df["Amount_less_than_6M"] + 
+        df["Amount_6M_to_1Y"] + 
+        df["Amount_greater_than_1Y"]
+    )
+
+    total_selected = df[df["Row"] == "Total"]["Total_amount"].values[0]
+
+    df["Poids_%_par_type"] = 0
+    df.loc[included_mask, "Poids_%_par_type"] = (
+        df.loc[included_mask, "Total_amount"] / total_selected
+    )
+
+    df["Poids < 6M"] = 0
+    df["Poids 6M-1Y"] = 0
+    df["Poids > 1Y"] = 0
+
+    df.loc[included_mask, "Poids < 6M"] = (
+        df.loc[included_mask, "Amount_less_than_6M"] / 
+        df.loc[included_mask, "Total_amount"]
+    )
+    df.loc[included_mask, "Poids 6M-1Y"] = (
+        df.loc[included_mask, "Amount_6M_to_1Y"] / 
+        df.loc[included_mask, "Total_amount"]
+    )
+    df.loc[included_mask, "Poids > 1Y"] = (
+        df.loc[included_mask, "Amount_greater_than_1Y"] / 
+        df.loc[included_mask, "Total_amount"]
+    )
+
+    # Format numbers
+    for col in ["Amount_less_than_6M", "Amount_6M_to_1Y", "Amount_greater_than_1Y", 
+                "Total_amount", "Available_stable_funding"]:
+        df[col] = df[col].apply(lambda x: f"{float(x):,.0f}".replace(",", " ") if x != "" else "")
+
+    # Format percentages
+    for col in ["Poids_%_par_type", "Poids < 6M", "Poids 6M-1Y", "Poids > 1Y"]:
+        df[col] = df[col].apply(lambda x: f"{float(x):.2%}" if x != 0 else "0.00%")
+
+    return df
+
+def create_summary_table_rsf_financial_customers(user_selections=None):
+    df = extract_rsf_data_financial_customers(user_selections)
+    
+    summary_table = pd.DataFrame({
+        "Row": df["Row"],
+        "Rubrique": [
+            "Other loans and advances to financial customers",
+            "TOTAL"
+        ],
+        "Inclus dans le calcul": ["Oui" if x == "Yes" else "Non" for x in df["Included_in_calculation"]],
+        "Montant < 6M": df["Amount_less_than_6M"],
+        "Montant 6M-1A": df["Amount_6M_to_1Y"],
+        "Montant > 1A": df["Amount_greater_than_1Y"],
+        "Montant total": df["Total_amount"],
+        "Poids % par type": df["Poids_%_par_type"],
+        "Poids < 6M": df["Poids < 6M"],
+        "Poids 6M-1A": df["Poids 6M-1Y"],
+        "Poids > 1A": df["Poids > 1Y"],
+        "Financement stable disponible": df["Available_stable_funding"]
+    })
+
+    return summary_table
+
+def show_asf_tab_financial_customers():
+    st.markdown("###### Ligne ASF : other loans and advances to financial customers")
+
+    row = "730"
+    selection = st.checkbox("Inclure ligne 730", value=True, key="asf_730")
+    user_selections = {row: selection}
+
+    table_asf = create_summary_table_rsf_financial_customers(user_selections)
+    styled_asf = style_table(table_asf, highlight_columns=["Poids % par type", "Poids < 6M", "Poids 6M-1A", "Poids > 1A"])
+    st.markdown(styled_asf.to_html(), unsafe_allow_html=True)
+
+def get_rsf_rows_details(user_selections=None):
+    df = extract_rsf_data_financial_customers(user_selections)
+
+    poids_df = pd.DataFrame({
+        "Row": df["Row"],
+        "Weight_less_than_6M": df["Poids < 6M"],
+        "Weight_6M_to_1Y": df["Poids 6M-1Y"],
+        "Weight_greater_than_1Y": df["Poids > 1Y"]
+    })
+
+    return poids_df
+ 
+
+def propager_retrait_depots_vers_df80(df_80, bilan_df, pourcentage_retrait=0.15, poids_creances=0.5, annee="2025"):
     """
-    Propage l'impact du retrait de dépôts vers df_80 (RSF)
-    Ligne impactée: 0730 (other loans and advances to financial customers)
+    Propage l'impact du stress 'Retrait Dépôts' vers la ligne 730 du df_80 en répartissant
+    l'effet selon les poids de maturité.
     """
     df_80 = df_80.copy()
-    
+
     try:
-        # Get RSF weights (example - adjust based on your actual data)
-        rsf_factors = {
-            "less_than_6M": 0.10,
-            "6M_to_1Y": 0.50,
-            "greater_than_1Y": 1.00
-        }
-        
-        # Distribute impact across maturities (example distribution - adjust as needed)
-        impact_less_6m = impact_total * 0.3  # 30% <6M
-        impact_6m_1y = impact_total * 0.4    # 40% 6M-1Y
-        impact_greater_1y = impact_total * 0.3  # 30% >1Y
-        
-        # Apply to row 0730
-        mask = df_80["row"] == 730
-        if mask.any():
-            idx = df_80[mask].index[0]
+        # 1. Récupérer les poids de la ligne 730
+        poids_df = get_rsf_rows_details()
+        row_730_data = poids_df[poids_df["Row"] == "730"].iloc[0]
+
+        poids_less_6m = float(row_730_data["Weight_less_than_6M"].strip('%')) / 100
+        poids_6m_1y = float(row_730_data["Weight_6M_to_1Y"].strip('%')) / 100
+        poids_greater_1y = float(row_730_data["Weight_greater_than_1Y"].strip('%')) / 100
+
+        # 2. Récupérer les dépôts clients 2024 pour base du choc
+        valeur_depots_2024 = get_valeur_poste_bilan(bilan_df, "Depots clients (passif)", str(int(annee) - 1))
+        if valeur_depots_2024 is None:
+            raise ValueError("Valeur des dépôts clients 2024 non trouvée.")
+
+        # 3. Calculer le choc affectant les créances vers les clients financiers
+        choc_creances = valeur_depots_2024 * pourcentage_retrait * poids_creances
+
+        # 4. Répartition du choc par maturité (valeurs à soustraire)
+        impact_less_6m = - choc_creances * poids_less_6m
+        impact_6m_1y = - choc_creances * poids_6m_1y
+        impact_greater_1y = - choc_creances * poids_greater_1y
+
+        # 5. Appliquer les impacts à la ligne 730 du df_80
+        mask_730 = df_80["row"] == 730
+        if mask_730.any():
+            idx = df_80[mask_730].index[0]
             df_80.at[idx, '0010'] = (df_80.at[idx, '0010'] if pd.notnull(df_80.at[idx, '0010']) else 0) + impact_less_6m
             df_80.at[idx, '0020'] = (df_80.at[idx, '0020'] if pd.notnull(df_80.at[idx, '0020']) else 0) + impact_6m_1y
             df_80.at[idx, '0030'] = (df_80.at[idx, '0030'] if pd.notnull(df_80.at[idx, '0030']) else 0) + impact_greater_1y
-                
+        else:
+            raise ValueError("Ligne 730 non trouvée dans df_80")
+
     except Exception as e:
-        print(f"Erreur dans propager_impact_vers_df80_retrait_depots: {str(e)}")
-    
+        print(f"Erreur dans propager_retrait_depots_vers_df80 : {str(e)}")
+
     return df_80
 
 
-
-
-
-
-
-
-
-########################################      old code      ########################################
-
-def get_delta_bilan(original_df, stressed_df, poste_bilan, annee):
+def propager_retrait_depots_vers_df81(df_81, bilan_df, pourcentage_retrait=0.15, annee="2025"):
     """
-    Calcule le delta (différence) entre la valeur originale et stressée pour un poste donné.
+    Propage l'impact du stress 'Retrait Dépôts' vers les lignes 110 et 130 du df_81,
+    en répartissant l'effet selon les poids de maturité (<6M, 6M–1Y, >1Y).
 
-    Args:
-        original_df (DataFrame): Le bilan original.
-        stressed_df (DataFrame): Le bilan stressé.
-        poste_bilan (str): Nom du poste.
-        annee (str): Année considérée.
-
-    Returns:
-        float: La différence (delta > 0 si diminution).
+    :param df_81: DataFrame des ASF (feuille 81)
+    :param bilan_df: DataFrame du bilan contenant les dépôts clients 2024
+    :param pourcentage_retrait: pourcentage de retrait (ex : 0.15 pour 15%)
+    :param annee: année de simulation (par défaut 2025)
+    :return: df_81 mis à jour
     """
-    val_orig = original_df.loc[original_df["Poste du Bilan"] == poste_bilan, annee].values[0]
-    val_stressed = stressed_df.loc[stressed_df["Poste du Bilan"] == poste_bilan, annee].values[0]
-    return val_orig - val_stressed
-
-def get_mapping_df_row(post_bilan):
-    """
-    À partir d’un poste du bilan, retourne les lignes correspondantes et les DataFrames associées.
-
-    Args:
-        post_bilan (str): Le nom du poste du bilan (clé du dictionnaire `mapping_bilan_LCR_NSFR`).
-
-    Returns:
-        List[Tuple[int, str]]: Liste des tuples (row_number, df_name) .
-    """
-    result = []
-    if post_bilan not in mapping_bilan_LCR_NSFR_retrait_depots:
-        raise ValueError(f"Poste '{post_bilan}' non trouvé dans le mapping.")
-
-    for row_str, feuille in mapping_bilan_LCR_NSFR_retrait_depots[post_bilan]:
-        if row_str == "row_X":
-            continue  # ignorer les lignes non mappées
-        try:
-            row_number = int(row_str.replace("row_", ""))
-        except ValueError:
-            continue  # ignorer les erreurs de conversion de ligne
-
-        # Utilisation de noms de DataFrame au lieu des codes de feuille
-        if feuille in ["df_72","df_73","df_74","df_80","df_81"]: 
-            df_name = feuille
-        else:
-            continue  # feuille non reconnue
-
-        result.append((row_number, df_name))
-
-    return result
-
-
-
-def propager_delta_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponderations=None):
-    lignes = get_mapping_df_row(poste_bilan)
-    print("lignes = ", lignes)
-
-    lignes_72 = [l for l in lignes if l[1] == "df_72"]
-    lignes_73 = [l for l in lignes if l[1] == "df_73"]
-    lignes_74 = [l for l in lignes if l[1] == "df_74"]
-    n, m, p = len(lignes_72), len(lignes_73), len(lignes_74)
-
-    print("n (df_72) = ", n)
-    print("m (df_73) = ", m)
-    print("p (df_74) = ", p)
-
-    if n + m + p == 0:
-        return df_72, df_73, df_74
-
-    df_72 = df_72.copy()
-    df_73 = df_73.copy()
-    df_74 = df_74.copy()
-
-    if ponderations is None:
-        ponderations_72 = [1 / n] * n if n > 0 else []
-        ponderations_73 = [1 / m] * m if m > 0 else []
-        ponderations_74 = [1 / p] * p if p > 0 else []
-    else:
-        ponderations_72 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_72"]
-        ponderations_73 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_73"]
-        ponderations_74 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_74"]
-
-    for (row_num, _), poids in zip(lignes_72, ponderations_72):
-        part_delta = delta * poids
-        print("part delta in df_72 = ", part_delta)
-        mask = df_72["row"] == row_num
-        df_72.loc[mask, "0010"] = df_72.loc[mask, "0010"] - part_delta
-
-    for (row_num, _), poids in zip(lignes_73, ponderations_73):
-        part_delta = delta * poids
-        print("part delta in df_73 = ", part_delta)
-        mask = df_73["row"] == row_num
-        df_73.loc[mask, "0010"] = df_73.loc[mask, "0010"] + part_delta
-
-    for (row_num, _), poids in zip(lignes_74, ponderations_74):
-        part_delta = delta * poids
-        print("part delta in df_74 = ", part_delta)
-        mask = df_74["row"] == row_num
-        df_74.loc[mask, "0010"] = df_74.loc[mask, "0010"] - part_delta
-
-    return df_72, df_73, df_74
-
-
-def propager_delta_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderations=None):
-    lignes = get_mapping_df_row(poste_bilan)
-    print("lignes nsfr = ", lignes)
-
-    lignes_80 = [l for l in lignes if l[1] == "df_80"]
-    lignes_81 = [l for l in lignes if l[1] == "df_81"]
-    n = len(lignes_80)
-    m = len(lignes_81)
-
-    print("n (df_80) = ", n)
-    print("m (df_81) = ", m)
-
-    if n + m == 0:
-        return df_80, df_81
-
-    df_80 = df_80.copy()
     df_81 = df_81.copy()
 
-    if ponderations is None:
-        ponderations_80 = [1 / n] * n if n > 0 else []
-        ponderations_81 = [1 / m] * m if m > 0 else []
-    else:
-        # Optional: use weights if provided (must match the length)
-        ponderations_80 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_80"]
-        ponderations_81 = [p for (row, df), p in zip(lignes, ponderations) if df == "df_81"]
+    try:
+        # 1. Charger les poids par ligne ASF
+        df_asf = extract_asf_data_v2()
+        poids_df = pd.DataFrame({
+            "Row": df_asf["Row"],
+            "Poids_%_par_type": df_asf["Poids_%_par_type"].apply(lambda x: float(x.strip('%').replace(',', '.')) / 100 if isinstance(x, str) else 0),
+            "Poids < 6M": df_asf["Poids < 6M"].apply(lambda x: float(x.strip('%').replace(',', '.')) / 100 if isinstance(x, str) else 0),
+            "Poids 6M-1Y": df_asf["Poids 6M-1Y"].apply(lambda x: float(x.strip('%').replace(',', '.')) / 100 if isinstance(x, str) else 0),  # Make sure this matches
+            "Poids > 1Y": df_asf["Poids > 1Y"].apply(lambda x: float(x.strip('%').replace(',', '.')) / 100 if isinstance(x, str) else 0)  # Space here
+        })
 
-    # Apply delta to df_80
-    for (row_num, _), poids in zip(lignes_80, ponderations_80):
-        part_delta = delta * poids
-        print("part delta in df_80 = ", part_delta)
-        mask = df_80["row"] == row_num
-        df_80.loc[mask, "0010"] = df_80.loc[mask, "0010"] - part_delta
 
-    # Apply delta to df_81
-    for (row_num, _), poids in zip(lignes_81, ponderations_81):
-        part_delta = delta * poids
-        print("part delta in df_81 = ", part_delta)
-        mask = df_81["row"] == row_num
-        df_81.loc[mask, "0010"] = df_81.loc[mask, "0010"] - part_delta
+        # 2. Dépôts clients 2024
+        valeur_depots_2024 = get_valeur_poste_bilan(bilan_df, "Depots clients (passif)", str(int(annee) - 1))
+        if valeur_depots_2024 is None:
+            raise ValueError("Valeur des dépôts clients 2024 non trouvée dans le bilan.")
 
-    return df_80, df_81
+        # 3. Répartition de l'impact par ligne et par bucket
+        lignes_cibles = ["0110", "0130"]
+        colonnes = {"0010": "Poids < 6M", "0020": "Poids 6M-1Y", "0030": "Poids > 1Y"}
+        for row_id in lignes_cibles:
+            poids_ligne = poids_df[poids_df["Row"] == row_id]
+            if poids_ligne.empty:
+                continue
+
+            poids_type = poids_ligne["Poids_%_par_type"].values[0]
+            for col, poids_bucket_col in colonnes.items():
+                poids_bucket = poids_ligne[poids_bucket_col].values[0]
+                impact = - valeur_depots_2024 * pourcentage_retrait * poids_type * poids_bucket
+
+                # Appliquer à df_81
+                int_row = int(row_id)
+                mask = df_81["row"] == int_row
+                if mask.any():
+                    idx = df_81[mask].index[0]
+                    df_81.at[idx, col] = (df_81.at[idx, col] if pd.notnull(df_81.at[idx, col]) else 0) + impact
+                else:
+                    print(f"Ligne {row_id} non trouvée dans df_81.")
+
+    except Exception as e:
+        print(f"Erreur dans propager_retrait_depots_vers_df81 : {str(e)}")
+
+    return df_81
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

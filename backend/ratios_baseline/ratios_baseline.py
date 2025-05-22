@@ -2,7 +2,6 @@ import os
 import pandas as pd
 import streamlit as st
 from backend.stress_test import event1 as bst
-from backend.stress_test.event1 import get_mapping_df_row
 
 
 
