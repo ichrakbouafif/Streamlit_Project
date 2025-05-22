@@ -178,6 +178,9 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
 
     # Section LCR
     st.subheader("Impact sur la liquidité (LCR)")
+    bst.show_hqla_tab()
+    bst.show_outflow_tab_retrait_depots()
+    bst. show_inflow_tab_retrait_depots()
     recap_data_lcr = afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
     if recap_data_lcr: 
         afficher_tableau_recapitulatif(recap_data_lcr, "LCR")
@@ -242,6 +245,7 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
             df_74 = resultats_horizon[annee]['df_74'].copy()
 
             # Stress cumulé des années précédentes
+            
             for prev_year in range(2025, annee):
                 df_72 = bst.propager_retrait_depots_vers_df72(
                     df_72, bilan_stresse, annee=prev_year,
@@ -251,12 +255,12 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
                 df_74 = bst.propager_retrait_depots_vers_df74(
                     df_74, bilan_stresse, annee=prev_year,
                     pourcentage=pourcentage, horizon=horizon,
-                    poids_portefeuille=poids_portefeuille
+                    poids_portefeuille=poids_portefeuille,
+                    impact_creances=poids_creances
                 )
                 df_73 = bst.propager_retrait_depots_vers_df73(
                     df_73, bilan_stresse, annee=prev_year,
                     pourcentage=pourcentage, horizon=horizon,
-                    poids_portefeuille=poids_portefeuille
                 )
 
             # Stress de l'année courante
@@ -267,12 +271,13 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
             )
             df_74 = bst.propager_retrait_depots_vers_df74(
                 df_74, bilan_stresse, annee=annee,
-                pourcentage=pourcentage, horizon=horizon
+                pourcentage=pourcentage, horizon=horizon,
+                poids_portefeuille=poids_portefeuille,
+                impact_creances=poids_creances
             )
             df_73 = bst.propager_retrait_depots_vers_df73(
                 df_73, bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon,
-                poids_portefeuille=poids_portefeuille
             )
 
             recap_data.append({

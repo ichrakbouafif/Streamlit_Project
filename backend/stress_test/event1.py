@@ -187,80 +187,411 @@ def appliquer_stress_retrait_depots(bilan_df, pourcentage, horizon=1, annee="202
     return bilan_df
 
 ########################################      LCR      ########################################
+def show_hqla_tab():
+    st.markdown("##### ")
+    st.markdown("###### Les rubriques COREP HQLA impactées par l'événement retrait de dépôts")
+
+    # Create checkboxes for each row
+    hqla_rows = ["0040", "0050", "0070"]
+    hqla_selections = {}
+
+    # Default values for checkboxes (all checked)
+    default_values =     default_values = {
+        "0040": False, "0050": False, "0070": True
+    }
+
+    # Create checkboxes in columns
+    cols = st.columns(len(hqla_rows))
+    
+    for i, row in enumerate(hqla_rows):
+        with cols[i]:
+            hqla_selections[row] = st.checkbox(
+                f"Inclure ligne {row}", 
+                value=default_values.get(row, True),
+                key=f"hqla_{row}"
+            )
+
+    # Get table with user selections
+    table_hqla = create_summary_table_hqla(hqla_selections)
+    styled_hqla = style_table(table_hqla, highlight_columns=["Poids (% du total)"])
+    st.markdown(styled_hqla.to_html(), unsafe_allow_html=True)
+
+def extract_hqla_data(user_selections=None):
+    data = {
+        "Row": ["0040", "0050", "0070"],
+        "Rubrique": [
+            "Coins and banknotes",
+            "Withdrawable central bank reserves",
+            "Central government assets"
+        ],
+        "Amount": [3620790, 100941682, 573180647]
+    }
+    
+    df = pd.DataFrame(data)
+    
+    if user_selections:
+        df["Included_in_calculation"] = df["Row"].apply(
+            lambda x: "Oui" if user_selections.get(x, False) else "Non"
+        )
+    else:
+        df["Included_in_calculation"] = "Oui"
+    
+    included_mask = df["Included_in_calculation"] == "Oui"
+    total_included = df[included_mask]["Amount"].sum()
+    
+    df["Weight"] = 0
+    for idx, row in df.iterrows():
+        if row["Included_in_calculation"] == "Oui" and total_included > 0:
+            df.at[idx, "Weight"] = row["Amount"] / total_included
+    
+    return df
+
+def create_summary_table_hqla(user_selections=None):
+    df = extract_hqla_data(user_selections)
+    
+    df_formatted = df.copy()
+    df_formatted["Weight"] = df["Weight"].apply(lambda x: f"{x:.2%}" if x > 0 else "")
+    df_formatted["Amount"] = df["Amount"].apply(lambda x: f"{int(x):,}".replace(",", " "))
+    
+    summary_table = pd.DataFrame({
+        "Row": df_formatted["Row"],
+        "Rubrique": df_formatted["Rubrique"],
+        "Intégré dans le calcul": df_formatted["Included_in_calculation"],
+        "Montant 2024": df_formatted["Amount"],
+        "Poids (% du total)": df_formatted["Weight"]
+    })
+    
+    included_rows = df[df["Included_in_calculation"] == "Oui"]
+    total_included = included_rows["Amount"].sum()
+    
+    total_row = pd.DataFrame({
+        "Row": ["Total"],
+        "Rubrique": ["TOTAL HQLA"],
+        "Intégré dans le calcul": [""],
+        "Montant 2024": [f"{int(total_included):,}".replace(",", " ")], 
+        "Poids (% du total)": ["100.00%"]
+    })
+    
+    return pd.concat([summary_table, total_row], ignore_index=True)
+
+def show_outflow_tab_retrait_depots():
+    st.markdown("##### ")
+    st.markdown("###### Les rubriques COREP Outflow impactées par l'événement retrait de dépôts")
+
+    outflow_rows = ["0035", "0060", "0070", "0080", "0110", "0250", "0260"]
+    outflow_selections = {}
+
+    default_values = {
+        "0035": True, "0060": True, "0070": True,
+        "0080": False, "0110": False, "0250": False, "0260": True
+    }
+
+    cols1 = st.columns(4)
+    cols2 = st.columns(3)
+    all_cols = cols1 + cols2
+    
+    for i, row in enumerate(outflow_rows):
+        with all_cols[i]:
+            outflow_selections[row] = st.checkbox(
+                f"Inclure ligne {row}",
+                value=default_values.get(row, True),
+                key=f"outflow_retrait_{row}"
+            )
+
+    table_outflow = create_summary_table_outflow_retrait(outflow_selections)
+    styled_outflow = style_table(table_outflow, highlight_columns=["Poids (% du total)"])
+    st.markdown(styled_outflow.to_html(), unsafe_allow_html=True)
+
+def extract_outflow_retrait_data(user_selections=None):
+    data = {
+        "Row": ["0035", "0060", "0070", "0080", "0110", "0250", "0260"],
+        "Rubrique": [
+            "deposits exempted from the calculation of outflows",
+            "category 1",
+            "category 2",
+            "stable deposits",
+            "other retail deposits",
+            "covered by DGS",
+            "not covered by DGS"
+        ],
+        "Amount": [1153420704, 129868556, 1654960060, 67414342, 36822874, 25816211, 1323881264]
+    }
+    
+    df = pd.DataFrame(data)
+    default_values = {
+        "0035": True, "0060": True, "0070": True,
+        "0080": False, "0110": False, "0250": False, "0260": True
+    }
+    
+    if user_selections:
+        df["Included_in_calculation"] = df["Row"].apply(
+            lambda x: "Oui" if user_selections.get(x, False) else "Non"
+        )
+    else:
+        df["Included_in_calculation"] = df["Row"].apply(
+            lambda x: "Oui" if default_values.get(x, False) else "Non"
+        )
+    
+    included_mask = df["Included_in_calculation"] == "Oui"
+    total_included = df[included_mask]["Amount"].sum()
+    
+    df["Weight"] = 0
+    df["Impacted_amount"] = 0
+    for idx, row in df.iterrows():
+        if row["Included_in_calculation"] == "Oui" and total_included > 0:
+            df.at[idx, "Weight"] = row["Amount"] / total_included
+    
+    return df
+
+def create_summary_table_outflow_retrait(user_selections=None):
+    df = extract_outflow_retrait_data(user_selections)
+    
+    df_formatted = df.copy()
+    df_formatted["Weight"] = df["Weight"].apply(lambda x: f"{x:.2%}" if x > 0 else "")
+    df_formatted["Amount"] = df["Amount"].apply(lambda x: f"{int(x):,}".replace(",", " "))
+    df_formatted["Impacted_amount"] = df["Impacted_amount"].apply(lambda x: f"{int(x):,}".replace(",", " ") if x > 0 else "0")
+    
+    summary_table = pd.DataFrame({
+        "Row": df_formatted["Row"],
+        "Rubrique": df_formatted["Rubrique"],
+        "Intégré dans le calcul": df_formatted["Included_in_calculation"],
+        "Montant 2024": df_formatted["Amount"],
+        "Poids (% du total)": df_formatted["Weight"]
+    })
+    
+    included_rows = df[df["Included_in_calculation"] == "Oui"]
+    total_included = included_rows["Amount"].sum()
+    
+    total_row = pd.DataFrame({
+        "Row": ["Total"],
+        "Rubrique": ["TOTAL OUTFLOWS"],
+        "Intégré dans le calcul": [""],
+        "Montant 2024": [f"{int(total_included):,}".replace(",", " ")], 
+        "Poids (% du total)": ["100.00%"]
+    })
+    
+    return pd.concat([summary_table, total_row], ignore_index=True)
+
+def show_inflow_tab_retrait_depots():
+    st.markdown("##### ")
+    st.markdown("###### Les rubriques COREP Inflow impactées par l'événement retrait de dépôts")
+
+    inflow_rows = ["0040", "0060", "0070", "0090", "0160", "0201", "0240", "0260"]
+    inflow_selections = {}
+
+    default_values = {
+        "0040": False, "0060": False, "0070": False, "0090": False, "0160":True,
+        "0201": False, "0240": False, "0260": False
+
+    }
+
+    cols1 = st.columns(4)
+    cols2 = st.columns(4)
+    all_cols = cols1 + cols2
+    
+    for i, row in enumerate(inflow_rows):
+        with all_cols[i]:
+            inflow_selections[row] = st.checkbox(
+                f"Inclure ligne {row}",
+                value=default_values.get(row, True),
+                key=f"inflow_retrait_{row}"
+            )
+
+    table_inflow = create_summary_table_inflow_retrait(inflow_selections)
+    styled_inflow = style_table(table_inflow, highlight_columns=["Poids (% du total)", "Taux d'entrée", "Montant impacté"])
+    st.markdown(styled_inflow.to_html(), unsafe_allow_html=True)
+
+def extract_inflow_retrait_data(user_selections=None):
+    data = {
+        "Row": ["0040", "0060", "0070", "0090", "0160", "0201", "0240", "0260"],
+        "Rubrique": [
+            "monies due from non-financial customers (not principal repayment)",
+            "monies due from retail customers",
+            "monies due from non-financial corporates",
+            "monies due from other legal entities",
+            "monies due from central banks and financial customers",
+            "loans with an undefined contractual end date",
+            "inflows from derivatives",
+            "other inflows"
+        ],
+        "Amount": [6071608, 17398647, 12122323, 157576, 1170789830, 1467363, 19425, 2073651],
+    }
+    
+    df = pd.DataFrame(data)
+    
+    if user_selections:
+        df["Included_in_calculation"] = df["Row"].apply(
+            lambda x: "Oui" if user_selections.get(x, False) else "Non"
+        )
+    else:
+        default_included = {"0160"}
+        df["Included_in_calculation"] = df["Row"].apply(
+            lambda x: "Oui" if x in default_included else "Non"
+        )
+    
+    included_mask = df["Included_in_calculation"] == "Oui"
+    total_included = df[included_mask]["Amount"].sum()
+    
+    df["Weight"] = 0
+    for idx, row in df.iterrows():
+        if row["Included_in_calculation"] == "Oui" and total_included > 0:
+            df.at[idx, "Weight"] = row["Amount"] / total_included
+    
+    return df
+
+
+def create_summary_table_inflow_retrait(user_selections=None):
+    df = extract_inflow_retrait_data(user_selections)
+    
+    df_formatted = df.copy()
+    df_formatted["Weight"] = df["Weight"].apply(lambda x: f"{x:.2%}" if x > 0 else "")
+    df_formatted["Amount"] = df["Amount"].apply(lambda x: f"{int(x):,}".replace(",", " "))    
+    summary_table = pd.DataFrame({
+        "Row": df_formatted["Row"],
+        "Rubrique": df_formatted["Rubrique"],
+        "Intégré dans le calcul": df_formatted["Included_in_calculation"],
+        "Montant 2024": df_formatted["Amount"],
+        "Poids (% du total)": df_formatted["Weight"]
+    })
+    
+    included_rows = df[df["Included_in_calculation"] == "Oui"]
+    total_included = included_rows["Amount"].sum()
+    
+    total_row = pd.DataFrame({
+        "Row": ["Total"],
+        "Rubrique": ["TOTAL INFLOWS"],
+        "Intégré dans le calcul": [""],
+        "Montant 2024": [f"{int(total_included):,}".replace(",", " ")], 
+        "Poids (% du total)": ["100.00%"]
+    })
+    
+    return pd.concat([summary_table, total_row], ignore_index=True)
+
+
+
+
 def propager_retrait_depots_vers_df72(df_72, bilan_df, annee="2024", pourcentage=0.15, horizon=1, poids_portefeuille=0.15):
     """
-    Propage l'impact du retrait massif des dépôts vers la ligne 70 de df_72.
-    Formule : row_70 = row_70 - impact_portefeuille
+    Propage l'impact du retrait massif des dépôts vers les lignes HQLA du df_72
+    selon leur poids dans le total des actifs HQLA.
+    
+    Nouvelle logique:
+    Pour chaque ligne HQLA dans df_72:
+    adjustment = Poids (% du total) * poids_portefeuille * (-valeur_dépôts_2024 * pourcentage_retrait)
     """
     df_72 = df_72.copy()
 
+    # 1. Récupérer les données HQLA avec leurs poids
+    hqla_data = extract_hqla_data()  # Utilise la fonction existante
+    hqla_data = hqla_data[hqla_data["Included_in_calculation"] == "Oui"]  # Seulement les lignes incluses
+    
+    # 2. Récupérer la valeur des dépôts clients 2024
     poste_depots = "Depots clients (passif)"
-
-    # Récupérer la valeur des dépôts en année de référence
-    valeur_initiale = get_valeur_poste_bilan(bilan_df, poste_depots, "2024")
-    if valeur_initiale is None:
+    valeur_depots_2024 = get_valeur_poste_bilan(bilan_df, poste_depots, "2024")
+    if valeur_depots_2024 is None:
         raise ValueError(f"Poste '{poste_depots}' introuvable ou sans valeur pour 2024.")
 
-    # Calcul de l'impact portefeuille
-    retrait_total = (valeur_initiale * pourcentage) / horizon
-    impact_portefeuille = retrait_total * poids_portefeuille
-
-    # Appliquer à la ligne row 70 de df_72 (colonne "0010")
-    mask = df_72["row"] == 70
-    df_72.loc[mask, "0010"] = df_72.loc[mask, "0010"] - impact_portefeuille
+    # 3. Calculer le choc total (négatif car c'est un retrait)
+    choc_total = -valeur_depots_2024 * pourcentage
+    
+    # 4. Appliquer l'impact à chaque ligne HQLA dans df_72
+    for _, row in hqla_data.iterrows():
+        row_id = int(row["Row"])  # Convertir "0040" -> 40
+        
+        # Trouver la ligne correspondante dans df_72
+        mask = df_72["row"] == row_id
+        if not mask.any():
+            print(f"Avertissement: Ligne HQLA {row_id} non trouvée dans df_72")
+            continue
+            
+        # Calculer l'ajustement pour cette ligne
+        poids = float(row["Weight"])
+        adjustment = poids * poids_portefeuille * choc_total
+        
+        # Appliquer l'ajustement (négatif car retrait)
+        df_72.loc[mask, "0010"] = df_72.loc[mask, "0010"] + adjustment
+        
+        print(f"Applied adjustment to row {row_id}: {adjustment:,.2f} (weight: {poids:.2%})")
 
     return df_72
 
-
-
-
-
-def propager_retrait_depots_vers_df73(df_73, bilan_df, annee="2024", pourcentage=0.15, horizon=1, poids_portefeuille=0.15):
+def propager_retrait_depots_vers_df73(df_73, bilan_df, annee="2024", pourcentage=0.15, horizon=1):
     """
-    Propage l'impact du retrait massif des dépôts vers la ligne 70 de df_72.
-    Formule : row_70 = row_70 - impact_portefeuille
+    Propage l’impact du retrait massif des dépôts vers les lignes d’outflows dans df_73,
+    selon leur poids dans le total des rubriques sélectionnées.
+
+    Formule :
+    adjustment = Poids (% du total) * (-valeur_dépôts_2024 * pourcentage_retrait)
+
+    Seules les lignes où 'Inclure dans calcul' == 'Oui' sont ajustées.
     """
     df_73 = df_73.copy()
 
+    # 1. Extraire la table d’outflows avec les poids selon les sélections utilisateur
+    outflow_data = extract_outflow_retrait_data()
+    outflow_data = outflow_data[outflow_data["Included_in_calculation"] == "Oui"]
+
+    # 2. Récupérer la valeur des dépôts clients
     poste_depots = "Depots clients (passif)"
+    valeur_depots_2024 = get_valeur_poste_bilan(bilan_df, poste_depots, "2024")
+    if valeur_depots_2024 is None:
+        raise ValueError(f"Poste '{poste_depots}' introuvable ou sans valeur pour 2024")
 
-    # Récupérer la valeur des dépôts en année de référence
-    valeur_initiale = get_valeur_poste_bilan(bilan_df, poste_depots,"2024")
-    if valeur_initiale is None:
-        raise ValueError(f"Poste '{poste_depots}' introuvable ou sans valeur pour.")
+    # 3. Calculer le choc total
+    choc_total = -valeur_depots_2024 * pourcentage / horizon
 
-    # Calcul de l'impact portefeuille
-    retrait_total = (valeur_initiale * pourcentage) / horizon
-    impact_portefeuille = retrait_total * poids_portefeuille
+    # 4. Appliquer l'ajustement à chaque ligne sélectionnée
+    for _, row in outflow_data.iterrows():
+        row_id = int(row["Row"])  # Ex: "0060" -> 60
+        poids = float(row["Weight"])
+        adjustment = poids * choc_total
 
-    # Appliquer à la ligne row 70 de df_72 (colonne "0010")
-    mask = df_73["row"] == 70
-    df_73.loc[mask, "0010"] = df_73.loc[mask, "0010"] - impact_portefeuille
+        mask = df_73["row"] == row_id
+        if not mask.any():
+            print(f"Avertissement: ligne {row_id} non trouvée dans df_73.")
+            continue
+
+        df_73.loc[mask, "0010"] = df_73.loc[mask, "0010"] + adjustment
+        print(f"Ajouté à la ligne {row_id} : {adjustment:,.2f} (poids: {poids:.2%})")
 
     return df_73
-def propager_retrait_depots_vers_df74(df_74, bilan_df, annee="2024", pourcentage=0.15, horizon=1, poids_portefeuille=0.15):
+def propager_retrait_depots_vers_df74(df_74, bilan_df, annee="2024", pourcentage=0.15, horizon=1, poids_portefeuille=0.15, impact_creances=0.85, inflow_selections=None):
     """
-    Propage l'impact du retrait massif des dépôts vers la ligne 70 de df_72.
-    Formule : row_70 = row_70 - impact_portefeuille
+    Propage l’impact du retrait des dépôts sur les lignes inflow de df_74, selon les pondérations.
     """
     df_74 = df_74.copy()
 
     poste_depots = "Depots clients (passif)"
+    poste_creances = "Créances banques autres"
 
-    # Récupérer la valeur des dépôts en année de référence
-    valeur_initiale = get_valeur_poste_bilan(bilan_df, poste_depots, "2024")
-    if valeur_initiale is None:
-        raise ValueError(f"Poste '{poste_depots}' introuvable ou sans valeur pour {annee}.")
+    val_depots = get_valeur_poste_bilan(bilan_df, poste_depots,"2024")
+    val_creances = get_valeur_poste_bilan(bilan_df, poste_creances, "2024")
 
-    # Calcul de l'impact portefeuille
-    retrait_total = (valeur_initiale * pourcentage) / horizon
-    impact_portefeuille = retrait_total * poids_portefeuille
+    if val_depots is None or val_creances is None:
+        raise ValueError("Valeurs bilan manquantes pour calcul (dépôts ou créances).")
 
-    # Appliquer à la ligne row 70 de df_72 (colonne "0010")
-    mask = df_74["row"] == 70
-    df_74.loc[mask, "0010"] = df_74.loc[mask, "0010"] - impact_portefeuille
+    retrait_total = -val_depots * pourcentage
+    print("retrait total = ", retrait_total)
+
+    inflow_df = extract_inflow_retrait_data(inflow_selections)
+    print("inflow df",inflow_df)
+    inflow_df = inflow_df[inflow_df["Included_in_calculation"] == "Oui"]
+
+    for _, row in inflow_df.iterrows():
+        row_code = int(row["Row"]) 
+        montant = row["Amount"]
+        part_dans_inflow = montant / val_creances if val_creances > 0 else 0
+
+        ajustement = impact_creances * retrait_total * poids_portefeuille * part_dans_inflow
+        print("Ajustement",ajustement)
+        print ("row ")
+
+        mask = df_74["row"] ==row_code
+        print("now changing row in df 74",mask)
+        df_74.loc[mask, "0010"] = df_74.loc[mask, "0010"] + ajustement 
 
     return df_74
+
 
 
 ########################################      NSFR      ########################################
