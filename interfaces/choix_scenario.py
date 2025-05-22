@@ -178,17 +178,17 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
 
     # Section LCR
     st.subheader("Impact sur la liquidité (LCR)")
-    recap_data_lcr = afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1)
-    if recap_data_lcr:  # Vérifier que recap_data n'est pas None
+    recap_data_lcr = afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
+    if recap_data_lcr: 
         afficher_tableau_recapitulatif(recap_data_lcr, "LCR")
     
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
     bst.show_asf_tab_v2()
     bst.show_asf_tab_financial_customers()
-    recap_data_nsfr = afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3)
-    if recap_data_nsfr:  # Vérifier que recap_data n'est pas None
-        afficher_tableau_recapitulatif(recap_data_lcr, "NSFR")
+    recap_data_nsfr = afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
+    if recap_data_nsfr:  
+        afficher_tableau_recapitulatif(recap_data_nsfr, "NSFR")
     
     # Section Ratio de Solvabilité
     st.subheader("Impact sur le ratio de solvabilité")
@@ -304,7 +304,7 @@ def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
             st.error("Les données de l'année 2024 ne sont pas disponibles.")
             return None
 
-        recap_data = []
+        recap_data_nsfr = []
         pourcentage = params["pourcentage"]
         poids_portefeuille = params["poids_portefeuille"]
         poids_creances = params["poids_creances"]
@@ -313,11 +313,11 @@ def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
         df_80 = resultats_horizon[2024]['df_80'].copy()
         df_81 = resultats_horizon[2024]['df_81'].copy()
 
-        recap_data.append({
+        recap_data_nsfr.append({
             "Année": 2024,
             "ASF": calcul_ASF(df_81),
             "RSF": calcul_RSF(df_80),
-            "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81), calcul_RSF(df_80)),
+            "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81),calcul_RSF(df_80)),
             "df_80": df_80,
             "df_81": df_81
         })
@@ -331,7 +331,7 @@ def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
             df_81 = resultats_horizon[annee]['df_81'].copy()
 
             # Application cumulative des stress des années précédentes
-            for prev_year in range(2025, annee):
+            for prev_year in range(2025, annee+1):
                 df_80 = bst.propager_retrait_depots_vers_df80(
                     df_80, bilan_stresse, pourcentage_retrait=pourcentage,
                     poids_creances=poids_creances,
@@ -353,7 +353,7 @@ def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
                 annee=annee
             )
 
-            recap_data.append({
+            recap_data_nsfr.append({
                 "Année": annee,
                 "ASF": calcul_ASF(df_81),
                 "RSF": calcul_RSF(df_80),
@@ -362,7 +362,7 @@ def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
                 "df_81": df_81
             })
 
-        return recap_data
+        return recap_data_nsfr
 
     except Exception as e:
         st.error(f"Erreur lors du calcul du NSFR après retrait dépôts : {str(e)}")
