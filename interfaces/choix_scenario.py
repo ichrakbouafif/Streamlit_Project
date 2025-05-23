@@ -5,6 +5,7 @@ import os
 import pandas as pd
 from backend.stress_test import event1 as bst
 from backend.stress_test import event2 as bst2
+from config import format_large_number
 from backend.solvabilite.calcul_ratios_capital_stressé import executer_stress_event1_bloc_institutionnel_pluriannuel
 from backend.lcr.utils import affiche_LB_lcr, affiche_outflow_lcr, affiche_inflow_lcr
 from backend.lcr.feuille_72 import calcul_HQLA
@@ -55,11 +56,6 @@ def show():
 
        
 
-def format_large_number(num):
-    """Format number with space as thousands separator and 2 decimal digits"""
-    if pd.isna(num) or num == 0:
-        return "0"
-    return f"{num:,.2f}".replace(",", " ")
    
 def afficher_configuration_evenements(selected_events, scenario_type):
     events_dict = config.scenarios[scenario_type]
@@ -89,7 +85,11 @@ def afficher_parametres_retrait_depots():
     with col1:
         st.markdown("#### <span style='font-size:18px;'>Paramètres du retrait massif des dépôts</span>", unsafe_allow_html=True)
         pourcentage = st.slider("Diminution des dépôts (%)", 0, 100, 15, 5) / 100.0
-        horizon = st.slider("Horizon du choc (années)", 1, 3, 1, 1)
+        horizon = st.slider("Horizon du choc (années)", 1, 10, 1, 1)
+        horizon_global = st.session_state.get("horizon_global", 3)
+        if horizon > horizon_global:
+            st.error(f"L'horizon de l'événement ne peut pas dépasser l'horizon global du stress test ({horizon_global} ans). Veuillez choisir une valeur inférieure ou égale.")
+
 
     with col2:
         st.markdown("#### <span style='font-size:18px;'>Répartition de l’impact</span>", unsafe_allow_html=True)
@@ -131,8 +131,6 @@ def afficher_parametres_retrait_depots():
 
 def executer_retrait_depots():
     bilan = bst.charger_bilan()
-    #st.write("Bilan actuel:")
-    #st.dataframe(bilan, use_container_width=True)
     params = afficher_parametres_retrait_depots()
 
     if st.button("Exécuter le stress test", key="executer_stress_test", use_container_width=True):
@@ -189,13 +187,11 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     st.subheader("Impact sur le ratio NSFR")
     bst.show_asf_tab_v2()
     bst.show_asf_tab_financial_customers()
-    recap_data_nsfr = afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
+    recap_data_nsfr= afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
     if recap_data_nsfr:  
         afficher_tableau_recapitulatif(recap_data_nsfr, "NSFR")
-   
     # Section Ratio de Solvabilité
     st.subheader("Impact sur le ratio de solvabilité")
-# Charger les résultats projetés depuis la session ou les calculer
     if "resultats_solva" in st.session_state:
         resultats_proj = st.session_state["resultats_solva"]
     else:
@@ -1179,7 +1175,10 @@ def afficher_parametres_tirage_pnu():
         st.markdown("#### <span style='font-size:18px;'>Paramètres du tirage PNU</span>", unsafe_allow_html=True)
 
         pourcentage = st.slider("Pourcentage de tirage PNU (%)", 0, 100, 10, 5) / 100.0
-        horizon = st.slider("Horizon de stress (années)", 1, 3, 3, 1)
+        horizon = st.slider("Horizon de stress (années)", 1, 10, 3, 1)
+        horizon_global = st.session_state.get("horizon_global", 3)
+        if horizon > horizon_global:
+            st.error(f"L'horizon de l'événement ne peut pas dépasser l'horizon global du stress test ({horizon_global} ans). Veuillez choisir une valeur inférieure ou égale.")
         inclure_corpo = st.checkbox("Inclure segment Corporate", value=True)
         inclure_retail = st.checkbox("Inclure segment Retail", value=True)
         inclure_hypo = st.checkbox("Inclure prêts hypothécaires", value=True)

@@ -86,6 +86,7 @@ def show():
     # ====================== HORIZON DE STRESS TEST ======================
     st.subheader("Horizon de Stress Test")
     horizon = st.number_input("Durée de l'horizon de stress test (en années)", min_value=1, max_value=10, value=3)
+    st.session_state.horizon_global = horizon
    
     # Load data upfront
     df_72, df_73, df_74 = bst.charger_lcr()
