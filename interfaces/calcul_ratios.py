@@ -438,7 +438,8 @@ def show():
                 pourcentage_corporate=poids_corporate
             )
             st.session_state["resultats_solva"] = resultats_solva
-        resultats_levier = simuler_levier_pluriannuel(bilan, df_c01, df_c4700, annees=annees[1:])
+            resultats_levier = simuler_levier_pluriannuel(bilan, df_c01, df_c4700, annees=annees[1:])
+            st.session_state["resultats_levier"] = resultats_levier
 
         # === AFFICHAGE SOLVABILITÉ ===
         st.markdown("##### Ratio Solvabilité")

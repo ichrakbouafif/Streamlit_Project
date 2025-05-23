@@ -1,8 +1,7 @@
-import pandas as pd
-import os
 import streamlit as st
-
-
+import pandas as pd 
+import numpy as np
+import os 
 # === Chargement des données ===
 def charger_donnees():
     dossier = "data"
@@ -55,250 +54,358 @@ def charger_donnees():
     return bilan, df_c01, df_c02, df_bloc
 
 
-# === Récupération du capital planning ===
-def get_capital_planning_below(bilan_df, poste_bilan, annee="2025"):
-    bilan_df = bilan_df.reset_index(drop=True)
-    index_poste = bilan_df[bilan_df["Poste du Bilan"].astype(str).str.strip() == poste_bilan].index
-    if not index_poste.empty:
-        i = index_poste[0] + 1
-        if i < len(bilan_df) and annee in bilan_df.columns:
-            valeur = bilan_df.loc[i, annee]
-            if pd.notna(valeur):
-                return valeur
-    return None
+def somme_sans_nan(row, cols):
+    """Calcule la somme des valeurs non-NaN pour les colonnes spécifiées"""
+    return sum(row.get(c, 0) for c in cols if pd.notna(row.get(c, 0)))
 
 
-# === Sous-fonctions de calcul ===
-def somme_sans_nan(row, colonnes):
-    return sum(row.get(col) for col in colonnes if pd.notna(row.get(col)))
+def recuperer_corep_bloc_institutionnel(resultats, annee: str):
+    """
+    Récupère uniquement le bloc institutionnel (C0700_0007_1) pour une année donnée.
 
+    Args:
+        resultats (dict): Résultats issus de simuler_solvabilite_pluriannuelle()
+        annee (str): Année cible au format '2025', '2026', ...
+
+    Returns:
+        DataFrame: Le DataFrame du bloc institutionnel (C0700_0007_1)
+    """
+    if annee not in resultats:
+        st.error(f"❌ Année {annee} non trouvée dans les résultats simulés.")
+        return pd.DataFrame()
+
+    data = resultats[annee]
+    blocs = data.get("blocs_rwa", {})
+
+    return blocs.get("C0700_0007_1", pd.DataFrame())
+
+    return corep
+
+
+def calculer_0220(row, ratios, debug=False):
+    """Calcule la colonne 0220 (RWA) avec les ratios déjà calculés"""
+    row_type = row.get("row")
+    expo = row.get("0200", 0)
+    
+    # Si l'exposition est nulle ou NaN, on la met à 0
+    if pd.isna(expo):
+        expo = 0
+    
+    # Utilisation des ratios pré-calculés
+    if row_type in [70.0, 80.0, 110.0]:
+        ratio = ratios.get(row_type)  # Utiliser le ratio de transformation déjà calculé
+        rwa = expo * ratio
+        if debug:
+            st.write(f"RWA calculé pour ligne {row_type}: {rwa}")
+        return rwa
+    
+    # Pour les autres lignes, somme de 0215, 0216, 0217 si disponibles
+    sum_cols = 0
+    for k in ["0215", "0216", "0217"]:
+        if k in row and not pd.isna(row.get(k)):
+            sum_cols += row.get(k)
+    
+    if debug and row_type in [70.0, 80.0, 110.0]:
+        st.write(f"RWA calculé pour ligne {row_type}: {sum_cols}")
+    
+    return sum_cols
 
 def calculer_0040(row):
     return somme_sans_nan(row, ["0010", "0030"])
 
-
 def calculer_0110(row):
     return somme_sans_nan(row, ["0040", "0050", "0060", "0070", "0080", "0090", "0100"])
-
 
 def calculer_0150(row):
     return somme_sans_nan(row, ["0110", "0120", "0130"])
 
 
-def calculer_0200(row):
-    val_0170 = row.get("0170")
-    val_0180 = row.get("0180")
-    val_0190 = row.get("0190")
-    if row.get("row") == 110.0:
-        return row.get("0200")
-    elif all(pd.isna(v) for v in [val_0170, val_0180, val_0190]):
-        return row.get("0200")
-    else:
-        return (0.2 * val_0170 if pd.notna(val_0170) else 0) + \
-               (0.5 * val_0180 if pd.notna(val_0180) else 0) + \
-               (1.0 * val_0190 if pd.notna(val_0190) else 0)
+def calculer_rwa_depuis_exposition(expo, row_type, ratios, debug=False):
+    """Calcule le RWA (0220) à partir de l'exposition (0200) et du ratio implicite"""
+    if pd.isna(expo) or expo == 0:
+        return 0
+   
+    ratio = ratios.get(row_type, 0.25)
+    rwa = expo * ratio
+   
+    if debug:
+        st.write(f"Calcul RWA pour ligne {row_type}:")
+        st.write(f"  - Exposition: {expo}")
+        st.write(f"  - Ratio: {ratio}")
+        st.write(f"  - RWA calculé: {rwa}")
+   
+    return rwa
 
-
-def calculer_ratios_transformation(df):
+def calculer_0200(row, debug=False):
     """
-    Calcule les ratios RWA/Exposition pour chaque type de ligne (on_balance, off_balance, derivatives)
+    Calcule la colonne 0200 en fonction des pondérations et avec relation entre 0010 et 0190.
+    Pour la ligne 070, 0200 est égal à 0150. Pour la ligne 80.0, le calcul basé sur 0170, 0180 et 0190 est appliqué.
+    """
+    if row.get("row") == 70.0:  # Pour la ligne 70.0, 0200 = 0150
+        return row.get("0150", 0)
+
+    if row.get("row") == 110.0:  # Pour la ligne 110.0, ne pas recalculer 0200
+        return row.get("0200", 0)
+
+    # Récupérer les valeurs de 0170, 0180, 0190 avec gestion des NaN
+    v170 = row.get("0170", 0)
+    v180 = row.get("0180", 0)
+    v190 = row.get("0190", 0)
+   
+    v170 = 0 if pd.isna(v170) else v170
+    v180 = 0 if pd.isna(v180) else v180
+    v190 = 0 if pd.isna(v190) else v190
+
+    v010 = row.get("0010", 0)
+    v010 = 0 if pd.isna(v010) else v010
+   
+   
+
+    # Calculer 0200 selon la pondération
+    result = (0.2 * v170) + (0.5 * v180) + (1.0 * v190)
+
+   
+
+    return result
+
+
+def calculer_ratios_transformation(df_ref, debug=False):
+    """
+    Calcule les ratios implicites (RWA/exposition) pour chaque type de ligne à partir des données de référence.
+    Ces ratios seront utilisés pour les calculs futurs.
     """
     ratios = {}
-    for type_row, nom in [(70.0, "on_balance"), (80.0, "off_balance"), (110.0, "derivatives")]:
-        ligne = df[df["row"] == type_row]
+    
+    for row_type, name in [(70.0, "on_balance"), (80.0, "off_balance"), (110.0, "derivatives")]:
+        ligne = df_ref[df_ref["row"] == row_type]
+        
         if not ligne.empty:
-            rwa = ligne["0215"].values[0] if "0215" in ligne.columns else ligne["0220"].values[0]
-            exposure = ligne["0200"].values[0]
-            if pd.notna(rwa) and pd.notna(exposure) and exposure != 0:
-                ratio_percent = round((rwa / exposure), 4)
-                ratios[f"ratio_{nom}"] = ratio_percent
-                ratios[type_row] = ratio_percent  # Aussi avec la clé numérique pour faciliter l'accès
+            # Récupération de l'exposition (0200) et du RWA (0215 ou 0220)
+            rwa_col = "0215" if "0215" in ligne.columns else "0220"
+            
+            rwa = ligne[rwa_col].values[0] if not pd.isna(ligne[rwa_col].values[0]) else 0
+            expo = ligne["0200"].values[0] if "0200" in ligne.columns and not pd.isna(ligne["0200"].values[0]) else 0
+            
+            # Calcul du ratio RWA/exposition
+            if expo != 0:
+                ratio = round(rwa / expo, 4)
             else:
-                ratios[f"ratio_{nom}"] = None
-                ratios[type_row] = 0.25  # Valeur par défaut si non disponible
+                ratio = 0.25  # Valeur par défaut si exposition = 0
+                
+            ratios[row_type] = ratio
+            
+            if debug:
+                st.write(f"Ratio calculé pour ligne {row_type} ({name}): {ratio}")
+                st.write(f"  - RWA: {rwa}, Exposition: {expo}")
         else:
-            ratios[f"ratio_{nom}"] = None
-            ratios[type_row] = 0.25  # Valeur par défaut si ligne manquante
+            ratios[row_type] = 0.25  # Valeur par défaut si ligne non trouvée
+            if debug:
+                st.warning(f"Ligne {row_type} ({name}) non trouvée, utilisation ratio par défaut 0.25")
+    
     return ratios
+def calculer_0040(row):
+    return somme_sans_nan(row, ["0010", "0030"])
+
+def calculer_0110(row):
+    return somme_sans_nan(row, ["0040", "0050", "0060", "0070", "0080", "0090", "0100"])
+
+def calculer_0150(row):
+    return somme_sans_nan(row, ["0110", "0120", "0130"])
 
 
-def calculer_rwa_depuis_exposition(exposure, row_type, ratios):
+def calculer_rwa_depuis_exposition(expo, row_type, ratios, debug=False):
+    """Calcule le RWA (0220) à partir de l'exposition (0200) et du ratio implicite"""
+    if pd.isna(expo) or expo == 0:
+        return 0
+   
+    ratio = ratios.get(row_type, 0.25)
+    rwa = expo * ratio
+   
+    if debug:
+        st.write(f"Calcul RWA pour ligne {row_type}:")
+        st.write(f"  - Exposition: {expo}")
+        st.write(f"  - Ratio: {ratio}")
+        st.write(f"  - RWA calculé: {rwa}")
+   
+    return rwa
+def construire_df_c0700_recalcule(df_bloc, debug=False):
     """
-    Calcule le RWA en fonction de la valeur d'exposition et du type de ligne
-    en utilisant les ratios calculés dynamiquement
+    Recalcule toutes les colonnes du bloc C0700 après injection du capital planning
+    avec propagation de 0010 vers 0190 et 0200
     """
-    # Utiliser les ratios calculés dynamiquement au lieu de valeurs codées en dur
-    if row_type in ratios:
-        return exposure * ratios[row_type]
-   
-    # Valeurs par défaut si le ratio n'est pas disponible
-    default_coefficients = {
-        70.0: 0.272,  # On-balance sheet (environ 27.2% du montant d'exposition)
-        80.0: 0.2,    # Off-balance sheet (environ 20% du montant d'exposition)
-        110.0: 0.322  # Derivatives (environ 32.2% du montant d'exposition)
-    }
-   
-    # Si le type de ligne est connu, appliquer le coefficient par défaut
-    if row_type in default_coefficients:
-        return exposure * default_coefficients[row_type]
-   
-    # Sinon, retourner une valeur par défaut
-    return exposure * 0.25  # 25% par défaut
-
-
-def calculer_0220(row, ratios):
-    """
-    Calcule la colonne 0220 (RWA) à partir des colonnes d'exposition
-    et du type de ligne, en utilisant les ratios calculés dynamiquement
-    """
-    # Si on travaille avec la ligne 70.0 (on-balance), recalculer le RWA
-    # en fonction de la valeur d'exposition
-    row_type = row.get("row")
-    exposure = row.get("0200", 0)
-   
-    if row_type in [70.0, 80.0, 110.0]:
-        # Pour ces lignes, recalculer le RWA à partir de l'exposition
-        return calculer_rwa_depuis_exposition(exposure, row_type, ratios)
-   
-    # Pour les autres lignes, utiliser la somme des colonnes 0215, 0216, 0217
-    val_215 = row.get("0215", 0)
-    val_216 = row.get("0216", 0)
-    val_217 = row.get("0217", 0)
-   
-    # Convertir en 0 si NaN
-    val_215 = 0 if pd.isna(val_215) else val_215
-    val_216 = 0 if pd.isna(val_216) else val_216
-    val_217 = 0 if pd.isna(val_217) else val_217
-   
-    # Somme des trois colonnes
-    return val_215 + val_216 + val_217
-
-
-def construire_df_simulee(df_bloc):
+    if debug:
+        st.write("### RECALCUL DU BLOC C0700 AVEC PROPAGATION AMÉLIORÉE")
+       
     df_simulee = df_bloc.copy()
-    ratios = calculer_ratios_transformation(df_bloc)
-    for idx, row in df_bloc.iterrows():
+   
+    # S'assurer que toutes les colonnes nécessaires existent
+    colonnes_requises = ["row", "0010", "0040", "0110", "0150", "0170", "0180", "0190", "0200", "0215", "0220"]
+    for col in colonnes_requises:
+        if col not in df_simulee.columns:
+            df_simulee[col] = np.nan
+            if debug:
+                st.write(f"Colonne {col} ajoutée (manquante)")
+   
+    # Calculer les ratios une seule fois pour tout le bloc
+    ratios = calculer_ratios_transformation(df_bloc, debug)
+   
+    if debug:
+        st.write(f"Ratios de transformation calculés: {ratios}")
+   
+    # Recalculer ligne par ligne
+    for idx, row in df_simulee.iterrows():
         row_copy = row.copy()
+        row_type = row_copy["row"]
+       
+        if debug:
+            st.write(f"\nRecalcul ligne {row_type}:")
+       
+        # Calcul des colonnes intermédiaires
         row_copy["0040"] = calculer_0040(row_copy)
         row_copy["0110"] = calculer_0110(row_copy)
         row_copy["0150"] = calculer_0150(row_copy)
-        row_copy["0200"] = calculer_0200(row_copy)
-
-        df_simulee.at[idx, "0040"] = row_copy["0040"]
-        df_simulee.at[idx, "0110"] = row_copy["0110"]
-        df_simulee.at[idx, "0150"] = row_copy["0150"]
-        df_simulee.at[idx, "0200"] = row_copy["0200"]
-
-        row_type = row.get("row")
-        if row_type in [70.0, 80.0, 110.0]:
-            df_simulee.at[idx, "0220"] = row_copy["0200"] * ratios.get(row_type, 0.25)
-            df_simulee.at[idx, "0215"] = df_simulee.at[idx, "0220"]
-        else:
-            val_215 = row.get("0215", 0)
-            val_216 = row.get("0216", 0)
-            val_217 = row.get("0217", 0)
-            df_simulee.at[idx, "0220"] = sum(v for v in [val_215, val_216, val_217] if pd.notna(v))
+       
+        # Pour toutes les lignes, utiliser la nouvelle logique de calcul 0200
+        old_0200 = row_copy.get("0200", 0)
+        old_0200 = 0 if pd.isna(old_0200) else old_0200
+       
+        # Propager 0010 vers 0190 si nécessaire
+        if row_type == 70.0:  # Pour les actifs du bilan (on-balance)
+            v010 = row_copy.get("0010", 0)
+            v010 = 0 if pd.isna(v010) else v010
+           
+            v190 = row_copy.get("0190", 0)
+            v190 = 0 if pd.isna(v190) else v190
+           
+            # Si 0190 est vide ou 0 mais 0010 existe, mettre à jour 0190
+            if (v190 == 0) and (v010 > 0):
+                row_copy["0190"] = v010
+                if debug:
+                    st.write(f"  Mise à jour 0190 depuis 0010: {v010}")
+       
+        # Recalculer 0200 avec la nouvelle fonction
+        row_copy["0200"] = calculer_0200(row_copy, debug)
+       
+        # Calculer 0220 (RWA) en dernier
+        old_0220 = row_copy.get("0220", 0)
+        old_0220 = 0 if pd.isna(old_0220) else old_0220
+       
+        row_copy["0220"] = calculer_0220(row_copy, ratios, debug)
+       
+        # Définir 0215 égal à 0220 (dans ce modèle)
+        row_copy["0215"] = row_copy["0220"]
+       
+        if debug:
+            st.write(f"  Résultats ligne {row_type}:")
+            st.write(f"  - 0010: {row_copy.get('0010', 0)}")
+            st.write(f"  - 0190: {row_copy.get('0190', 0)}")
+            st.write(f"  - 0200: {old_0200} → {row_copy['0200']}")
+            st.write(f"  - 0220: {old_0220} → {row_copy['0220']}")
+       
+        # Mettre à jour les valeurs dans le dataframe
+        for col in colonnes_requises:
+            if col in row_copy and not pd.isna(row_copy.get(col)):
+                df_simulee.at[idx, col] = row_copy.get(col)
+   
     return df_simulee
-# Modification de la fonction calculer_ratios_solva_double_etape pour qu'elle retourne les détails
-def calculer_ratios_solva_double_etape(bilan, poste_cible, stress_pct, horizon, df_bloc_base, df_c01, df_c02, return_details=False):
-    annees = [str(2024 + i) for i in range(horizon + 1)]
-    resultats = []
-    logs = []
+def appliquer_stress_montant_sur_bloc(df_bloc, montant_stress, debug=False):
+    """
+    Applique un stress (soustraction de montant) sur la ligne 70.0 du bloc C0700.
+    Contrairement au capital planning, ce stress est négatif : on retire une valeur de 0010.
+    La fonction recalcule ensuite toutes les colonnes via construire_df_c0700_recalcule().
 
-    fonds_propres = df_c01.loc[df_c01["row"] == 20, "0010"].values[0]
-    rwa_total_initial = df_c02.loc[df_c02["row"] == 10, "0010"].values[0]
-    rwa_bloc_initial = df_bloc_base[df_bloc_base["row"].isin([70.0, 80.0, 110.0])]["0220"].sum()
+    Args:
+        df_bloc (DataFrame): Bloc C0700 à modifier (ex: C0700_0007_1)
+        montant_stress (float): Montant à retirer de la ligne 70.0 (positif)
+        debug (bool): Active l'affichage des étapes
 
-    logs.append(f"Fonds propres de base: {fonds_propres:,.0f}")
-    logs.append(f"RWA total initial: {rwa_total_initial:,.0f}")
-    logs.append(f"RWA bloc initial: {rwa_bloc_initial:,.0f}")
+    Returns:
+        DataFrame: bloc recalculé après stress
+    """
+    
+    df_new = df_bloc.copy()
+    idx = df_new[df_new["row"] == 70.0].index
 
-    ratios_reference = calculer_ratios_transformation(df_bloc_base)
+    if not idx.empty:
+        ancienne_valeur = df_new.at[idx[0], "0010"]
+        ancienne_valeur = 0 if pd.isna(ancienne_valeur) else ancienne_valeur
 
-    for row_type, nom in [(70.0, "on_balance"), (80.0, "off_balance"), (110.0, "derivatives")]:
-        logs.append(f"Ratio RWA/Exposition pour ligne {row_type} ({nom}): {ratios_reference.get(row_type, 0.25):.4f}")
+        nouvelle_valeur = max(0, ancienne_valeur - montant_stress)
+        df_new.at[idx[0], "0010"] = nouvelle_valeur
 
-    df_bloc_ref = df_bloc_base.copy()
+        if debug:
+            st.write(f"Ligne 70.0 : {ancienne_valeur:,.2f} - {montant_stress:,.2f} = {nouvelle_valeur:,.2f}")
+    else:
+        st.error("❌ Ligne 70.0 introuvable dans le bloc C0700")
+        raise ValueError("Ligne 70.0 introuvable")
 
-    for i, annee in enumerate(annees):
-        logs.append(f"\n--- Calcul pour l'année {annee} (étape {i}) ---")
+    # Recalcul complet du bloc après stress
+    df_recalcule = construire_df_c0700_recalcule(df_new, debug)
 
-        df_bloc_cap = df_bloc_ref.copy()
-        idx_70 = df_bloc_cap[df_bloc_cap["row"] == 70.0].index[0] if not df_bloc_cap[df_bloc_cap["row"] == 70.0].empty else None
+    return df_recalcule
 
-        if idx_70 is None:
-            logs.append(f"❌ ERREUR: Ligne 70.0 non trouvée dans le bloc")
-            raise ValueError(f"❌ Ligne 70.0 non trouvée dans le bloc")
+def executer_stress_event1_bloc_institutionnel_pluriannuel(
+    resultats_proj: dict,
+    annee_debut: str,
+    montant_stress_total: float,
+    horizon: int,
+    debug: bool = False
+) -> dict:
+    """
+    Applique le stress de type 'retrait massif des dépôts' sur plusieurs années
+    en répartissant le montant total uniformément sur l’horizon défini.
 
-        if i == 0:
-            df_bloc_stresse = construire_df_simulee(df_bloc_cap)
-            logs.append(f"Année 0: Utilisation des valeurs de référence")
-        else:
-            valeur_capital = get_capital_planning_below(bilan, poste_cible, annee=annee)
-            if valeur_capital is None:
-                logs.append(f"❌ ERREUR: Capital planning manquant pour '{poste_cible}' en {annee}")
-                raise ValueError(f"❌ Capital planning manquant pour '{poste_cible}' en {annee}")
+    Returns:
+        dict: Résultats par année : blocs stressés, RWA, ratio de solvabilité.
+    """
+    resultats_stress = {}
+    montant_annuel = montant_stress_total / horizon
 
-            logs.append(f"Capital planning pour {poste_cible} en {annee}: {valeur_capital:,.0f}")
-            valeur_avant = df_bloc_cap.at[idx_70, "0010"]
-            logs.append(f"Valeur ligne 70.0 avant mise à jour: {valeur_avant:,.0f}")
+    for i in range(horizon):
+        annee = str(int(annee_debut) + i)
+        donnees = resultats_proj.get(annee, {})
+        df_c01 = donnees.get("df_c01", pd.DataFrame())
+        df_bloc = recuperer_corep_bloc_institutionnel(resultats_proj, annee).copy()
 
-            nouvelle_valeur = valeur_avant + valeur_capital
-            df_bloc_cap.at[idx_70, "0010"] = nouvelle_valeur
-            logs.append(f"Nouvelle valeur ligne 70.0 après capital planning: {nouvelle_valeur:,.0f} ({valeur_avant:,.0f} + {valeur_capital:,.0f})")
+        rwa_total_projete = donnees.get("rwa", 0)
 
-            df_bloc_cap.at[idx_70, "0200"] = nouvelle_valeur
-            ratio_rwa = ratios_reference.get(70.0, 0.272)
-            nouveau_rwa = nouvelle_valeur * ratio_rwa
-            df_bloc_cap.at[idx_70, "0220"] = nouveau_rwa
-            df_bloc_cap.at[idx_70, "0215"] = nouveau_rwa
+        if df_bloc.empty:
+            st.warning(f"⚠️ Bloc C0700_0007_1 introuvable pour {annee}")
+            continue
 
-            # ✅ Recalcul du bloc après capital planning
-            df_bloc_cap = construire_df_simulee(df_bloc_cap)
+        if debug:
+            st.write(f"\n🧪 Traitement de l'année {annee}")
+            st.write(f"Montant annuel de stress: {montant_annuel:,.0f} DZD")
 
-            stress_cumule = (stress_pct / 100) * (i / horizon)
-            logs.append(f"Stress cumulé: {stress_cumule:.4f} ({stress_pct}% × {i}/{horizon})")
+        # RWA initial
+        rwa_initial = df_bloc["0220"].fillna(0).sum()
 
-            valeur_stressee = nouvelle_valeur * (1 + stress_cumule)
-            logs.append(f"Valeur après stress: {valeur_stressee:,.0f} ({nouvelle_valeur:,.0f} × (1 + {stress_cumule:.4f}))")
+        # Appliquer le stress
+        from backend.solvabilite.calcul_ratios_capital_stressé import appliquer_stress_montant_sur_bloc
+        df_bloc_stresse = appliquer_stress_montant_sur_bloc(df_bloc, montant_annuel, debug=debug)
 
-            df_bloc_stresse = df_bloc_cap.copy()
-            df_bloc_stresse.at[idx_70, "0010"] = valeur_stressee
-            df_bloc_stresse.at[idx_70, "0200"] = valeur_stressee
-            rwa_stresse = valeur_stressee * ratio_rwa
-            df_bloc_stresse.at[idx_70, "0220"] = rwa_stresse
-            df_bloc_stresse.at[idx_70, "0215"] = rwa_stresse
+        # RWA après stress
+        rwa_stresse = df_bloc_stresse["0220"].fillna(0).sum()
+        delta_rwa = rwa_stresse - rwa_initial
+        rwa_total_stresse = rwa_total_projete + delta_rwa
 
-            # ✅ Recalcul du bloc après stress
-            df_bloc_stresse = construire_df_simulee(df_bloc_stresse)
+        # Fonds propres projetés (Tier 1)
+        fonds_propres = 0
+        if not df_c01.empty and "0100" in df_c01.columns:
+            ligne_tier1 = df_c01[df_c01["row"] == 10.0]
+            if not ligne_tier1.empty:
+                fonds_propres = ligne_tier1["0100"].values[0]
+                fonds_propres = 0 if pd.isna(fonds_propres) else fonds_propres
 
-        rwa_bloc_stresse = df_bloc_stresse[df_bloc_stresse["row"].isin([70.0, 80.0, 110.0])]["0220"].sum()
-        logs.append(f"RWA bloc stressé: {rwa_bloc_stresse:,.0f}")
+        # Ratio stressé
+        ratio_solva_stresse = (fonds_propres / rwa_total_stresse) * 100 if rwa_total_stresse > 0 else 0
 
-        delta_rwa = rwa_bloc_stresse - rwa_bloc_initial
-        logs.append(f"Delta RWA: {delta_rwa:,.0f} ({rwa_bloc_stresse:,.0f} - {rwa_bloc_initial:,.0f})")
-
-        rwa_total = rwa_total_initial + delta_rwa
-        logs.append(f"RWA total stressé: {rwa_total:,.0f} ({rwa_total_initial:,.0f} + {delta_rwa:,.0f})")
-
-        ratio_solva = (fonds_propres / rwa_total) * 100 if rwa_total else None
-        logs.append(f"Ratio de solvabilité: {ratio_solva:.4f}% ({fonds_propres:,.0f} / {rwa_total:,.0f} × 100)")
-
-        resultat_annee = {
-            "Année": annee,
-            "Fonds propres": fonds_propres,
-            "RWA total": rwa_total,
-            "Ratio de solvabilité": ratio_solva
+        resultats_stress[annee] = {
+            "df_bloc_stresse": df_bloc_stresse,
+            "rwa_total_stresse": rwa_total_stresse,
+            "delta_rwa_total": delta_rwa,
+            "ratio_solva_stresse": round(ratio_solva_stresse, 2),
+            "fonds_propres": fonds_propres
         }
 
-        if return_details:
-            resultat_annee["logs"] = logs.copy()
-            resultat_annee["df_bloc_cap"] = df_bloc_cap.copy()
-            if i > 0:
-                resultat_annee["df_bloc_stresse"] = df_bloc_stresse.copy()
-
-        resultats.append(resultat_annee)
-        df_bloc_ref = df_bloc_cap.copy()
-
-    df_resultats = pd.DataFrame(resultats)
-    return df_resultats if return_details else df_resultats[["Année", "Fonds propres", "RWA total", "Ratio de solvabilité"]]
+    return resultats_stress

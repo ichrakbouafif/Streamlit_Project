@@ -1,10 +1,11 @@
 import streamlit as st
 import config
 import traceback
+import os
 import pandas as pd
 from backend.stress_test import event1 as bst
 from backend.stress_test import event2 as bst2
-
+from backend.solvabilite.calcul_ratios_capital_stressé import executer_stress_event1_bloc_institutionnel_pluriannuel
 from backend.lcr.utils import affiche_LB_lcr, affiche_outflow_lcr, affiche_inflow_lcr
 from backend.lcr.feuille_72 import calcul_HQLA
 from backend.lcr.feuille_73 import calcul_outflow
@@ -14,8 +15,7 @@ from backend.nsfr.utils import Calcul_NSFR, affiche_RSF, affiche_ASF
 from backend.nsfr.feuille_80 import calcul_RSF
 from backend.nsfr.feuille_81 import calcul_ASF
 # Import additional modules for leverage and solvency
-from backend.levier.calcul_ratio_levier import charger_donnees_levier, calculer_ratio_levier_double_etape
-from backend.solvabilite.calcul_ratios_capital_stressé import charger_donnees,calculer_ratios_solva_double_etape
+from backend.levier.calcul_ratio_levier import executer_stress_event1_levier_pluriannuel
 
 #import backend.stress_test.capital_pnu as capital_pnu
 
@@ -53,14 +53,14 @@ def show():
     if selected_events:
         afficher_configuration_evenements(selected_events, scenario_type_key)
 
-        
+       
 
 def format_large_number(num):
     """Format number with space as thousands separator and 2 decimal digits"""
     if pd.isna(num) or num == 0:
         return "0"
     return f"{num:,.2f}".replace(",", " ")
-    
+   
 def afficher_configuration_evenements(selected_events, scenario_type):
     events_dict = config.scenarios[scenario_type]
 
@@ -73,7 +73,7 @@ def afficher_configuration_evenements(selected_events, scenario_type):
             executer_tirage_pnu()
         else:
             st.warning("Cette fonctionnalité n'est pas encore implémentée.")
-    
+   
 def afficher_parametres_retrait_depots():
 
     # Initialisation des états
@@ -140,7 +140,7 @@ def executer_retrait_depots():
             try:
                 # Store original in session state
                 st.session_state.bilan_original = bilan.copy()
-                
+               
                 # Apply stress
                 bilan_stresse = bst.appliquer_stress_retrait_depots(
                     bilan_df=bilan,
@@ -150,19 +150,19 @@ def executer_retrait_depots():
                     poids_portefeuille=params['poids_portefeuille'],
                     poids_creances=params['poids_creances']
                 )
-                
+               
                 # Store stressed version
                 st.session_state.bilan_stresse = bilan_stresse
                 st.success("Stress test exécuté avec succès!")
                 afficher_resultats_retrait_depots(bilan_stresse, params)
                 if st.button("Valider ce scénario"):
                     st.success("Scénario validé avec succès!")
-                
+               
                 # Set the stress test executed flag
                 st.session_state.stress_test_executed = True
-                
+               
                 return params
-                
+               
             except Exception as e:
                 st.error(f"Erreur lors de l'exécution du stress test: {str(e)}")
                 st.session_state.stress_test_executed = False
@@ -182,9 +182,9 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     bst.show_outflow_tab_retrait_depots()
     bst. show_inflow_tab_retrait_depots()
     recap_data_lcr = afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
-    if recap_data_lcr: 
+    if recap_data_lcr:
         afficher_tableau_recapitulatif(recap_data_lcr, "LCR")
-    
+   
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
     bst.show_asf_tab_v2()
@@ -192,16 +192,43 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     recap_data_nsfr = afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
     if recap_data_nsfr:  
         afficher_tableau_recapitulatif(recap_data_nsfr, "NSFR")
-    
+   
     # Section Ratio de Solvabilité
     st.subheader("Impact sur le ratio de solvabilité")
-    afficher_resultats_solva(bilan_stresse, postes_concernes, params)
-    
+# Charger les résultats projetés depuis la session ou les calculer
+    if "resultats_solva" in st.session_state:
+        resultats_proj = st.session_state["resultats_solva"]
+    else:
+        # Calculer les résultats projetés si non disponibles
+        from backend.ratios_baseline.capital_projete import simuler_solvabilite_pluriannuelle
+        resultats_proj = simuler_solvabilite_pluriannuelle()
+        st.session_state["resultats_solva"] = resultats_proj
+       
+    afficher_resultats_solva(bilan_stresse, params, resultats_proj)    
     # Section Ratio de Levier
     st.subheader("Impact sur le ratio de levier")
-    afficher_resultats_levier(bilan_stresse, postes_concernes, params)
+   # Charger les résultats projetés pour le levier depuis la session ou les calculer
+    if "resultats_levier" in st.session_state:
+        proj_levier = st.session_state["resultats_levier"]
+    else:
+        from backend.ratios_baseline.capital_projete import simuler_levier_pluriannuel
+        bilan_path = "data/bilan.xlsx"
+        df_c01_path = "data/solvabilite.xlsx"
+        df_c4700_path = "data/levier.xlsx"
 
+        if not all([os.path.exists(p) for p in [bilan_path, df_c01_path, df_c4700_path]]):
+            st.error("❌ Fichiers COREP ou bilan manquants pour le calcul du levier.")
+            return
 
+        bilan = pd.read_excel(bilan_path).iloc[2:].reset_index(drop=True)
+        df_c01 = pd.read_excel(df_c01_path, sheet_name="C0100")
+        df_c4700 = pd.read_excel(df_c4700_path, sheet_name="C4700")
+
+        proj_levier = simuler_levier_pluriannuel(bilan, df_c01, df_c4700, annees=["2025", "2026", "2027"])
+        st.session_state["resultats_levier"] = proj_levier
+
+    # Affichage
+    afficher_resultats_levier(params, proj_levier)
 def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
     try:
         if 'resultats_horizon' not in st.session_state:
@@ -245,7 +272,7 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
             df_74 = resultats_horizon[annee]['df_74'].copy()
 
             # Stress cumulé des années précédentes
-            
+           
             for prev_year in range(2025, annee):
                 df_72 = bst.propager_retrait_depots_vers_df72(
                     df_72, bilan_stresse, annee=prev_year,
@@ -376,175 +403,255 @@ def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
 
 
 
-def afficher_resultats_solva(bilan_stresse, postes_concernes, params):
+from backend.solvabilite.calcul_ratios_capital_stressé import (
+    executer_stress_event1_bloc_institutionnel_pluriannuel,
+    recuperer_corep_bloc_institutionnel
+)
+
+def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
     try:
-        # Charger les données nécessaires pour le calcul de solvabilité
-        bilan, df_c01, df_c02, df_bloc = charger_donnees()
-        annees = ["2024", "2025", "2026", "2027"]
-        recap_data = []
+        import os
        
-        # Pour chaque poste concerné, calculer l'impact sur le ratio de solvabilité
-        for poste in postes_concernes:
-            # On utilise le paramètre de stress défini par l'utilisateur
-            stress_pct = params['pourcentage'] * 100  # Convertir en pourcentage
-            horizon = params['horizon']
-           
-            # Stocker le paramètre de stress dans session_state pour référence future
-            stress_key = f"Retrait massif des dépôts_Dépôts et avoirs de la clientèle_{poste}"
-            st.session_state[stress_key] = stress_pct
-           
-            # Calculer les ratios de solvabilité avec tous les détails
-            df_resultats = calculer_ratios_solva_double_etape(
-                bilan=bilan_stresse,
-                poste_cible=poste,
-                stress_pct=stress_pct,
-                horizon=horizon,
-                df_bloc_base=df_bloc,
-                df_c01=df_c01,
-                df_c02=df_c02,
-                return_details=True  # Nouveau paramètre pour récupérer les détails des calculs
-            )
-           
-            # Stocker les détails pour chaque année
-            for idx, row in df_resultats.iterrows():
-                annee = row["Année"]
-                annee_data = {
-                    "Année": annee,
-                    "Fonds propres": row["Fonds propres"],
-                    "RWA total": row["RWA total"],
-                    "Ratio de solvabilité (%)": row["Ratio de solvabilité"],
-                    "Poste": poste
-                }
-               
-                # Ajouter les DataFrames détaillés si disponibles
-                if "df_bloc_cap" in row:
-                    annee_data["df_bloc_cap"] = row["df_bloc_cap"]
-               
-                if "df_bloc_stresse" in row:
-                    annee_data["df_bloc_stresse"] = row["df_bloc_stresse"]
-               
-                # Ajouter les logs de calcul si disponibles
-                if "logs" in row:
-                    annee_data["logs"] = row["logs"]
-               
-                recap_data.append(annee_data)
-       
-        # Créer le dataframe récapitulatif
-        if recap_data:
-            # Garder seulement une entrée par année (éviter les doublons)
-            unique_recap = []
-            for annee in annees:
-                annee_data = [d for d in recap_data if d["Année"] == annee]
-                if annee_data:
-                    unique_recap.append(annee_data[0])
-           
-            # Afficher le tableau récapitulatif
-            afficher_tableau_recapitulatif(unique_recap, "Solvabilité")
-           
-            # Afficher les seuils réglementaires
-            col1, col2, col3 = st.columns(3)
+        # === Étape 1 : Récupération des paramètres
+        horizon = params.get("horizon", 3)
+        pourcentage = params.get("pourcentage", 0.10)
+        poids_creances = params.get("poids_creances", 0.50)
+ 
+        dossier = "data"
+        bilan_path = os.path.join(dossier, "bilan.xlsx")
 
-            with col1:
-                st.markdown(
-                    f"""
-                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
-                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
-                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Seuil CET1</h4>
-                        <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
-                            4.5%
-                        </p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+        # === BILAN ===
+        if not os.path.exists(bilan_path):
+            st.error(f"Fichier de bilan non trouvé : {bilan_path}")
+            return None, None, None, None
 
-            with col2:
-                st.markdown(
-                    f"""
-                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
-                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
-                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Seuil Tier 1</h4>
-                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
-                            6.0%
-                        </p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+        bilan = pd.read_excel(bilan_path)
+        bilan = bilan.iloc[2:].reset_index(drop=True)
 
-            with col3:
-                st.markdown(
-                    f"""
-                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
-                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
-                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Seuil Total Capital</h4>
-                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
-                            8.0%
-                        </p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+        if "Unnamed: 1" in bilan.columns:
+            bilan = bilan.drop(columns=["Unnamed: 1"])
+
+        for i, col in enumerate(bilan.columns):
+            if str(col).startswith("Unnamed: 6"):
+                bilan = bilan.iloc[:, :i]
+                break
+
+        bilan.columns.values[0] = "Poste du Bilan"
+        bilan.columns.values[1] = "2024"
+        bilan.columns.values[2] = "2025"
+        bilan.columns.values[3] = "2026"
+        bilan.columns.values[4] = "2027"
+        bilan = bilan.dropna(how="all").reset_index(drop=True)
+
+        if 25 in bilan.index:
+            bilan = bilan.drop(index=25).reset_index(drop=True)
+
+        # === Étape 3 : Récupération de la valeur de référence
+        ligne_creances = bilan[bilan["Poste du Bilan"].str.contains("Créances banques autres", case=False, na=False)]
+        if ligne_creances.empty:
+            st.warning("❌ La ligne 'Créances sur les banques – autres' est introuvable dans le bilan.")
+            return None
+
+        valeur_reference = ligne_creances["2024"].values[0]
+        montant_stress_total = valeur_reference * pourcentage * poids_creances
 
        
-    except Exception as e:
-        st.error(f"Erreur lors du calcul de la solvabilité: {e}")
-        import traceback
-        st.error(traceback.format_exc())
-
-def afficher_resultats_levier(bilan_stresse, postes_concernes, params):
-    try:
-        # Charger les données de base (bilan, C01 et C4700)
-        bilan, df_c01, df_c4700 = charger_donnees_levier()
-
-        # Extraire les paramètres
-        horizon = params["horizon"]
-        stress_pct = params["pourcentage"] * 100  # en %
-
-        # Stocker les stress dans session_state
-        for poste in postes_concernes:
-            stress_key = f"Retrait massif des dépôts_Dépôts et avoirs de la clientèle_{poste}"
-            st.session_state[stress_key] = stress_pct
-
-        # Calculer les résultats avec capital planning + stress
-        df_resultats = calculer_ratio_levier_double_etape(
-            bilan=bilan_stresse,
-            postes_cibles=postes_concernes,
-            stress_pct=stress_pct,
+        # === Étape 4 : Stress pluriannuel
+        resultats_stress = executer_stress_event1_bloc_institutionnel_pluriannuel(
+            resultats_proj=resultats_proj,
+            annee_debut="2025",
+            montant_stress_total=montant_stress_total,
             horizon=horizon,
-            df_c4700=df_c4700,
-            df_c01=df_c01,
-            return_details=True
+            debug=False
         )
 
+        # === Étape 5 : Résumé global
         recap_data = []
+        for i in range(horizon):
+            annee = str(2025 + i)
+            resultat = resultats_stress.get(annee)
+            if not resultat:
+                continue
 
-        for _, row in df_resultats.iterrows():
-            annee = row["Année"]
-            recap = {
+            fonds_propres = resultats_proj[annee].get("fonds_propres", 0)
+            rwa_total = resultat["rwa_total_stresse"]
+            ratio = (fonds_propres / rwa_total) * 100 if rwa_total > 0 else 0
+
+            recap_data.append({
                 "Année": annee,
-                "Fonds propres": row["Fonds propres"],
-                "Exposition totale": row["Exposition totale"],
-                "Ratio de levier (%)": row["Ratio de levier"]   
-            }
+                "Fonds propres": fonds_propres,
+                "RWA total": rwa_total,
+                "Ratio de solvabilité (%)": ratio,
+                "df_bloc_stresse": resultat["df_bloc_stresse"]
+            })
 
-            # Store detailed DataFrames if available
-            if "df_c4700" in row:
-                recap["df_c4700"] = row["df_c4700"]
-            if "df_c4700_cap" in row:
-                recap["df_c4700_cap"] = row["df_c4700_cap"]
-            if "df_c4700_stresse" in row:
-                recap["df_c4700_stresse"] = row["df_c4700_stresse"]
+        if recap_data:
+            df_recap = pd.DataFrame([{
+                "Année": r["Année"],
+                "Fonds propres": format_large_number(r["Fonds propres"]),
+                "RWA total": format_large_number(r["RWA total"]),
+                "Ratio de solvabilité (%)": f"{r['Ratio de solvabilité (%)']:.2f}%"
+            } for r in recap_data])
+            st.dataframe(df_recap, use_container_width=True)
 
-            recap_data.append(recap)
+        # === Étape 6 : Détail annuel
+        for r in recap_data:
+            with st.expander(f"Détails pour l’année {r['Année']}"):
+                col1, col2, col3 = st.columns(3)
 
-        # Afficher le tableau récapitulatif avec détails
-        afficher_tableau_recapitulatif(recap_data, "Levier")
+            with col1:
+                st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio de solvabilité</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
+                            {r['Ratio de solvabilité (%)']:.2f}%
+                        </p>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col2:
+                st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Fonds propres</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                            {format_large_number(r['Fonds propres'])}
+                        </p>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col3:
+                st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">RWA total</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                            {format_large_number(r['RWA total'])}
+                        </p>
+                    </div>
+                """, unsafe_allow_html=True)
+                  # Formatage complet des chiffres du bloc COREP
+                df_bloc_formate = r["df_bloc_stresse"].copy()
+                for col in df_bloc_formate.select_dtypes(include=["float", "int"]).columns:
+                    df_bloc_formate[col] = df_bloc_formate[col].apply(format_large_number)
+
+                st.markdown("### Bloc institutionnel C0700_0007_1 recalculé")
+                st.dataframe(df_bloc_formate, use_container_width=True)
+
+        return recap_data
 
     except Exception as e:
-        st.error(f"Erreur lors du calcul du ratio de levier: {str(e)}")
+        st.error(f"Erreur lors du calcul du stress retrait dépôts : {e}")
+        import traceback
         st.error(traceback.format_exc())
-        
+        return None
+
+def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=None):
+    try:
+        import os
+        resultats_solva = st.session_state.get("resultats_solva", None)
+        horizon = params.get("horizon", 3)
+        pourc_portefeuille = params.get("pourcentage_portefeuille", 0)
+        pourc_creances = params.get("pourcentage_creances", 0)
+
+        # === Chargement du bilan ===
+        dossier = "data"
+        bilan_path = os.path.join(dossier, "bilan.xlsx")
+        if not os.path.exists(bilan_path):
+            st.error(f"❌ Fichier de bilan introuvable : {bilan_path}")
+            return None
+
+        bilan = pd.read_excel(bilan_path).iloc[2:].reset_index(drop=True)
+       
+        # Nettoyage du bilan
+        if "Unnamed: 1" in bilan.columns:
+            bilan = bilan.drop(columns=["Unnamed: 1"])
+        for i, col in enumerate(bilan.columns):
+            if str(col).startswith("Unnamed: 6"):
+                bilan = bilan.iloc[:, :i]
+                break
+
+        bilan.columns.values[0:5] = ["Poste du Bilan", "2024", "2025", "2026", "2027"]
+        bilan = bilan.dropna(how="all").reset_index(drop=True)
+        if 25 in bilan.index:
+            bilan = bilan.drop(index=25).reset_index(drop=True)
+
+        # === Extraction des postes ciblés ===
+        poste_1 = bilan[bilan["Poste du Bilan"].str.contains("Portefeuille", case=False, na=False)]
+        poste_2 = bilan[bilan["Poste du Bilan"].str.contains("Créances banques autres", case=False, na=False)]
+
+        valeur_1 = poste_1["2024"].values[0] if not poste_1.empty else 0
+        valeur_2 = poste_2["2024"].values[0] if not poste_2.empty else 0
+
+        if valeur_1 == 0 and valeur_2 == 0:
+            st.warning("❌ Aucun poste cible n'a été trouvé dans le bilan.")
+            return None
+
+        # === Calcul du montant de stress ===
+        stress_portefeuille = valeur_1 * pourc_portefeuille
+        stress_creances = valeur_2 * pourc_creances
+        montant_stress_total = stress_portefeuille + stress_creances
+
+        # === Vérification des données projetées ===
+        if not resultats_projete_levier or "2025" not in resultats_projete_levier:
+            st.error("❌ Données projetées manquantes ou incorrectes.")
+            return None
+
+        # === Exécution du stress test ===
+        resultats_stress = executer_stress_event1_levier_pluriannuel(
+            resultats_proj=resultats_projete_levier,
+            resultats_solva=resultats_solva,
+            montant_stress_total=montant_stress_total,
+            annee_debut="2025",
+            horizon=horizon
+        )
+
+        # === Résumé global ===
+        recap_data = []
+        for i in range(horizon):
+            annee = str(2025 + i)
+            resultat = resultats_stress.get(annee)
+            if not resultat:
+                continue
+
+            # Récupération des fonds propres depuis resultats_solva ou fallback
+            if resultats_solva and annee in resultats_solva:
+                fonds_propres = resultats_solva[annee].get("fonds_propres", 0)
+            else:
+                fonds_propres = resultats_projete_levier[annee].get("fonds_propres", 0)
+                st.warning(f"Utilisation des fonds propres du levier pour {annee} (solva non disponible)")
+
+            exposition = resultat["total_exposure_stresse"]
+            ratio = resultat["ratio_levier_stresse"]
+
+            recap_data.append({
+                "Année": annee,
+                "Fonds propres": fonds_propres,
+                "Exposition totale": exposition,
+                "Ratio de levier (%)": ratio,
+                "df_c4700_stresse": resultat["df_c4700_stresse"]
+            })
+
+        # === Affichage ===
+        if recap_data:
+            df_recap = pd.DataFrame([{
+                "Année": r["Année"],
+                "Fonds propres": format_large_number(r["Fonds propres"]),
+                "Exposition totale": format_large_number(r["Exposition totale"]),
+                "Ratio de levier (%)": f"{r['Ratio de levier (%)']:.2f}%"
+            } for r in recap_data])
+            st.dataframe(df_recap, use_container_width=True)
+
+        return recap_data
+
+    except Exception as e:
+        st.error(f"Erreur lors de l'affichage du ratio de levier stressé : {e}")
+        import traceback
+        st.error(traceback.format_exc())
+        return None
+
+
 def afficher_corep_levier_detaille(df_c4700_stresse, key_prefix="corep_levier"):
     #st.markdown("**Détails du ratio de levier COREP**")
 
@@ -817,7 +924,7 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
     for annee_data in recap_data:
         with st.expander(f"Détails de calcul {ratio_type} pour {annee_data['Année']}"):
             st.markdown(f"#### Année {annee_data['Année']}")
-            
+           
             if ratio_type == "LCR":
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
@@ -1034,7 +1141,7 @@ def executer_tirage_pnu():
             try:
                 # Store original in session state
                 st.session_state.bilan_original = bilan.copy()
-                
+               
                 # Apply stress
                 bilan_stresse = bst2.appliquer_tirage_pnu(
                     bilan_df=bilan,
@@ -1044,20 +1151,20 @@ def executer_tirage_pnu():
                     poids_dettes=params["impact_dettes"],
                     annee="2024"
                 )
-                
+               
                 # Store stressed version
                 st.session_state.bilan_stresse = bilan_stresse
                 st.success("Stress test exécuté avec succès!")
                 afficher_resultats_tirage_pnu(bilan_stresse, params)
-                
+               
                 if st.button("Valider ce scénario", key="valider_tirage_pnu"):
                     st.success("Scénario validé avec succès!")
-                
+               
                 # Set the stress test executed flag
                 st.session_state.stress_test_executed = True
-                
+               
                 return params
-                
+               
             except Exception as e:
                 st.error(f"Erreur lors de l'exécution du stress test: {str(e)}")
                 st.session_state.stress_test_executed = False
@@ -1130,20 +1237,20 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     postes_concernes = ["Créances clientèle", "Portefeuille", "Dettes envers les établissements de crédit (passif)","Engagements de garantie donnés"]
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
-    
+   
     # Section principale des résultats
     st.markdown("### Résultats du stress test")
-    
+   
     # Afficher les ratios dans des cartes
     afficher_ratios_tirage_pnu()
-    
+   
     # Section LCR - Correction de l'appel de fonction en passant params comme second argument
     st.subheader("Impact sur la liquidité (LCR)")
     # Correction ici: passage de params au lieu de postes_concernes
     recap_data = afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=params['horizon'])
     if recap_data:  # Vérifier que recap_data n'est pas None
         afficher_tableau_recapitulatif(recap_data, "LCR")
-    
+   
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
 
@@ -1202,7 +1309,7 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
             return None
 
         resultats_horizon = st.session_state['resultats_horizon']
-        
+       
         # Verify base year exists
         if 2024 not in resultats_horizon:
             st.error("Les données de l'année 2024 ne sont pas disponibles.")
@@ -1210,7 +1317,7 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
 
         recap_data = []
         pourcentage = params["pourcentage"]
-        poids_portefeuille = params["impact_portefeuille"] 
+        poids_portefeuille = params["impact_portefeuille"]
         poids_dettes = params["impact_dettes"]
 
         # 2024 - No stress
@@ -1237,7 +1344,7 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
 
             # Get base DF for current year from session state
             df_72 = resultats_horizon[annee]['df_72'].copy()
-            df_73 = resultats_horizon[annee]['df_73'].copy() 
+            df_73 = resultats_horizon[annee]['df_73'].copy()
             df_74 = resultats_horizon[annee]['df_74'].copy()
 
             # Apply cumulative stress from all previous years
@@ -1247,12 +1354,12 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
                     pourcentage=pourcentage, horizon=horizon,
                     poids_portefeuille=poids_portefeuille
                 )
-                
+               
                 df_74 = bst2.propager_impact_vers_df74(
                     df_74, bilan_stresse, annee=prev_year,
                     pourcentage=pourcentage, horizon=horizon
                 )
-                
+               
                 df_73 = bst2.propager_impact_vers_df73(
                     df_73, bilan_stresse, annee=prev_year,
                     pourcentage=pourcentage, horizon=horizon,
@@ -1265,12 +1372,12 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
                 pourcentage=pourcentage, horizon=horizon,
                 poids_portefeuille=poids_portefeuille
             )
-            
+           
             df_74 = bst2.propager_impact_vers_df74(
                 df_74, bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon
             )
-            
+           
             df_73 = bst2.propager_impact_vers_df73(
                 df_73, bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon,
@@ -1294,7 +1401,7 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
     except Exception as e:
         st.error(f"Erreur lors du calcul du LCR après tirage PNU : {str(e)}")
         return None
-    
+   
 
 def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
     try:
@@ -1303,7 +1410,7 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
             return None
 
         resultats_horizon = st.session_state['resultats_horizon']
-        
+       
         # Verify base year exists
         if 2024 not in resultats_horizon:
             st.error("Les données de l'année 2024 ne sont pas disponibles.")
@@ -1343,7 +1450,7 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
                     df_80, bilan_stresse, annee=prev_year,
                     pourcentage=pourcentage, horizon=horizon
                 )
-                
+               
                 df_81 = bst2.propager_impact_vers_df81(
                     df_81, bilan_stresse, annee=prev_year,
                     pourcentage=pourcentage, horizon=horizon,
@@ -1355,7 +1462,7 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
                 df_80, bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon
             )
-            
+           
             df_81 = bst2.propager_impact_vers_df81(
                 df_81, bilan_stresse, annee=annee,
                 pourcentage=pourcentage, horizon=horizon,
@@ -1377,7 +1484,7 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
     except Exception as e:
         st.error(f"Erreur lors du calcul du NSFR après tirage PNU : {str(e)}")
         return None
-    
+   
 def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
     try:
         horizon = params.get("horizon", 3)
