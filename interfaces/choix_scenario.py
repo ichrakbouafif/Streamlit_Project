@@ -25,50 +25,152 @@ from backend.stress_test.capital import executer_stress_pnu_capital_pluriannuel
 def show():
     st.title("Choix des scénarios")
 
-    if "scenario_type" not in st.session_state:
-        st.session_state.scenario_type = None
-    if "selected_events" not in st.session_state:
-        st.session_state.selected_events = []
+    # Initialisation des variables de session
+    if "scenario_phase" not in st.session_state:
+        st.session_state.scenario_phase = 1
+    if "scenario_type_phase1" not in st.session_state:
+        st.session_state.scenario_type_phase1 = None
+    if "scenario_type_phase2" not in st.session_state:
+        st.session_state.scenario_type_phase2 = None
+    if "selected_events_phase1" not in st.session_state:
+        st.session_state.selected_events_phase1 = []
+    if "selected_events_phase2" not in st.session_state:
+        st.session_state.selected_events_phase2 = []
+    if "bilan_stresse_phase1" not in st.session_state:
+        st.session_state.bilan_stresse_phase1 = None
+    if "resultats_phase1" not in st.session_state:
+        st.session_state.resultats_phase1 = None
+    if "bilan_stresse_phase2" not in st.session_state:
+        st.session_state.bilan_stresse_phase2 = None
+    if "resultats_phase2" not in st.session_state:
+        st.session_state.resultats_phase2 = None
+    if "scenario_validated_phase1" not in st.session_state:
+        st.session_state.scenario_validated_phase1 = False
 
-    st.subheader("Phase 1 : Sélection du premier scénario")
+    # Phase 1
+    if st.session_state.scenario_phase == 1:
+        st.subheader("Phase 1 : Sélection du premier scénario")
 
-    scenario_type = st.radio(
-        "Type de scénario à calibrer",
-        ["Scénario idiosyncratique", "Scénario macroéconomique"],
-        key="scenario_type_radio"
-    )
+        scenario_type = st.radio(
+            "Type de scénario à calibrer",
+            ["Scénario idiosyncratique", "Scénario macroéconomique"],
+            key="scenario_type_radio"
+        )
 
-    scenario_type_key = "idiosyncratique" if "idiosyncratique" in scenario_type else "macroéconomique"
-    st.session_state.scenario_type = scenario_type_key
+        scenario_type_key = "idiosyncratique" if "idiosyncratique" in scenario_type else "macroéconomique"
+        st.session_state.scenario_type_phase1 = scenario_type_key
+        # Définir automatiquement le type pour la Phase 2 (opposé de Phase 1)
+        st.session_state.scenario_type_phase2 = "macroéconomique" if scenario_type_key == "idiosyncratique" else "idiosyncratique"
 
-    available_events = list(config.scenarios[scenario_type_key].keys())
+        available_events = list(config.scenarios[scenario_type_key].keys())
 
-    selected_events = st.multiselect(
-        "Événements disponibles",
-        available_events,
-        key="events_multiselect"
-    )
+        selected_events = st.multiselect(
+            "Événements disponibles",
+            available_events,
+            key="events_multiselect_phase1"
+        )
 
-    st.session_state.selected_events = selected_events
+        st.session_state.selected_events_phase1 = selected_events
 
-    if selected_events:
-        afficher_configuration_evenements(selected_events, scenario_type_key)
+        if selected_events:
+            st.markdown("#### Configurer les événements pour Phase 1")
+            resultats = afficher_configuration_evenements(
+                selected_events, 
+                scenario_type_key, 
+                phase=1
+            )
+            
+            # Vérifier si la Phase 1 a été validée
+            if st.session_state.scenario_validated_phase1:
+                st.success("✅ Phase 1 validée avec succès!")
+                if st.button("Passer à la Phase 2", use_container_width=True):
+                    st.session_state.scenario_phase = 2
+                    st.rerun()
 
-       
+    # Phase 2
+    elif st.session_state.scenario_phase == 2:
+        st.subheader("Phase 2 : Scénario complémentaire")
+        
+        # Affichage récapitulatif de la Phase 1
+        st.info(f"✅ Phase 1 terminée avec le scénario {st.session_state.scenario_type_phase1}")
+        
+        scenario_type_key = st.session_state.scenario_type_phase2
+        st.markdown(f"**Type de scénario Phase 2** : {scenario_type_key.title()}")
 
-   
-def afficher_configuration_evenements(selected_events, scenario_type):
+        available_events = list(config.scenarios[scenario_type_key].keys())
+
+        selected_events = st.multiselect(
+            "Événements disponibles pour Phase 2",
+            available_events,
+            key="events_multiselect_phase2"
+        )
+
+        st.session_state.selected_events_phase2 = selected_events
+
+        if selected_events:
+            st.markdown("#### Configurer les événements pour Phase 2")
+            afficher_configuration_evenements(
+                selected_events, 
+                scenario_type_key, 
+                phase=2,
+                bilan_initial=st.session_state.bilan_stresse_phase1,
+                resultats_horizon=st.session_state.resultats_phase1
+            )
+
+        # Boutons de navigation
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Retour à la Phase 1", use_container_width=True):
+                st.session_state.scenario_phase = 1
+                st.rerun()
+        
+        with col2:
+            if st.session_state.get("scenario_validated_phase2", False):
+                if st.button("Terminer le stress test complet", use_container_width=True):
+                    st.success("🎉 Simulation complète réalisée avec succès!")
+                    afficher_resultats_consolides()
+
+
+def afficher_configuration_evenements(selected_events, scenario_type, phase=1, bilan_initial=None, resultats_horizon=None):
+    """
+    Affiche et exécute la configuration des événements pour une phase donnée
+    """
     events_dict = config.scenarios[scenario_type]
+    resultats_phase = None
+
+    # Déterminer le bilan et les résultats de base
+    if phase == 1:
+        bilan_base = bilan_initial if bilan_initial is not None else st.session_state.get("bilan_initial", None)
+        resultats_base = resultats_horizon if resultats_horizon is not None else st.session_state.get("resultats_horizon", None)
+    else:  # Phase 2
+        bilan_base = bilan_initial if bilan_initial is not None else st.session_state.get("bilan_stresse_phase1", None)
+        resultats_base = resultats_horizon if resultats_horizon is not None else st.session_state.get("resultats_phase1", None)
 
     for event in selected_events:
         st.markdown(f"### Configuration pour: {event}")
 
         if event == "Retrait massif des dépôts":
-            executer_retrait_depots()
+            resultats = executer_retrait_depots(
+                bilan=bilan_base, 
+                resultats=resultats_base,
+                phase=phase
+            )
+            if resultats:
+                resultats_phase = resultats
+
         elif event == "Tirage PNU":
-            executer_tirage_pnu()
+            resultats = executer_tirage_pnu(
+                bilan=bilan_base, 
+                resultats=resultats_base,
+                phase=phase
+            )
+            if resultats:
+                resultats_phase = resultats
+
         else:
-            st.warning("Cette fonctionnalité n'est pas encore implémentée.")
+            st.warning(f"L'événement '{event}' n'est pas encore implémenté.")
+
+    return resultats_phase
    
 def afficher_parametres_retrait_depots():
 
@@ -129,17 +231,26 @@ def afficher_parametres_retrait_depots():
         'poids_creances': poids_creances
     }
 
-def executer_retrait_depots():
-    bilan = bst.charger_bilan()
+def executer_retrait_depots(bilan=None, resultats=None, phase=1):
+    """
+    Exécute le stress test de retrait des dépôts
+    """
+    # Utiliser le bilan passé ou le charger
+    bilan = bilan if bilan is not None else bst.charger_bilan()
     params = afficher_parametres_retrait_depots()
-
-    if st.button("Exécuter le stress test", key="executer_stress_test", use_container_width=True):
+    
+    button_key = f"executer_stress_test_retrait_phase_{phase}"
+    validation_key = f"valider_scenario_retrait_phase_{phase}"
+    executed_key = f"stress_test_executed_retrait_phase_{phase}"
+    
+    if st.button("Exécuter le stress test", key=button_key, use_container_width=True):
         with st.spinner("Exécution du stress test en cours..."):
             try:
-                # Store original in session state
-                st.session_state.bilan_original = bilan.copy()
-               
-                # Apply stress
+                # Sauvegarder le bilan original si c'est la phase 1
+                if phase == 1:
+                    st.session_state.bilan_original = bilan.copy()
+                
+                # Appliquer le stress
                 bilan_stresse = bst.appliquer_stress_retrait_depots(
                     bilan_df=bilan,
                     pourcentage=params['pourcentage'],
@@ -148,27 +259,41 @@ def executer_retrait_depots():
                     poids_portefeuille=params['poids_portefeuille'],
                     poids_creances=params['poids_creances']
                 )
-               
-                # Store stressed version
-                st.session_state.bilan_stresse = bilan_stresse
+                
+                # Sauvegarder les résultats selon la phase
+                if phase == 1:
+                    st.session_state.bilan_stresse_phase1 = bilan_stresse
+                    st.session_state.resultats_phase1 = params
+                else:
+                    st.session_state.bilan_stresse_phase2 = bilan_stresse
+                    st.session_state.resultats_phase2 = params
+                
                 st.success("Stress test exécuté avec succès!")
-                afficher_resultats_retrait_depots(bilan_stresse, params)
-                if st.button("Valider ce scénario"):
-                    st.success("Scénario validé avec succès!")
-               
-                # Set the stress test executed flag
-                st.session_state.stress_test_executed = True
-               
-                return params
-               
+                afficher_resultats_retrait_depots(bilan_stresse, params, resultats)
+                
+                # Marquer comme exécuté
+                st.session_state[executed_key] = True
+                st.rerun()
+                
             except Exception as e:
                 st.error(f"Erreur lors de l'exécution du stress test: {str(e)}")
-                st.session_state.stress_test_executed = False
+                st.session_state[executed_key] = False
                 return None
-
+    
+    # Afficher le bouton de validation si le stress test a été exécuté
+    if st.session_state.get(executed_key, False):
+        if st.button(f"Valider ce scénario (Phase {phase})", key=validation_key, use_container_width=True):
+            if phase == 1:
+                st.session_state.scenario_validated_phase1 = True
+            else:
+                st.session_state.scenario_validated_phase2 = True
+            st.success(f"Scénario Phase {phase} validé avec succès!")
+            st.rerun()
+        return st.session_state.get(f"resultats_phase{phase}")
+    
     return None
 
-def afficher_resultats_retrait_depots(bilan_stresse, params):
+def afficher_resultats_retrait_depots(bilan_stresse, params, resultats):
     st.subheader("Impact sur le bilan")
     postes_concernes = ["Depots clients (passif)", "Portefeuille", "Créances banques autres"]
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
@@ -178,17 +303,19 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     st.subheader("Impact sur la liquidité (LCR)")
     bst.show_hqla_tab()
     bst.show_outflow_tab_retrait_depots()
-    bst. show_inflow_tab_retrait_depots()
-    recap_data_lcr = afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
+    bst.show_inflow_tab_retrait_depots()
+    recap_data_lcr = afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=params['horizon'], resultats=resultats)
     if recap_data_lcr:
+        st.session_state["recap_data_lcr_retrait_depots"] = recap_data_lcr
         afficher_tableau_recapitulatif(recap_data_lcr, "LCR")
-   
+
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
     bst.show_asf_tab_v2()
     bst.show_asf_tab_financial_customers()
-    recap_data_nsfr= afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
-    if recap_data_nsfr:  
+    recap_data_nsfr = afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=params['horizon'], resultats=resultats)
+    if recap_data_nsfr:
+        st.session_state["recap_data_nsfr_retrait_depots"] = recap_data_nsfr
         afficher_tableau_recapitulatif(recap_data_nsfr, "NSFR")
     # Section Ratio de Solvabilité
     st.subheader("Impact sur le ratio de solvabilité")
@@ -225,16 +352,11 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
 
     # Affichage
     afficher_resultats_levier(params, proj_levier)
-def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
+
+def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1, resultats=None):
     try:
-        if 'resultats_horizon' not in st.session_state:
-            st.error("Les résultats de base ne sont pas disponibles dans la session.")
-            return None
-
-        resultats_horizon = st.session_state['resultats_horizon']
-
-        if 2024 not in resultats_horizon:
-            st.error("Les données de l'année 2024 ne sont pas disponibles.")
+        if resultats is None or 2024 not in resultats:
+            st.error("Les données de base sont manquantes.")
             return None
 
         recap_data = []
@@ -242,10 +364,10 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
         poids_portefeuille = params["poids_portefeuille"]
         poids_creances = params["poids_creances"]
 
-        # 2024 - base year without stress
-        df_72 = resultats_horizon[2024]['df_72'].copy()
-        df_73 = resultats_horizon[2024]['df_73'].copy()
-        df_74 = resultats_horizon[2024]['df_74'].copy()
+        # 2024 - base year
+        df_72 = resultats[2024]['df_72'].copy()
+        df_73 = resultats[2024]['df_73'].copy()
+        df_74 = resultats[2024]['df_74'].copy()
 
         recap_data.append({
             "Année": 2024,
@@ -259,49 +381,22 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
         })
 
         for annee in [2025 + i for i in range(horizon)]:
-            if annee not in resultats_horizon:
-                st.error(f"Données de base pour {annee} manquantes dans session state")
+            if annee not in resultats:
+                st.error(f"Données manquantes pour {annee}")
                 return None
 
-            df_72 = resultats_horizon[annee]['df_72'].copy()
-            df_73 = resultats_horizon[annee]['df_73'].copy()
-            df_74 = resultats_horizon[annee]['df_74'].copy()
+            df_72 = resultats[annee]['df_72'].copy()
+            df_73 = resultats[annee]['df_73'].copy()
+            df_74 = resultats[annee]['df_74'].copy()
 
-            # Stress cumulé des années précédentes
-           
             for prev_year in range(2025, annee):
-                df_72 = bst.propager_retrait_depots_vers_df72(
-                    df_72, bilan_stresse, annee=prev_year,
-                    pourcentage=pourcentage, horizon=horizon,
-                    poids_portefeuille=poids_portefeuille
-                )
-                df_74 = bst.propager_retrait_depots_vers_df74(
-                    df_74, bilan_stresse, annee=prev_year,
-                    pourcentage=pourcentage, horizon=horizon,
-                    poids_portefeuille=poids_portefeuille,
-                    impact_creances=poids_creances
-                )
-                df_73 = bst.propager_retrait_depots_vers_df73(
-                    df_73, bilan_stresse, annee=prev_year,
-                    pourcentage=pourcentage, horizon=horizon,
-                )
+                df_72 = bst.propager_retrait_depots_vers_df72(df_72, bilan_stresse, prev_year, pourcentage, horizon, poids_portefeuille)
+                df_74 = bst.propager_retrait_depots_vers_df74(df_74, bilan_stresse, prev_year, pourcentage, horizon, poids_portefeuille, poids_creances)
+                df_73 = bst.propager_retrait_depots_vers_df73(df_73, bilan_stresse, prev_year, pourcentage, horizon)
 
-            # Stress de l'année courante
-            df_72 = bst.propager_retrait_depots_vers_df72(
-                df_72, bilan_stresse, annee=annee,
-                pourcentage=pourcentage, horizon=horizon,
-                poids_portefeuille=poids_portefeuille
-            )
-            df_74 = bst.propager_retrait_depots_vers_df74(
-                df_74, bilan_stresse, annee=annee,
-                pourcentage=pourcentage, horizon=horizon,
-                poids_portefeuille=poids_portefeuille,
-                impact_creances=poids_creances
-            )
-            df_73 = bst.propager_retrait_depots_vers_df73(
-                df_73, bilan_stresse, annee=annee,
-                pourcentage=pourcentage, horizon=horizon,
-            )
+            df_72 = bst.propager_retrait_depots_vers_df72(df_72, bilan_stresse, annee, pourcentage, horizon, poids_portefeuille)
+            df_74 = bst.propager_retrait_depots_vers_df74(df_74, bilan_stresse, annee, pourcentage, horizon, poids_portefeuille, poids_creances)
+            df_73 = bst.propager_retrait_depots_vers_df73(df_73, bilan_stresse, annee, pourcentage, horizon)
 
             recap_data.append({
                 "Année": annee,
@@ -317,19 +412,12 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
         return recap_data
 
     except Exception as e:
-        st.error(f"Erreur lors du calcul du LCR après retrait des dépôts : {str(e)}")
+        st.error(f"Erreur LCR: {str(e)}")
         return None
-
-def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
+def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3, resultats=None):
     try:
-        if 'resultats_horizon' not in st.session_state:
-            st.error("Les résultats de base ne sont pas disponibles dans la session.")
-            return None
-
-        resultats_horizon = st.session_state['resultats_horizon']
-
-        if 2024 not in resultats_horizon:
-            st.error("Les données de l'année 2024 ne sont pas disponibles.")
+        if resultats is None or 2024 not in resultats:
+            st.error("Les données de base sont manquantes.")
             return None
 
         recap_data_nsfr = []
@@ -337,49 +425,32 @@ def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
         poids_portefeuille = params["poids_portefeuille"]
         poids_creances = params["poids_creances"]
 
-        # 2024 - scénario de référence
-        df_80 = resultats_horizon[2024]['df_80'].copy()
-        df_81 = resultats_horizon[2024]['df_81'].copy()
+        df_80 = resultats[2024]['df_80'].copy()
+        df_81 = resultats[2024]['df_81'].copy()
 
         recap_data_nsfr.append({
             "Année": 2024,
             "ASF": calcul_ASF(df_81),
             "RSF": calcul_RSF(df_80),
-            "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81),calcul_RSF(df_80)),
+            "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81), calcul_RSF(df_80)),
             "df_80": df_80,
             "df_81": df_81
         })
 
-        for annee in [2025, 2026, 2027][:horizon]:
-            if annee not in resultats_horizon:
-                st.error(f"Données de base pour {annee} manquantes dans session state")
+        for annee in [2025 + i for i in range(horizon)]:
+            if annee not in resultats:
+                st.error(f"Données manquantes pour {annee}")
                 return None
 
-            df_80 = resultats_horizon[annee]['df_80'].copy()
-            df_81 = resultats_horizon[annee]['df_81'].copy()
+            df_80 = resultats[annee]['df_80'].copy()
+            df_81 = resultats[annee]['df_81'].copy()
 
-            # Application cumulative des stress des années précédentes
             for prev_year in range(2025, annee+1):
-                df_80 = bst.propager_retrait_depots_vers_df80(
-                    df_80, bilan_stresse, pourcentage_retrait=pourcentage,
-                    poids_creances=poids_creances,
-                    annee=prev_year
-                )
-                df_81 = bst.propager_retrait_depots_vers_df81(
-                    df_81, bilan_stresse, pourcentage_retrait=pourcentage,
-                    annee=prev_year
-                )
+                df_80 = bst.propager_retrait_depots_vers_df80(df_80, bilan_stresse, pourcentage, poids_creances, prev_year)
+                df_81 = bst.propager_retrait_depots_vers_df81(df_81, bilan_stresse, pourcentage, prev_year)
 
-            # Application du stress pour l’année courante
-            df_80 = bst.propager_retrait_depots_vers_df80(
-                df_80, bilan_stresse, pourcentage_retrait=pourcentage,
-                poids_creances=poids_creances,
-                annee=annee
-            )
-            df_81 = bst.propager_retrait_depots_vers_df81(
-                df_81, bilan_stresse, pourcentage_retrait=pourcentage,
-                annee=annee
-            )
+            df_80 = bst.propager_retrait_depots_vers_df80(df_80, bilan_stresse, pourcentage, poids_creances, annee)
+            df_81 = bst.propager_retrait_depots_vers_df81(df_81, bilan_stresse, pourcentage, annee)
 
             recap_data_nsfr.append({
                 "Année": annee,
@@ -393,9 +464,9 @@ def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
         return recap_data_nsfr
 
     except Exception as e:
-        st.error(f"Erreur lors du calcul du NSFR après retrait dépôts : {str(e)}")
-        st.error(f"Stack trace: {traceback.format_exc()}")
-    return None
+        st.error(f"Erreur NSFR: {str(e)}")
+        return None
+
 
 
 
@@ -1128,17 +1199,25 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
                     st.info("Aucun détail COREP levier valide disponible pour cette année.")
 
 ############################### Evenement 2 : Tirage PNU ###############################
-def executer_tirage_pnu():
-    bilan = bst.charger_bilan()
+def executer_tirage_pnu(bilan=None, resultats=None, phase=1):
+    """
+    Exécute le stress test de tirage PNU
+    """
+    bilan = bilan if bilan is not None else bst.charger_bilan()
     params = afficher_parametres_tirage_pnu()
-
-    if st.button("Exécuter le stress test - Tirage PNU", key="executer_tirage_pnu", use_container_width=True):
+    
+    button_key = f"executer_tirage_pnu_phase_{phase}"
+    validation_key = f"valider_tirage_pnu_phase_{phase}"
+    executed_key = f"stress_test_executed_pnu_phase_{phase}"
+    
+    if st.button("Exécuter le stress test - Tirage PNU", key=button_key, use_container_width=True):
         with st.spinner("Exécution du stress test Tirage PNU en cours..."):
             try:
-                # Store original in session state
-                st.session_state.bilan_original = bilan.copy()
-               
-                # Apply stress
+                # Sauvegarder le bilan original si c'est la phase 1
+                if phase == 1:
+                    st.session_state.bilan_original = bilan.copy()
+                
+                # Appliquer le stress
                 bilan_stresse = bst2.appliquer_tirage_pnu(
                     bilan_df=bilan,
                     pourcentage=params["pourcentage"],
@@ -1147,26 +1226,116 @@ def executer_tirage_pnu():
                     poids_dettes=params["impact_dettes"],
                     annee="2024"
                 )
-               
-                # Store stressed version
-                st.session_state.bilan_stresse = bilan_stresse
+                
+                # Sauvegarder les résultats selon la phase
+                if phase == 1:
+                    st.session_state.bilan_stresse_phase1 = bilan_stresse
+                    st.session_state.resultats_phase1 = params
+                else:
+                    st.session_state.bilan_stresse_phase2 = bilan_stresse
+                    st.session_state.resultats_phase2 = params
+                
                 st.success("Stress test exécuté avec succès!")
-                afficher_resultats_tirage_pnu(bilan_stresse, params)
-               
-                if st.button("Valider ce scénario", key="valider_tirage_pnu"):
-                    st.success("Scénario validé avec succès!")
-               
-                # Set the stress test executed flag
-                st.session_state.stress_test_executed = True
-               
-                return params
-               
+                afficher_resultats_tirage_pnu(bilan_stresse, params, resultats=resultats)
+                
+                # Marquer comme exécuté
+                st.session_state[executed_key] = True
+                st.rerun()
+                
             except Exception as e:
                 st.error(f"Erreur lors de l'exécution du stress test: {str(e)}")
-                st.session_state.stress_test_executed = False
+                st.session_state[executed_key] = False
                 return None
-
+    
+    # Afficher le bouton de validation si le stress test a été exécuté
+    if st.session_state.get(executed_key, False):
+        if st.button(f"Valider ce scénario (Phase {phase})", key=validation_key, use_container_width=True):
+            if phase == 1:
+                st.session_state.scenario_validated_phase1 = True
+            else:
+                st.session_state.scenario_validated_phase2 = True
+            st.success(f"Scénario Phase {phase} validé avec succès!")
+            st.rerun()
+        return st.session_state.get(f"resultats_phase{phase}")
+    
     return None
+
+
+def afficher_resultats_consolides():
+    """
+    Affiche les résultats consolidés des deux phases
+    """
+    st.subheader("🎯 Résultats consolidés du stress test")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### Phase 1")
+        st.info(f"**Type**: {st.session_state.scenario_type_phase1}")
+        st.info(f"**Événements**: {', '.join(st.session_state.selected_events_phase1)}")
+        if st.session_state.resultats_phase1:
+            st.json(st.session_state.resultats_phase1)
+    
+    with col2:
+        st.markdown("### Phase 2")
+        st.info(f"**Type**: {st.session_state.scenario_type_phase2}")
+        if st.session_state.selected_events_phase2:
+            st.info(f"**Événements**: {', '.join(st.session_state.selected_events_phase2)}")
+            if st.session_state.resultats_phase2:
+                st.json(st.session_state.resultats_phase2)
+    
+    # Option pour recommencer
+    if st.button("Recommencer un nouveau stress test", use_container_width=True):
+        # Reset de toutes les variables de session
+        keys_to_reset = [
+            "scenario_phase", "scenario_type_phase1", "scenario_type_phase2",
+            "selected_events_phase1", "selected_events_phase2",
+            "bilan_stresse_phase1", "resultats_phase1",
+            "bilan_stresse_phase2", "resultats_phase2",
+            "scenario_validated_phase1", "scenario_validated_phase2"
+        ]
+        for key in keys_to_reset:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.rerun()
+
+def afficher_resultats_consolides():
+    """
+    Affiche les résultats consolidés des deux phases
+    """
+    st.subheader("🎯 Résultats consolidés du stress test")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### Phase 1")
+        st.info(f"**Type**: {st.session_state.scenario_type_phase1}")
+        st.info(f"**Événements**: {', '.join(st.session_state.selected_events_phase1)}")
+        if st.session_state.resultats_phase1:
+            st.json(st.session_state.resultats_phase1)
+    
+    with col2:
+        st.markdown("### Phase 2")
+        st.info(f"**Type**: {st.session_state.scenario_type_phase2}")
+        if st.session_state.selected_events_phase2:
+            st.info(f"**Événements**: {', '.join(st.session_state.selected_events_phase2)}")
+            if st.session_state.resultats_phase2:
+                st.json(st.session_state.resultats_phase2)
+    
+    # Option pour recommencer
+    if st.button("Recommencer un nouveau stress test", use_container_width=True):
+        # Reset de toutes les variables de session
+        keys_to_reset = [
+            "scenario_phase", "scenario_type_phase1", "scenario_type_phase2",
+            "selected_events_phase1", "selected_events_phase2",
+            "bilan_stresse_phase1", "resultats_phase1",
+            "bilan_stresse_phase2", "resultats_phase2",
+            "scenario_validated_phase1", "scenario_validated_phase2"
+        ]
+        for key in keys_to_reset:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.rerun()
 
 def afficher_parametres_tirage_pnu():
     col1, col2 = st.columns(2)
@@ -1231,44 +1400,48 @@ def afficher_parametres_tirage_pnu():
         "horizon": horizon
     }
 
-def afficher_resultats_tirage_pnu(bilan_stresse, params):
+def afficher_resultats_tirage_pnu(bilan_stresse, params, resultats=None):
     st.subheader("Impact sur le bilan (Tirage PNU)")
-    postes_concernes = ["Créances clientèle", "Portefeuille", "Dettes envers les établissements de crédit (passif)","Engagements de garantie donnés"]
+    postes_concernes = [
+        "Créances clientèle",
+        "Portefeuille",
+        "Dettes envers les établissements de crédit (passif)",
+        "Engagements de garantie donnés"
+    ]
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
-   
+
     # Section principale des résultats
     st.markdown("### Résultats du stress test")
-   
-    # Afficher les ratios dans des cartes
     afficher_ratios_tirage_pnu()
-   
-    # Section LCR - Correction de l'appel de fonction en passant params comme second argument
+
+    # Section LCR
     st.subheader("Impact sur la liquidité (LCR)")
-    # Correction ici: passage de params au lieu de postes_concernes
-    recap_data = afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=params['horizon'])
-    if recap_data:  # Vérifier que recap_data n'est pas None
-        afficher_tableau_recapitulatif(recap_data, "LCR")
-   
+    recap_lcr = afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=params['horizon'], resultats=resultats)
+    if recap_lcr:
+        st.session_state["recap_lcr_tirage_pnu"] = recap_lcr
+        afficher_tableau_recapitulatif(recap_lcr, "LCR")
+
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
-
     bst2.show_other_liabilities_tab()
     bst2.show_rsf_lines_tab()
-    # Correction ici: passage de params au lieu de postes_concernes
-    recap_data = afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=params['horizon'])
-    if recap_data:  # Vérifier que recap_data n'est pas None
-        afficher_tableau_recapitulatif(recap_data, "NSFR")
+    recap_nsfr = afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=params['horizon'], resultats=resultats)
+    if recap_nsfr:
+        st.session_state["recap_nsfr_tirage_pnu"] = recap_nsfr
+        afficher_tableau_recapitulatif(recap_nsfr, "NSFR")
 
-    from backend.ratios_baseline.capital_projete import simuler_solvabilite_pluriannuelle
-    # Section slova
+    # Section Solvabilité
     st.subheader("Impact sur le ratio de solvabilité")
     if "resultats_solva" in st.session_state:
         resultats_proj = st.session_state["resultats_solva"]
-        # Use resultats as needed
+        recap_solva = afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj)
+        if recap_solva:
+            st.session_state["recap_solva_tirage_pnu"] = recap_solva
+            afficher_tableau_recapitulatif(recap_solva, "Solvabilité")
     else:
         st.warning("Résultats de solvabilité non disponibles.")
-    recap_data = afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj)
+
 
 
 def afficher_ratios_tirage_pnu():
@@ -1301,15 +1474,13 @@ def afficher_ratios_tirage_pnu():
         </div>
         """, unsafe_allow_html=True)
 
-def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
+def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3, resultats=None):
     try:
-        if 'resultats_horizon' not in st.session_state:
-            st.error("Les résultats de base ne sont pas disponibles dans la session.")
+        resultats_horizon = resultats or st.session_state.get('resultats_horizon')
+        if resultats_horizon is None:
+            st.error("Les résultats de base ne sont pas disponibles.")
             return None
 
-        resultats_horizon = st.session_state['resultats_horizon']
-       
-        # Verify base year exists
         if 2024 not in resultats_horizon:
             st.error("Les données de l'année 2024 ne sont pas disponibles.")
             return None
@@ -1335,55 +1506,24 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
             "df_74": df_74
         })
 
-        # Process subsequent years
         for annee in [2025, 2026, 2027][:horizon]:
             if annee not in resultats_horizon:
-                st.error(f"Données de base pour {annee} manquantes dans session state")
+                st.error(f"Données de base pour {annee} manquantes.")
                 return None
 
-            # Get base DF for current year from session state
             df_72 = resultats_horizon[annee]['df_72'].copy()
             df_73 = resultats_horizon[annee]['df_73'].copy()
             df_74 = resultats_horizon[annee]['df_74'].copy()
 
-            # Apply cumulative stress from all previous years
             for prev_year in range(2025, annee):
-                df_72 = bst2.propager_impact_portefeuille_vers_df72(
-                    df_72, bilan_stresse, annee=prev_year,
-                    pourcentage=pourcentage, horizon=horizon,
-                    poids_portefeuille=poids_portefeuille
-                )
-               
-                df_74 = bst2.propager_impact_vers_df74(
-                    df_74, bilan_stresse, annee=prev_year,
-                    pourcentage=pourcentage, horizon=horizon
-                )
-               
-                df_73 = bst2.propager_impact_vers_df73(
-                    df_73, bilan_stresse, annee=prev_year,
-                    pourcentage=pourcentage, horizon=horizon,
-                    poids_dettes=poids_dettes
-                )
+                df_72 = bst2.propager_impact_portefeuille_vers_df72(df_72, bilan_stresse, annee=prev_year, pourcentage=pourcentage, horizon=horizon, poids_portefeuille=poids_portefeuille)
+                df_74 = bst2.propager_impact_vers_df74(df_74, bilan_stresse, annee=prev_year, pourcentage=pourcentage, horizon=horizon)
+                df_73 = bst2.propager_impact_vers_df73(df_73, bilan_stresse, annee=prev_year, pourcentage=pourcentage, horizon=horizon, poids_dettes=poids_dettes)
 
-            # Apply current year's stress
-            df_72 = bst2.propager_impact_portefeuille_vers_df72(
-                df_72, bilan_stresse, annee=annee,
-                pourcentage=pourcentage, horizon=horizon,
-                poids_portefeuille=poids_portefeuille
-            )
-           
-            df_74 = bst2.propager_impact_vers_df74(
-                df_74, bilan_stresse, annee=annee,
-                pourcentage=pourcentage, horizon=horizon
-            )
-           
-            df_73 = bst2.propager_impact_vers_df73(
-                df_73, bilan_stresse, annee=annee,
-                pourcentage=pourcentage, horizon=horizon,
-                poids_dettes=poids_dettes
-            )
+            df_72 = bst2.propager_impact_portefeuille_vers_df72(df_72, bilan_stresse, annee=annee, pourcentage=pourcentage, horizon=horizon, poids_portefeuille=poids_portefeuille)
+            df_74 = bst2.propager_impact_vers_df74(df_74, bilan_stresse, annee=annee, pourcentage=pourcentage, horizon=horizon)
+            df_73 = bst2.propager_impact_vers_df73(df_73, bilan_stresse, annee=annee, pourcentage=pourcentage, horizon=horizon, poids_dettes=poids_dettes)
 
-            # Calculate metrics
             recap_data.append({
                 "Année": annee,
                 "HQLA": calcul_HQLA(df_72),
@@ -1398,29 +1538,24 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
         return recap_data
 
     except Exception as e:
-        st.error(f"Erreur lors du calcul du LCR après tirage PNU : {str(e)}")
+        st.error(f"Erreur LCR : {str(e)}")
         return None
-   
 
-def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
+def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3, resultats=None):
     try:
-        if 'resultats_horizon' not in st.session_state:
-            st.error("Les résultats de base ne sont pas disponibles dans la session.")
+        resultats_horizon = resultats or st.session_state.get('resultats_horizon')
+        if resultats_horizon is None:
+            st.error("Les résultats de base ne sont pas disponibles.")
             return None
 
-        resultats_horizon = st.session_state['resultats_horizon']
-       
-        # Verify base year exists
         if 2024 not in resultats_horizon:
             st.error("Les données de l'année 2024 ne sont pas disponibles.")
             return None
 
         recap_data = []
         pourcentage = params["pourcentage"]
-        poids_portefeuille = params["impact_portefeuille"]
         poids_dettes = params["impact_dettes"]
 
-        # 2024 - No stress
         df_80 = resultats_horizon[2024]['df_80'].copy()
         df_81 = resultats_horizon[2024]['df_81'].copy()
 
@@ -1433,42 +1568,21 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
             "df_81": df_81
         })
 
-        # Process subsequent years
         for annee in [2025, 2026, 2027][:horizon]:
             if annee not in resultats_horizon:
-                st.error(f"Données de base pour {annee} manquantes dans session state")
+                st.error(f"Données de base pour {annee} manquantes.")
                 return None
 
-            # Get base DF for current year from session state
             df_80 = resultats_horizon[annee]['df_80'].copy()
             df_81 = resultats_horizon[annee]['df_81'].copy()
 
-            # Apply cumulative stress from all previous years
             for prev_year in range(2025, annee):
-                df_80 = bst2.propager_impact_vers_df80(
-                    df_80, bilan_stresse, annee=prev_year,
-                    pourcentage=pourcentage, horizon=horizon
-                )
-               
-                df_81 = bst2.propager_impact_vers_df81(
-                    df_81, bilan_stresse, annee=prev_year,
-                    pourcentage=pourcentage, horizon=horizon,
-                    poids_dettes=poids_dettes
-                )
+                df_80 = bst2.propager_impact_vers_df80(df_80, bilan_stresse, annee=prev_year, pourcentage=pourcentage, horizon=horizon)
+                df_81 = bst2.propager_impact_vers_df81(df_81, bilan_stresse, annee=prev_year, pourcentage=pourcentage, horizon=horizon, poids_dettes=poids_dettes)
 
-            # Apply current year's stress
-            df_80 = bst2.propager_impact_vers_df80(
-                df_80, bilan_stresse, annee=annee,
-                pourcentage=pourcentage, horizon=horizon
-            )
-           
-            df_81 = bst2.propager_impact_vers_df81(
-                df_81, bilan_stresse, annee=annee,
-                pourcentage=pourcentage, horizon=horizon,
-                poids_dettes=poids_dettes
-            )
+            df_80 = bst2.propager_impact_vers_df80(df_80, bilan_stresse, annee=annee, pourcentage=pourcentage, horizon=horizon)
+            df_81 = bst2.propager_impact_vers_df81(df_81, bilan_stresse, annee=annee, pourcentage=pourcentage, horizon=horizon, poids_dettes=poids_dettes)
 
-            # Calculate metrics
             recap_data.append({
                 "Année": annee,
                 "ASF": calcul_ASF(df_81),
@@ -1481,8 +1595,9 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
         return recap_data
 
     except Exception as e:
-        st.error(f"Erreur lors du calcul du NSFR après tirage PNU : {str(e)}")
+        st.error(f"Erreur NSFR : {str(e)}")
         return None
+
    
 def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
     try:
