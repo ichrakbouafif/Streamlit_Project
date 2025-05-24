@@ -18,8 +18,6 @@ from backend.nsfr.feuille_81 import calcul_ASF
 # Import additional modules for leverage and solvency
 from backend.levier.calcul_ratio_levier import executer_stress_event1_levier_pluriannuel
 
-#import backend.stress_test.capital_pnu as capital_pnu
-
 from backend.stress_test.capital import executer_stress_pnu_capital_pluriannuel
 
 def show():
@@ -54,10 +52,14 @@ def show():
     if selected_events:
         afficher_configuration_evenements(selected_events, scenario_type_key)
 
-       
 
-   
 def afficher_configuration_evenements(selected_events, scenario_type):
+    #initialize bilan in session state 
+    if 'bilan' not in st.session_state:
+        st.session_state.bilan = bst.charger_bilan()
+    if 'bilan_original' not in st.session_state:
+        st.session_state.bilan_original = bst.charger_bilan()
+
     events_dict = config.scenarios[scenario_type]
 
     for event in selected_events:
@@ -69,7 +71,7 @@ def afficher_configuration_evenements(selected_events, scenario_type):
             executer_tirage_pnu()
         else:
             st.warning("Cette fonctionnalité n'est pas encore implémentée.")
-   
+
 def afficher_parametres_retrait_depots():
 
     # Initialisation des états
@@ -130,14 +132,15 @@ def afficher_parametres_retrait_depots():
     }
 
 def executer_retrait_depots():
-    bilan = bst.charger_bilan()
+    # Use the bilan from session state
+    bilan = st.session_state.bilan
     params = afficher_parametres_retrait_depots()
 
     if st.button("Exécuter le stress test", key="executer_stress_test", use_container_width=True):
         with st.spinner("Exécution du stress test en cours..."):
             try:
                 # Store original in session state
-                st.session_state.bilan_original = bilan.copy()
+                #st.session_state.bilan_original = bilan.copy()
                
                 # Apply stress
                 bilan_stresse = bst.appliquer_stress_retrait_depots(
@@ -150,6 +153,7 @@ def executer_retrait_depots():
                 )
                
                 # Store stressed version
+                st.session_state.bilan = bilan_stresse
                 st.session_state.bilan_stresse = bilan_stresse
                 st.success("Stress test exécuté avec succès!")
                 afficher_resultats_retrait_depots(bilan_stresse, params)
@@ -158,6 +162,7 @@ def executer_retrait_depots():
                
                 # Set the stress test executed flag
                 st.session_state.stress_test_executed = True
+                
                
                 return params
                
@@ -174,6 +179,8 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
 
+    if "resultats_horizon" not in st.session_state:
+            st.session_state["resultats_horizon"] = {}
     # Section LCR
     st.subheader("Impact sur la liquidité (LCR)")
     bst.show_hqla_tab()
@@ -181,15 +188,45 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     bst. show_inflow_tab_retrait_depots()
     recap_data_lcr = afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
     if recap_data_lcr:
+        for year_data in recap_data_lcr:
+            year = year_data["Année"]
+            if year not in st.session_state["resultats_horizon"]:
+                st.session_state["resultats_horizon"][year] = {}
+            st.session_state["resultats_horizon"][year].update({
+                "df_72": year_data["df_72"],
+                "df_73": year_data["df_73"],
+                "df_74": year_data["df_74"],
+                "lcr_data": {
+                    "HQLA": year_data["HQLA"],
+                    "Inflows": year_data["Inflows"],
+                    "Outflows": year_data["Outflows"],
+                    "LCR (%)": year_data["LCR (%)"]
+                }
+            })
         afficher_tableau_recapitulatif(recap_data_lcr, "LCR")
-   
+    
+
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
     bst.show_asf_tab_v2()
     bst.show_asf_tab_financial_customers()
     recap_data_nsfr= afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
-    if recap_data_nsfr:  
+    if recap_data_nsfr:
+        for year_data in recap_data_nsfr:
+            year = year_data["Année"]
+            if year not in st.session_state["resultats_horizon"]:
+                st.session_state["resultats_horizon"][year] = {}
+            st.session_state["resultats_horizon"][year].update({
+                "df_80": year_data["df_80"],
+                "df_81": year_data["df_81"],
+                "nsfr_data": {
+                    "ASF": year_data["ASF"],
+                    "RSF": year_data["RSF"],
+                    "NSFR (%)": year_data["NSFR (%)"]
+                }
+            })
         afficher_tableau_recapitulatif(recap_data_nsfr, "NSFR")
+
     # Section Ratio de Solvabilité
     st.subheader("Impact sur le ratio de solvabilité")
     if "resultats_solva" in st.session_state:
@@ -1129,14 +1166,14 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
 
 ############################### Evenement 2 : Tirage PNU ###############################
 def executer_tirage_pnu():
-    bilan = bst.charger_bilan()
+    bilan = st.session_state.bilan
     params = afficher_parametres_tirage_pnu()
 
     if st.button("Exécuter le stress test - Tirage PNU", key="executer_tirage_pnu", use_container_width=True):
         with st.spinner("Exécution du stress test Tirage PNU en cours..."):
             try:
                 # Store original in session state
-                st.session_state.bilan_original = bilan.copy()
+                #st.session_state.bilan_original = bilan.copy()
                
                 # Apply stress
                 bilan_stresse = bst2.appliquer_tirage_pnu(
@@ -1149,6 +1186,7 @@ def executer_tirage_pnu():
                 )
                
                 # Store stressed version
+                st.session_state.bilan = bilan_stresse
                 st.session_state.bilan_stresse = bilan_stresse
                 st.success("Stress test exécuté avec succès!")
                 afficher_resultats_tirage_pnu(bilan_stresse, params)
@@ -1236,6 +1274,9 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     postes_concernes = ["Créances clientèle", "Portefeuille", "Dettes envers les établissements de crédit (passif)","Engagements de garantie donnés"]
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
+
+    if "resultats_horizon" not in st.session_state:
+        st.session_state["resultats_horizon"] = {}
    
     # Section principale des résultats
     st.markdown("### Résultats du stress test")
@@ -1246,19 +1287,46 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     # Section LCR - Correction de l'appel de fonction en passant params comme second argument
     st.subheader("Impact sur la liquidité (LCR)")
     # Correction ici: passage de params au lieu de postes_concernes
-    recap_data = afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=params['horizon'])
-    if recap_data:  # Vérifier que recap_data n'est pas None
-        afficher_tableau_recapitulatif(recap_data, "LCR")
-   
+    recap_data_lcr = afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=params['horizon'])
+    if recap_data_lcr:
+        for year_data in recap_data_lcr:
+            year = year_data["Année"]
+            if year not in st.session_state["resultats_horizon"]:
+                st.session_state["resultats_horizon"][year] = {}
+            st.session_state["resultats_horizon"][year].update({
+                "df_72": year_data["df_72"],
+                "df_73": year_data["df_73"],
+                "df_74": year_data["df_74"],
+                "lcr_data": {
+                    "HQLA": year_data["HQLA"],
+                    "Inflows": year_data["Inflows"],
+                    "Outflows": year_data["Outflows"],
+                    "LCR (%)": year_data["LCR (%)"]
+                }
+            })
+        afficher_tableau_recapitulatif(recap_data_lcr, "LCR")
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
 
     bst2.show_other_liabilities_tab()
     bst2.show_rsf_lines_tab()
     # Correction ici: passage de params au lieu de postes_concernes
-    recap_data = afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=params['horizon'])
-    if recap_data:  # Vérifier que recap_data n'est pas None
-        afficher_tableau_recapitulatif(recap_data, "NSFR")
+    recap_data_nsfr = afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=params['horizon'])
+    if recap_data_nsfr:
+        for year_data in recap_data_nsfr:
+            year = year_data["Année"]
+            if year not in st.session_state["resultats_horizon"]:
+                st.session_state["resultats_horizon"][year] = {}
+            st.session_state["resultats_horizon"][year].update({
+                "df_80": year_data["df_80"],
+                "df_81": year_data["df_81"],
+                "nsfr_data": {
+                    "ASF": year_data["ASF"],
+                    "RSF": year_data["RSF"],
+                    "NSFR (%)": year_data["NSFR (%)"]
+                }
+            })
+        afficher_tableau_recapitulatif(recap_data_nsfr, "NSFR")
 
     from backend.ratios_baseline.capital_projete import simuler_solvabilite_pluriannuelle
     # Section slova
@@ -1483,7 +1551,7 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
     except Exception as e:
         st.error(f"Erreur lors du calcul du NSFR après tirage PNU : {str(e)}")
         return None
-   
+
 def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
     try:
         horizon = params.get("horizon", 3)
