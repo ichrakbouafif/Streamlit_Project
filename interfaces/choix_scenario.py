@@ -532,43 +532,42 @@ def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
             with st.expander(f"Détails pour l’année {r['Année']}"):
                 col1, col2, col3 = st.columns(3)
 
-            with col1:
-                st.markdown(f"""
-                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
-                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
-                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio de solvabilité</h4>
-                        <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
-                            {r['Ratio de solvabilité (%)']:.2f}%
-                        </p>
-                    </div>
-                """, unsafe_allow_html=True)
+                with col1:
+                    st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio de solvabilité</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
+                                {r['Ratio de solvabilité (%)']:.2f}%
+                            </p>
+                        </div>
+                    """, unsafe_allow_html=True)
 
-            with col2:
-                st.markdown(f"""
-                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
-                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
-                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Fonds propres</h4>
-                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
-                            {format_large_number(r['Fonds propres'])}
-                        </p>
-                    </div>
-                """, unsafe_allow_html=True)
+                with col2:
+                    st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Fonds propres</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                {format_large_number(r['Fonds propres'])}
+                            </p>
+                        </div>
+                    """, unsafe_allow_html=True)
 
-            with col3:
-                st.markdown(f"""
-                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
-                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
-                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">RWA total</h4>
-                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
-                            {format_large_number(r['RWA total'])}
-                        </p>
-                    </div>
-                """, unsafe_allow_html=True)
-                  # Formatage complet des chiffres du bloc COREP
-                df_bloc_formate = r["df_bloc_stresse"].copy()
-                for col in df_bloc_formate.select_dtypes(include=["float", "int"]).columns:
-                    df_bloc_formate[col] = df_bloc_formate[col].apply(format_large_number)
-
+                with col3:
+                    st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">RWA total</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                {format_large_number(r['RWA total'])}
+                            </p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    # Formatage complet des chiffres du bloc COREP
+                    df_bloc_formate = r["df_bloc_stresse"].copy()
+                    for col in df_bloc_formate.select_dtypes(include=["float", "int"]).columns:
+                        df_bloc_formate[col] = df_bloc_formate[col].apply(format_large_number)
                 st.markdown("### Bloc institutionnel C0700_0007_1 recalculé")
                 st.dataframe(df_bloc_formate, use_container_width=True)
 
@@ -582,22 +581,21 @@ def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
 
 def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=None):
     try:
-        import os
-        resultats_solva = st.session_state.get("resultats_solva", None)
+        resultats_solva = st.session_state.get("resultats_solva", {}) if resultats_solva is None else resultats_solva
+
         horizon = params.get("horizon", 3)
         pourc_portefeuille = params.get("pourcentage_portefeuille", 0)
         pourc_creances = params.get("pourcentage_creances", 0)
 
         # === Chargement du bilan ===
-        dossier = "data"
-        bilan_path = os.path.join(dossier, "bilan.xlsx")
+        bilan_path = os.path.join("data", "bilan.xlsx")
         if not os.path.exists(bilan_path):
             st.error(f"❌ Fichier de bilan introuvable : {bilan_path}")
             return None
 
         bilan = pd.read_excel(bilan_path).iloc[2:].reset_index(drop=True)
-       
-        # Nettoyage du bilan
+
+        # Nettoyage
         if "Unnamed: 1" in bilan.columns:
             bilan = bilan.drop(columns=["Unnamed: 1"])
         for i, col in enumerate(bilan.columns):
@@ -610,7 +608,7 @@ def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=
         if 25 in bilan.index:
             bilan = bilan.drop(index=25).reset_index(drop=True)
 
-        # === Extraction des postes ciblés ===
+        # Extraction des postes ciblés
         poste_1 = bilan[bilan["Poste du Bilan"].str.contains("Portefeuille", case=False, na=False)]
         poste_2 = bilan[bilan["Poste du Bilan"].str.contains("Créances banques autres", case=False, na=False)]
 
@@ -621,17 +619,16 @@ def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=
             st.warning("❌ Aucun poste cible n'a été trouvé dans le bilan.")
             return None
 
-        # === Calcul du montant de stress ===
+        # Calcul du stress
         stress_portefeuille = valeur_1 * pourc_portefeuille
         stress_creances = valeur_2 * pourc_creances
         montant_stress_total = stress_portefeuille + stress_creances
 
-        # === Vérification des données projetées ===
         if not resultats_projete_levier or "2025" not in resultats_projete_levier:
             st.error("❌ Données projetées manquantes ou incorrectes.")
             return None
 
-        # === Exécution du stress test ===
+        # Stress test
         resultats_stress = executer_stress_event1_levier_pluriannuel(
             resultats_proj=resultats_projete_levier,
             resultats_solva=resultats_solva,
@@ -640,7 +637,6 @@ def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=
             horizon=horizon
         )
 
-        # === Résumé global ===
         recap_data = []
         for i in range(horizon):
             annee = str(2025 + i)
@@ -648,13 +644,7 @@ def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=
             if not resultat:
                 continue
 
-            # Récupération des fonds propres depuis resultats_solva ou fallback
-            if resultats_solva and annee in resultats_solva:
-                fonds_propres = resultats_solva[annee].get("fonds_propres", 0)
-            else:
-                fonds_propres = resultats_projete_levier[annee].get("fonds_propres", 0)
-                st.warning(f"Utilisation des fonds propres du levier pour {annee} (solva non disponible)")
-
+            fonds_propres = resultat["tier1"]
             exposition = resultat["total_exposure_stresse"]
             ratio = resultat["ratio_levier_stresse"]
 
@@ -666,7 +656,7 @@ def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=
                 "df_c4700_stresse": resultat["df_c4700_stresse"]
             })
 
-        # === Affichage ===
+        # Affichage synthétique
         if recap_data:
             df_recap = pd.DataFrame([{
                 "Année": r["Année"],
@@ -675,6 +665,63 @@ def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=
                 "Ratio de levier (%)": f"{r['Ratio de levier (%)']:.2f}%"
             } for r in recap_data])
             st.dataframe(df_recap, use_container_width=True)
+
+        # === Étape 6 : Détail annuel stylisé + tableau surligné
+        for r in recap_data:
+            with st.expander(f"Détails pour l’année {r['Année']}"):
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio de levier</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
+                                {r['Ratio de levier (%)']:.2f}%
+                            </p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                with col2:
+                    st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Fonds propres</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                {format_large_number(r['Fonds propres'])}
+                            </p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                with col3:
+                    st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Exposition totale</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                                {format_large_number(r['Exposition totale'])}
+                            </p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("### Bloc C47.00 après stress")
+
+                df_affiche = r["df_c4700_stresse"].copy()
+
+                if "Row" not in df_affiche.columns:
+                    st.warning("❌ Colonne 'Row' manquante dans le tableau C47.00.")
+                    continue
+
+                couleur_pwc_orange = "#ff5f05"
+
+                def highlight_row_190(row):
+                    return ['background-color: {}'.format(couleur_pwc_orange) if row["Row"] == 190 else '' for _ in row]
+
+                st.dataframe(
+                    df_affiche.style.apply(highlight_row_190, axis=1),
+                    use_container_width=True
+                )
 
         return recap_data
 
