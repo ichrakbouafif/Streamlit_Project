@@ -54,7 +54,7 @@ def show():
 
 
 def afficher_configuration_evenements(selected_events, scenario_type):
-    #initialize bilan in session state 
+    #initialize bilan in session state
     if 'bilan' not in st.session_state:
         st.session_state.bilan = bst.charger_bilan()
     if 'bilan_original' not in st.session_state:
@@ -162,7 +162,7 @@ def executer_retrait_depots():
                
                 # Set the stress test executed flag
                 st.session_state.stress_test_executed = True
-                
+               
                
                 return params
                
@@ -204,7 +204,7 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
                 }
             })
         afficher_tableau_recapitulatif(recap_data_lcr, "LCR")
-    
+   
 
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
@@ -444,42 +444,30 @@ from backend.solvabilite.calcul_ratios_capital_stressé import (
 def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
     try:
         import os
-       
-        # === Étape 1 : Récupération des paramètres
         horizon = params.get("horizon", 3)
         pourcentage = params.get("pourcentage", 0.10)
         poids_creances = params.get("poids_creances", 0.50)
- 
+
         dossier = "data"
         bilan_path = os.path.join(dossier, "bilan.xlsx")
 
-        # === BILAN ===
         if not os.path.exists(bilan_path):
             st.error(f"Fichier de bilan non trouvé : {bilan_path}")
-            return None, None, None, None
+            return None
 
-        bilan = pd.read_excel(bilan_path)
-        bilan = bilan.iloc[2:].reset_index(drop=True)
-
+        bilan = pd.read_excel(bilan_path).iloc[2:].reset_index(drop=True)
         if "Unnamed: 1" in bilan.columns:
             bilan = bilan.drop(columns=["Unnamed: 1"])
-
         for i, col in enumerate(bilan.columns):
             if str(col).startswith("Unnamed: 6"):
                 bilan = bilan.iloc[:, :i]
                 break
 
-        bilan.columns.values[0] = "Poste du Bilan"
-        bilan.columns.values[1] = "2024"
-        bilan.columns.values[2] = "2025"
-        bilan.columns.values[3] = "2026"
-        bilan.columns.values[4] = "2027"
+        bilan.columns.values[:5] = ["Poste du Bilan", "2024", "2025", "2026", "2027"]
         bilan = bilan.dropna(how="all").reset_index(drop=True)
-
         if 25 in bilan.index:
             bilan = bilan.drop(index=25).reset_index(drop=True)
 
-        # === Étape 3 : Récupération de la valeur de référence
         ligne_creances = bilan[bilan["Poste du Bilan"].str.contains("Créances banques autres", case=False, na=False)]
         if ligne_creances.empty:
             st.warning("❌ La ligne 'Créances sur les banques – autres' est introuvable dans le bilan.")
@@ -488,8 +476,6 @@ def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
         valeur_reference = ligne_creances["2024"].values[0]
         montant_stress_total = valeur_reference * pourcentage * poids_creances
 
-       
-        # === Étape 4 : Stress pluriannuel
         resultats_stress = executer_stress_event1_bloc_institutionnel_pluriannuel(
             resultats_proj=resultats_proj,
             annee_debut="2025",
@@ -498,7 +484,15 @@ def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
             debug=False
         )
 
-        # === Étape 5 : Résumé global
+        # ✅ Stocker delta RWA pour retrait
+        st.session_state["delta_rwa_event1"] = {
+            annee: resultat["delta_rwa_total"]
+            for annee, resultat in resultats_stress.items()
+        }
+
+        # ✅ Lire delta RWA de PNU s’il existe
+        delta_pnu = st.session_state.get("delta_rwa_pnu", {})
+
         recap_data = []
         for i in range(horizon):
             annee = str(2025 + i)
@@ -507,68 +501,69 @@ def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
                 continue
 
             fonds_propres = resultats_proj[annee].get("fonds_propres", 0)
-            rwa_total = resultat["rwa_total_stresse"]
-            ratio = (fonds_propres / rwa_total) * 100 if rwa_total > 0 else 0
+            rwa_retrait = resultat["rwa_total_stresse"]
+            delta_rwa_pnu = delta_pnu.get(annee, 0)
+            rwa_combine = rwa_retrait + delta_rwa_pnu
+
+            ratio_retrait = (fonds_propres / rwa_retrait) * 100 if rwa_retrait > 0 else 0
+            ratio_combine = (fonds_propres / rwa_combine) * 100 if rwa_combine > 0 else 0
 
             recap_data.append({
                 "Année": annee,
                 "Fonds propres": fonds_propres,
-                "RWA total": rwa_total,
-                "Ratio de solvabilité (%)": ratio,
+                "RWA Retrait": rwa_retrait,
+                "Δ RWA PNU": delta_rwa_pnu,
+                "RWA combiné": rwa_combine,
+                "Ratio Retrait (%)": ratio_retrait,
+                "Ratio combiné (%)": ratio_combine,
                 "df_bloc_stresse": resultat["df_bloc_stresse"]
             })
 
         if recap_data:
+            st.markdown("## Tableau comparatif : Retrait seul vs Retrait + PNU")
             df_recap = pd.DataFrame([{
                 "Année": r["Année"],
                 "Fonds propres": format_large_number(r["Fonds propres"]),
-                "RWA total": format_large_number(r["RWA total"]),
-                "Ratio de solvabilité (%)": f"{r['Ratio de solvabilité (%)']:.2f}%"
+                "RWA Retrait": format_large_number(r["RWA Retrait"]),
+                "Δ RWA PNU": format_large_number(r["Δ RWA PNU"]),
+                "RWA combiné": format_large_number(r["RWA combiné"]),
+                "Ratio Retrait (%)": f"{r['Ratio Retrait (%)']:.2f}%",
+                "Ratio combiné (%)": f"{r['Ratio combiné (%)']:.2f}%"
             } for r in recap_data])
             st.dataframe(df_recap, use_container_width=True)
 
-        # === Étape 6 : Détail annuel
         for r in recap_data:
             with st.expander(f"Détails pour l’année {r['Année']}"):
                 col1, col2, col3 = st.columns(3)
 
                 with col1:
-                    st.markdown(f"""
-                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
-                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
-                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio de solvabilité</h4>
-                            <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
-                                {r['Ratio de solvabilité (%)']:.2f}%
-                            </p>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"""<div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio Retrait</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
+                            {r['Ratio Retrait (%)']:.2f}%
+                        </p></div>""", unsafe_allow_html=True)
 
                 with col2:
-                    st.markdown(f"""
-                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
-                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
-                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Fonds propres</h4>
-                            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
-                                {format_large_number(r['Fonds propres'])}
-                            </p>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"""<div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio combiné</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                            {r['Ratio combiné (%)']:.2f}%
+                        </p></div>""", unsafe_allow_html=True)
 
                 with col3:
-                    st.markdown(f"""
-                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
-                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
-                            <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">RWA total</h4>
-                            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
-                                {format_large_number(r['RWA total'])}
-                            </p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    # Formatage complet des chiffres du bloc COREP
-                    df_bloc_formate = r["df_bloc_stresse"].copy()
-                    for col in df_bloc_formate.select_dtypes(include=["float", "int"]).columns:
-                        df_bloc_formate[col] = df_bloc_formate[col].apply(format_large_number)
+                    st.markdown(f"""<div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
+                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Fonds propres</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
+                            {format_large_number(r['Fonds propres'])}
+                        </p></div>""", unsafe_allow_html=True)
+
                 st.markdown("### Bloc institutionnel C0700_0007_1 recalculé")
+                df_bloc_formate = r["df_bloc_stresse"].copy()
+                for col in df_bloc_formate.select_dtypes(include=["float", "int"]).columns:
+                    df_bloc_formate[col] = df_bloc_formate[col].apply(format_large_number)
                 st.dataframe(df_bloc_formate, use_container_width=True)
 
         return recap_data
@@ -1670,9 +1665,16 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
             horizon=horizon,
             debug=False
         )
+        # ✅ Stocker les delta RWA de PNU pour combinaison future
+        st.session_state["delta_rwa_pnu"] = {
+            annee: resultat["delta_rwa_total"]
+            for annee, resultat in resultats_stress.items()
+        }
 
                 # === Étape 4 : Construction du tableau récapitulatif pour affichage
         recap_data = []
+        delta_retrait = st.session_state.get("delta_rwa_event1", {})  # Contient éventuellement le stress de l'autre événement
+
         for i in range(horizon):
             annee = str(2025 + i)
             resultat = resultats_stress.get(annee)
@@ -1680,24 +1682,39 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
                 continue
 
             fonds_propres = resultats_proj[annee]["fonds_propres"]
-            rwa_total = resultat["rwa_total_stresse"]
-            ratio = (fonds_propres / rwa_total) * 100 if rwa_total > 0 else 0
+            rwa_pnu = resultat["rwa_total_stresse"]
+            delta_rwa_event1 = delta_retrait.get(annee, 0)
+            rwa_combine = rwa_pnu + delta_rwa_event1
+
+            ratio_pnu = (fonds_propres / rwa_pnu) * 100 if rwa_pnu > 0 else 0
+            ratio_combine = (fonds_propres / rwa_combine) * 100 if rwa_combine > 0 else 0
 
             recap_data.append({
                 "Année": annee,
                 "Fonds propres": fonds_propres,
-                "RWA total": rwa_total,
-                "Ratio de solvabilité (%)": ratio
+                "RWA total PNU": rwa_pnu,
+                "Δ RWA Retrait": delta_rwa_event1,
+                "RWA combiné": rwa_combine,
+                "Ratio PNU (%)": ratio_pnu,
+                "Ratio combiné (%)": ratio_combine,
+                "blocs_stresses": resultat["blocs_stresses"]
             })
 
         # === Étape 5 : Affichage du tableau récapitulatif formaté
         if recap_data:
-            from backend.ratios_baseline.capital_projete import format_large_number  # si tu veux formatter
-            df_recap = pd.DataFrame(recap_data)
-            df_recap["Fonds propres"] = df_recap["Fonds propres"].apply(lambda x: f"{x:,.2f}")
-            df_recap["RWA total"] = df_recap["RWA total"].apply(lambda x: f"{x:,.2f}")
-            df_recap["Ratio de solvabilité (%)"] = df_recap["Ratio de solvabilité (%)"].apply(lambda x: f"{x:.2f}%")
-            st.dataframe(df_recap, use_container_width=True)
+            st.markdown("##  Tableau comparatif : PNU seul vs PNU + Retrait")
+
+            df_affiche = pd.DataFrame([{
+                "Année": r["Année"],
+                "Fonds propres": format_large_number(r["Fonds propres"]),
+                "RWA PNU": format_large_number(r["RWA total PNU"]),
+                "Δ RWA Retrait": format_large_number(r["Δ RWA Retrait"]),
+                "RWA combiné": format_large_number(r["RWA combiné"]),
+                "Ratio PNU (%)": f"{r['Ratio PNU (%)']:.2f}%",
+                "Ratio combiné (%)": f"{r['Ratio combiné (%)']:.2f}%"
+            } for r in recap_data])
+
+            st.dataframe(df_affiche, use_container_width=True)
 
         # === Étape 6 : Affichage détaillé (C0700 recalculés par bloc)
         for annee in resultats_stress:
