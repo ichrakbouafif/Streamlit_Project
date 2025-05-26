@@ -20,7 +20,7 @@ from backend.levier.calcul_ratio_levier import executer_stress_event1_levier_plu
 
 from backend.stress_test.capital import executer_stress_pnu_capital_pluriannuel
 
-def show():
+""" def show():
     st.title("Choix des scénarios")
 
     if "scenario_type" not in st.session_state:
@@ -50,8 +50,127 @@ def show():
     st.session_state.selected_events = selected_events
 
     if selected_events:
+        afficher_configuration_evenements(selected_events, scenario_type_key) """
+
+def show():
+    st.title("Choix des scénarios")
+
+    # Initialize session state variables for navigation
+    if "current_phase" not in st.session_state:
+        st.session_state.current_phase = 1
+    if "scenario_type" not in st.session_state:
+        st.session_state.scenario_type = None
+    if "selected_events_phase1" not in st.session_state:
+        st.session_state.selected_events_phase1 = []
+    if "selected_events_phase2" not in st.session_state:
+        st.session_state.selected_events_phase2 = []
+    if "all_selected_events" not in st.session_state:
+        st.session_state.all_selected_events = []
+
+    # Phase 1: Select scenario type (macroeconomic or idiosyncratic)
+    if st.session_state.current_phase == 1:
+        show_phase1()
+    
+    # Phase 2: Select events from the other scenario type
+    elif st.session_state.current_phase == 2:
+        show_phase2()
+    
+    # Phase 3: Show all selected events and results
+    elif st.session_state.current_phase == 3:
+        show_phase3()
+
+def show_phase1():
+    st.subheader("Phase 1 : Sélection du type de scénario principal")
+
+    scenario_type = st.radio(
+        "Type de scénario à calibrer",
+        ["Scénario idiosyncratique", "Scénario macroéconomique"],
+        key="scenario_type_radio"
+    )
+
+    scenario_type_key = "idiosyncratique" if "idiosyncratique" in scenario_type else "macroéconomique"
+    st.session_state.scenario_type = scenario_type_key
+
+    available_events = list(config.scenarios[scenario_type_key].keys())
+
+    selected_events = st.multiselect(
+        "Événements disponibles",
+        available_events,
+        key="events_multiselect_phase1"
+    )
+
+    st.session_state.selected_events_phase1 = selected_events
+
+    if selected_events:
         afficher_configuration_evenements(selected_events, scenario_type_key)
 
+    if st.button("Valider la phase 1 et passer à la phase 2"):
+        if not selected_events:
+            st.warning("Veuillez sélectionner au moins un événement avant de continuer.")
+        else:
+            st.session_state.current_phase = 2
+            st.rerun()
+
+def show_phase2():
+    st.subheader("Phase 2 : Sélection des événements complémentaires")
+    
+    # Determine the other scenario type (the one not selected in phase 1)
+    other_scenario_type = "macroéconomique" if st.session_state.scenario_type == "idiosyncratique" else "idiosyncratique"
+    
+    available_events = list(config.scenarios[other_scenario_type].keys())
+    
+    selected_events = st.multiselect(
+        "Événements disponibles",
+        available_events,
+        key="events_multiselect_phase2"
+    )
+    
+    st.session_state.selected_events_phase2 = selected_events
+    
+    if selected_events:
+        afficher_configuration_evenements(selected_events, other_scenario_type)
+    
+
+    if st.button("Valider la phase 2 et passer à la phase 3"):
+        # Combine all selected events from both phases
+        st.session_state.all_selected_events = (
+            st.session_state.selected_events_phase1 + 
+            st.session_state.selected_events_phase2
+        )
+        st.session_state.current_phase = 3
+        st.rerun()
+
+def show_phase3():
+    st.subheader("Phase 3 : Synthèse des événements sélectionnés")
+    
+    # Display selected events from phase 1
+    st.markdown("**Événements sélectionnés en phase 1:**")
+    for event in st.session_state.selected_events_phase1:
+        st.write(f"- {event}")
+    
+    # Display selected events from phase 2
+    st.markdown("**Événements sélectionnés en phase 2:**")
+    for event in st.session_state.selected_events_phase2:
+        st.write(f"- {event}")
+    
+    # Show configuration for all events
+    st.subheader("Configuration des événements")
+    
+    # First show phase 1 events
+    if st.session_state.selected_events_phase1:
+        st.markdown(f"**Configuration pour le scénario {st.session_state.scenario_type}:**")
+        afficher_configuration_evenements(st.session_state.selected_events_phase1, st.session_state.scenario_type)
+    
+    # Then show phase 2 events
+    if st.session_state.selected_events_phase2:
+        other_scenario_type = "macroéconomique" if st.session_state.scenario_type == "idiosyncratique" else "idiosyncratique"
+        st.markdown(f"**Configuration pour le scénario {other_scenario_type}:**")
+        afficher_configuration_evenements(st.session_state.selected_events_phase2, other_scenario_type)
+    
+
+    if st.button("Valider tous les scénarios et voir les résultats"):
+        st.session_state.selected_page = "Résultats & Graphiques"
+        st.rerun()
 
 def afficher_configuration_evenements(selected_events, scenario_type):
     #initialize bilan in session state
@@ -157,9 +276,7 @@ def executer_retrait_depots():
                 st.session_state.bilan_stresse = bilan_stresse
                 st.success("Stress test exécuté avec succès!")
                 afficher_resultats_retrait_depots(bilan_stresse, params)
-                if st.button("Valider ce scénario"):
-                    st.success("Scénario validé avec succès!")
-               
+
                 # Set the stress test executed flag
                 st.session_state.stress_test_executed = True
                
@@ -1232,10 +1349,6 @@ def executer_tirage_pnu():
                 st.session_state.bilan_stresse = bilan_stresse
                 st.success("Stress test exécuté avec succès!")
                 afficher_resultats_tirage_pnu(bilan_stresse, params)
-               
-                if st.button("Valider ce scénario", key="valider_tirage_pnu"):
-                    st.success("Scénario validé avec succès!")
-               
                 # Set the stress test executed flag
                 st.session_state.stress_test_executed = True
                
