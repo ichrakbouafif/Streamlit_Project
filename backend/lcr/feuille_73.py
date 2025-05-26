@@ -584,5 +584,5 @@ def calcul_row_010(df):
 
 def calcul_outflow(df):
     OUTFLOWS = calcul_row_010(df)
-    print("OUTFLOW = ", OUTFLOWS)
+    #print("OUTFLOW = ", OUTFLOWS)
     return OUTFLOWS

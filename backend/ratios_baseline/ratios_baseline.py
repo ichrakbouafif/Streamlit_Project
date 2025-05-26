@@ -961,16 +961,11 @@ def extract_liabilities_data():
 
 def propager_CP_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderations=None):
     lignes = get_mapping_df_row_CP(poste_bilan)
-    print("lignes nsfr = ", lignes)
 
     lignes_80 = [l for l in lignes if l[1] == "df_80"]
     lignes_81 = [l for l in lignes if l[1] == "df_81"]
     n = len(lignes_80)
     m = len(lignes_81)
-
-    print("n (df_80) = ", n)
-    print("m (df_81) = ", m)
-
     if n + m == 0:
         return df_80, df_81
 
@@ -1003,26 +998,20 @@ def propager_CP_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderations=N
         df_81 = apply_capital_planning_to_df81_liabilities(df_81, delta, liabilities_row)
     elif poste_bilan in ["Income Statement - Résultat de l'exercice", "Report à nouveau (passif)"]:
         # Add to row 30 (>1y) in df_81
-        print("doing this now")
         mask = df_81["row"] == 30
         if mask.any():
             idx = df_81[mask].index[0]
             current_value = df_81.at[idx, '0030'] if pd.notnull(df_81.at[idx, '0030']) else 0
-            print("current valur )))",current_value)
-            print("deltaaaa",delta)
             df_81.at[idx, '0030'] = current_value + delta
-            print(f"Added {delta} to row 30 (>1y) in df_81 for {poste_bilan}")
     else:
         # Normal processing for other posts
         for (row_num, _), poids in zip(lignes_80, ponderations_80):
             part_delta = delta * poids
-            print("part delta in df_80 = ", part_delta)
             mask = df_80["row"] == row_num
             df_80.loc[mask, "0010"] = df_80.loc[mask, "0010"] + part_delta
 
         for (row_num, _), poids in zip(lignes_81, ponderations_81):
             part_delta = delta * poids
-            print("part delta in df_81 = ", part_delta)
             mask = df_81["row"] == row_num
             df_81.loc[mask, "0010"] = df_81.loc[mask, "0010"] + part_delta
 
@@ -1031,7 +1020,6 @@ def propager_CP_vers_COREP_NSFR(poste_bilan, delta, df_80, df_81, ponderations=N
 
 def propager_CP_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponderations=None):
     lignes = get_mapping_df_row_CP(poste_bilan)
-    print("lignes = ", lignes)
 
     # Get weights from outflow tab if this is "Depots clients (passif)"
     if poste_bilan == "Depots clients (passif)":
@@ -1070,11 +1058,6 @@ def propager_CP_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponderat
     lignes_73 = [l for l in lignes if l[1] == "df_73"]
     lignes_74 = [l for l in lignes if l[1] == "df_74"]
     n, m, p = len(lignes_72), len(lignes_73), len(lignes_74)
-
-    print("n (df_72) = ", n)
-    print("m (df_73) = ", m)
-    print("p (df_74) = ", p)
-
     if n + m + p == 0:
         return df_72, df_73, df_74
 
@@ -1093,19 +1076,16 @@ def propager_CP_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponderat
 
     for (row_num, _), poids in zip(lignes_72, ponderations_72):
         part_delta = delta * poids
-        print("part delta in df_72 = ", part_delta)
         mask = df_72["row"] == row_num
         df_72.loc[mask, "0010"] = df_72.loc[mask, "0010"] + part_delta
 
     for (row_num, _), poids in zip(lignes_73, ponderations_73):
         part_delta = delta * poids
-        print("part delta in df_73 = ", part_delta)
         mask = df_73["row"] == row_num
         df_73.loc[mask, "0010"] = df_73.loc[mask, "0010"] + part_delta
 
     for (row_num, _), poids in zip(lignes_74, ponderations_74):
         part_delta = delta * poids
-        print("part delta in df_74 = ", part_delta)
         mask = df_74["row"] == row_num
         df_74.loc[mask, "0010"] = df_74.loc[mask, "0010"] + part_delta
 
@@ -1114,12 +1094,9 @@ def propager_CP_vers_COREP_LCR(poste_bilan, delta, df_72, df_73, df_74, ponderat
 def calcul_ratios_projete(annee, bilan, df_72, df_73, df_74, df_80, df_81):
     posts = ["Caisse Banque Centrale / nostro","Créances banques autres","Créances clientèle","Portefeuille","Immobilisations et Autres Actifs","Dettes envers les établissements de crédit (passif)","Depots clients (passif)","Autres passifs (passif)","Income Statement - Résultat de l'exercice", "Report à nouveau (passif)"]
     for poste_bilan in posts:
-        print("poste_bilan", poste_bilan)
 
         delta = get_capital_planning(bilan, poste_bilan, annee)
         delta_lcr =get_CP_LCR(bilan, poste_bilan, annee,df_73,df_74)
-        print("delta_lcr", delta_lcr)
-        print("delta", delta)
 
         # Propagation vers les feuilles LCR
         df_72, df_73, df_74 = propager_CP_vers_COREP_LCR(poste_bilan, delta_lcr, df_72, df_73, df_74)

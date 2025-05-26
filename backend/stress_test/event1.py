@@ -571,10 +571,8 @@ def propager_retrait_depots_vers_df74(df_74, bilan_df, annee="2024", pourcentage
         raise ValueError("Valeurs bilan manquantes pour calcul (dépôts ou créances).")
 
     retrait_total = -val_depots * pourcentage
-    print("retrait total = ", retrait_total)
 
     inflow_df = extract_inflow_retrait_data(inflow_selections)
-    print("inflow df",inflow_df)
     inflow_df = inflow_df[inflow_df["Included_in_calculation"] == "Oui"]
 
     for _, row in inflow_df.iterrows():
@@ -583,11 +581,8 @@ def propager_retrait_depots_vers_df74(df_74, bilan_df, annee="2024", pourcentage
         part_dans_inflow = montant / val_creances if val_creances > 0 else 0
 
         ajustement = impact_creances * retrait_total * poids_portefeuille * part_dans_inflow
-        print("Ajustement",ajustement)
-        print ("row ")
 
         mask = df_74["row"] ==row_code
-        print("now changing row in df 74",mask)
         df_74.loc[mask, "0010"] = df_74.loc[mask, "0010"] + ajustement 
 
     return df_74

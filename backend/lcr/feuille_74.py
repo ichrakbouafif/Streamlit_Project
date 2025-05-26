@@ -340,5 +340,5 @@ def calcul_row_00010(df):
 
 def calcul_inflow(df):
     inflow = calcul_row_00010(df)
-    print(inflow)
+    #print(inflow)
     return inflow

@@ -138,9 +138,6 @@ df_72 = charger_feuille_72(path)
 df_73 = charger_feuille_73(path)
 df_74 = charger_feuille_74(path)
 
-""" HQLA = calcul_HQLA(df_72)
-OUTFLOWS = calcul_outflow(df_73)
-inflows = calcul_inflow(df_74) """
 
 def Calcul_LCR(inflow,OUTFLOWS,HQLA):
 
@@ -155,6 +152,6 @@ def Calcul_LCR(inflow,OUTFLOWS,HQLA):
         return float('inf') if HQLA > 0 else 0.0  # éviter division par zéro
 
     lcr = (HQLA / net_outflows)
-    print("LCR=",lcr,"%")
+    #print("LCR=",lcr,"%")
     return lcr
 

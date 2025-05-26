@@ -14,9 +14,7 @@ def part_loans_mb_outflow():
     df_72, df_73, df_74 = bst.charger_lcr()
     try:
         valeur_outflow_mb = df_73.loc[df_73['row'] == 230]['0010'].values[0]
-        print("valeur_outflow_mb = ", valeur_outflow_mb)
         dette_etab_credit = get_valeur_poste_bilan(bilan, "Dettes envers les établissements de crédit (passif)","2024")
-        print("dette_etab_credit = ", dette_etab_credit)
         return round((valeur_outflow_mb / dette_etab_credit) * 100, 2) if dette_etab_credit else 0.0
     except Exception as e:
         print(f"[Erreur part_loans_mb_outflow] : {e}")
@@ -27,9 +25,7 @@ def part_credit_clientele_inflow():
     df_72, df_73, df_74 = bst.charger_lcr()
     try:
         valeur_inflow_credit = df_74.loc[df_74['row'] == 50]['0010'].values[0]
-        print("valeur_inflow_credit = ", valeur_inflow_credit)
         creance_clientele = get_valeur_poste_bilan(bilan, "Créances clientèle", "2024")
-        print("creance_clientele = ", creance_clientele)
         return round((valeur_inflow_credit / creance_clientele) * 100, 2) if creance_clientele else 0.0
     except Exception as e:
         print(f"[Erreur part_credit_clientele_inflow] : {e}")
@@ -40,9 +36,7 @@ def part_depots_mb_inflow():
     df_72, df_73, df_74 = bst.charger_lcr()
     try:
         valeur_inflow_mb = df_74.loc[df_74['row'] == 160]['0010'].values[0]
-        print("valeur_inflow_mb = ", valeur_inflow_mb)
         creance_banques = get_valeur_poste_bilan(bilan, "Créances banques autres", "2024")
-        print("creance_banques = ", creance_banques)
         return round((valeur_inflow_mb / creance_banques) * 100, 2) if creance_banques else 0.0
     except Exception as e:
         print(f"[Erreur part_depots_mb_inflow] : {e}")
@@ -88,12 +82,10 @@ def appliquer_tirage_pnu(bilan_df, pourcentage, horizon=3, annee="2024",
 
     # Étape 1 : récupérer la valeur initiale du poste engagements
     valeur_initiale = get_valeur_poste_bilan(bilan_df, poste_engagements, annee)
-    print(f"Valeur initiale pour {poste_engagements} en {annee} : {valeur_initiale}")
     if valeur_initiale is None:
         raise ValueError(f"Poste '{poste_engagements}' introuvable ou sans valeur pour {annee}.")
 
     tirage_total = (valeur_initiale * pourcentage) / horizon
-    print(f"Tirage total : {tirage_total}")
 
     for i in range(horizon):
         annee_cible = str(int(annee) + i+1)
@@ -159,12 +151,10 @@ def propager_impact_portefeuille_vers_df72(df_72, bilan_df, annee="2024", pource
 
     # Récupérer la valeur initiale du poste engagements
     valeur_initiale = get_valeur_poste_bilan(bilan_df, poste_engagements, "2024")
-    print(f"Valeur initiale pour {poste_engagements} en {annee} : {valeur_initiale}")
     if valeur_initiale is None:
         raise ValueError(f"Poste '{poste_engagements}' introuvable ou sans valeur pour {annee}.")
 
     tirage_total = (valeur_initiale * pourcentage) / horizon
-    print(f"Tirage total : {tirage_total}")
 
     impact_portefeuille = tirage_total * poids_portefeuille
 
@@ -184,10 +174,7 @@ def propager_impact_vers_df74(df_74, bilan_df, annee="2024", pourcentage=0.1, ho
     df_74 = df_74.copy()
     
     # Étape 1 : calcul des parts (toujours sur l’année 2024)
-    part_mb = part_depots_mb_inflow()
-    print(f"Part Dépôts MB (Inflow) : {part_mb}")
     part_credit = part_credit_clientele_inflow()
-    print(f"Part Crédits Clientèle (Inflow) : {part_credit}")
 
     # Étape 2 : tirage total
     poste_engagements = "Engagements de garantie donnés"
@@ -196,23 +183,12 @@ def propager_impact_vers_df74(df_74, bilan_df, annee="2024", pourcentage=0.1, ho
         raise ValueError(f"Poste '{poste_engagements}' introuvable pour {annee}")
 
     tirage_total = (valeur_initiale * pourcentage) / horizon
-    print(f"Tirage total = {tirage_total}")
 
-    # Étape 3 : capital plannings
-    capital_creances = get_capital_planning(bilan_df, "Créances clientèle", annee=str(int(annee) + 1))
-    capital_banques = get_capital_planning(bilan_df, "Créances banques autres", annee=str(int(annee) + 1))
-    print(f"Capital créances : {capital_creances}")
-    print(f"Capital banques : {capital_banques}")
-
-    # Étape 4 : application de l’impact pour chaque année cible
-    
-
-    #impact_160 = (part_mb / 100) * capital_banques
-    #impact_50 = (part_credit / 100) * (capital_creances + tirage_total)
+    # Étape 3 : application de l’impact pour chaque année cible
     impact_50 = (part_credit / 100) * tirage_total
     impact_160 = 0
 
-        # Appliquer impact ligne 160
+    # Appliquer impact ligne 160
     mask_160 = df_74["row"] == 160
     df_74.loc[mask_160, "0010"] = df_74.loc[mask_160, "0010"] + impact_160
 
@@ -236,9 +212,7 @@ def propager_impact_vers_df73(df_73, bilan_df, pourcentage=0.1, horizon=3, annee
 
     # Valeurs fixes
     pt_out_loans = part_loans_mb_outflow() / 100
-    print("pt_out_loans",pt_out_loans)
     valeur_initiale = get_valeur_poste_bilan(bilan_df, poste_engagements, "2024")
-    print(f"Valeur initiale pourrrrrrrrr {poste_engagements} en {annee} : {valeur_initiale}")
     tirage_total = (valeur_initiale * pourcentage) / horizon
 
     # Pour rows 480 et 499
@@ -248,15 +222,11 @@ def propager_impact_vers_df73(df_73, bilan_df, pourcentage=0.1, horizon=3, annee
 
     # Impact dettes annuel
     impact_annuel_dettes = tirage_total * poids_dettes
-    print("imp dette", impact_annuel_dettes)
     
 
     impact_230 = pt_out_loans * impact_annuel_dettes 
-    print(f"Impact 230 : {impact_230}")
     impact_480 = - (pourcentage * retail) / horizon
-    print(f"Impact 480 : {impact_480}")
     impact_490 =  ((pourcentage * hypo) + (pourcentage * corpo)) / horizon
-    print(f"Impact 490 : {impact_490}")
 
 
     df_73.loc[df_73["row"] == 230, "0010"] += impact_230

@@ -303,5 +303,5 @@ def calcul_row_0010(df):
 
 def calcul_HQLA(df):
     HQLA = calcul_row_0010(df)
-    print("HQLA = ",HQLA)
+    #print("HQLA = ",HQLA)
     return HQLA
