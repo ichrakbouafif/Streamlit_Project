@@ -20,38 +20,6 @@ from backend.levier.calcul_ratio_levier import executer_stress_event1_levier_plu
 
 from backend.stress_test.capital import executer_stress_pnu_capital_pluriannuel
 
-""" def show():
-    st.title("Choix des scénarios")
-
-    if "scenario_type" not in st.session_state:
-        st.session_state.scenario_type = None
-    if "selected_events" not in st.session_state:
-        st.session_state.selected_events = []
-
-    st.subheader("Phase 1 : Sélection du premier scénario")
-
-    scenario_type = st.radio(
-        "Type de scénario à calibrer",
-        ["Scénario idiosyncratique", "Scénario macroéconomique"],
-        key="scenario_type_radio"
-    )
-
-    scenario_type_key = "idiosyncratique" if "idiosyncratique" in scenario_type else "macroéconomique"
-    st.session_state.scenario_type = scenario_type_key
-
-    available_events = list(config.scenarios[scenario_type_key].keys())
-
-    selected_events = st.multiselect(
-        "Événements disponibles",
-        available_events,
-        key="events_multiselect"
-    )
-
-    st.session_state.selected_events = selected_events
-
-    if selected_events:
-        afficher_configuration_evenements(selected_events, scenario_type_key) """
-
 def show():
     st.title("Choix des scénarios")
 
@@ -270,7 +238,6 @@ def executer_retrait_depots():
                     poids_portefeuille=params['poids_portefeuille'],
                     poids_creances=params['poids_creances']
                 )
-               
                 # Store stressed version
                 st.session_state.bilan = bilan_stresse
                 st.session_state.bilan_stresse = bilan_stresse
@@ -279,10 +246,8 @@ def executer_retrait_depots():
 
                 # Set the stress test executed flag
                 st.session_state.stress_test_executed = True
-               
-               
+
                 return params
-               
             except Exception as e:
                 st.error(f"Erreur lors de l'exécution du stress test: {str(e)}")
                 st.session_state.stress_test_executed = False

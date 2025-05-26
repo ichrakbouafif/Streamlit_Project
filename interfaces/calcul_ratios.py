@@ -95,6 +95,7 @@ def show():
     # Calculate ratios for all years in horizon immediately
     resultats_horizon = calcul_ratios_sur_horizon(horizon, bilan, df_72, df_73, df_74, df_80, df_81)
     st.session_state['resultats_horizon']=resultats_horizon
+    st.session_state['resultats_ratios_liquidité_projete']=resultats_horizon
 
     if 'show_ratios' not in st.session_state:
         st.session_state.show_ratios = True
