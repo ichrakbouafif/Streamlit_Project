@@ -1,87 +1,174 @@
 import streamlit as st
 import pandas as pd
 
-def formater_tableau(resultats):
-    lignes = []
-    annees = list(resultats.keys())
+def format_number(x):
+    """Format numbers without thousands separator and with 2 decimals"""
+    if pd.isna(x) or x is None:
+        return "N/A"
+    return f"{x:,.2f}".replace(",", " ")
 
+def create_lcr_table(resultats, horizon):
+    annees = [str(annee) for annee in range(2024, 2024 + horizon + 1)]
+    data = {
+        "Metric": [
+            "Liquidity Buffer (HQLA)",
+            "Total Outflows",
+            "Total Inflows",
+            "Net Liquidity Outflow",
+            "LCR (%)"
+        ]
+    }
+    
     for annee in annees:
-        data = resultats[annee]
-        ligne = {
-            "Année": annee,
-            "Liquidity Buffer": data.get("liquidity_buffer", 0),
-            "Total Outflows": data.get("total_outflows", 0),
-            "Inflows (75% cap)": data.get("inflows_cap", 0),
-            "Net Liquidity Outflows": data.get("net_liquidity_outflows", 0),
-            "LCR": data.get("lcr_ratio", 0),
-            "ASF": data.get("asf", 0),
-            "RSF": data.get("rsf", 0),
-            "NSFR": data.get("nsfr_ratio", 0)
-        }
-        lignes.append(ligne)
+        year_data = resultats.get(int(annee), {})
+        data[annee] = [
+            year_data.get("HQLA", None),
+            year_data.get("OUTFLOWS", None),
+            year_data.get("INFLOWS", None),
+            year_data.get("OUTFLOWS", 0) - year_data.get("INFLOWS", 0) 
+            if year_data.get("OUTFLOWS") is not None and year_data.get("INFLOWS") is not None 
+            else None,
+            f"{year_data.get('LCR', 0)*100:.2f}%" if year_data.get('LCR') is not None else "N/A"
+        ]
+    
+    return pd.DataFrame(data)
 
-    return pd.DataFrame(lignes).set_index("Année")
+def create_nsfr_table(resultats, horizon):
+    annees = [str(annee) for annee in range(2024, 2024 + horizon + 1)]
+    data = {
+        "Metric": [
+            "ASF",
+            "RSF",
+            "NSFR (%)"
+        ]
+    }
+    
+    for annee in annees:
+        year_data = resultats.get(int(annee), {})
+        data[annee] = [
+            year_data.get("ASF", None),
+            year_data.get("RSF", None),
+            f"{year_data.get('NSFR', 0):.2f}%" if year_data.get('NSFR') is not None else "N/A"
+        ]
+    
+    return pd.DataFrame(data)
 
+def display_tab_content(resultats, horizon, tab):
+    if not resultats:
+        tab.warning("Aucune donnée disponible")
+        return
+    
+    
+    st.subheader("Ratio LCR")
+    lcr_table = create_lcr_table(resultats, horizon)
+    if not lcr_table.empty:
+    # Apply custom formatting to numeric columns
+        formatted_table = lcr_table.copy()
+        for col in formatted_table.columns[1:]:  # Skip first column (Metric)
+                formatted_table[col] = formatted_table[col].apply(
+                    lambda x: format_number(x) if not isinstance(x, str) and x != "N/A" else x
+                )
+        st.dataframe(
+                formatted_table,
+                use_container_width=True,
+                hide_index=True
+            )
+    else:
+            st.warning("Aucune donnée LCR disponible")
+    
+
+    st.subheader("Ratio NSFR")
+    nsfr_table = create_nsfr_table(resultats, horizon)
+    if not nsfr_table.empty:
+            # Apply custom formatting to numeric columns
+            formatted_table = nsfr_table.copy()
+            for col in formatted_table.columns[1:]:  # Skip first column (Metric)
+                formatted_table[col] = formatted_table[col].apply(
+                    lambda x: format_number(x) if not isinstance(x, str) and x != "N/A" else x
+                )
+            st.dataframe(
+                formatted_table,
+                use_container_width=True,
+                hide_index=True
+            )
+    else:
+            st.warning("Aucune donnée NSFR disponible")
 
 def show():
     st.title("Résultats et Graphiques")
     st.write("Visualisez les résultats du test de stress et les graphiques comparatifs.")
 
-    if st.button("Générer les graphiques"):
-        st.success("Graphiques générés avec succès.")
-
     # Récupération des résultats depuis le session_state
-    proj = st.session_state.get('resultats_ratios_liquidité_projete')
-    sim1 = st.session_state.get('resultats_horizon', proj)
-    sim2 = st.session_state.get('resultats_horizon', proj)
-    sim3 = st.session_state.get('resultats_horizon', proj)
+    horizon = st.session_state.get('horizon_global', 3)
+    proj = st.session_state.get('resultats_ratios_liquidité_projete', {})
+    sim1 = st.session_state.get('resultats_sim1', {})
+    sim2 = st.session_state.get('resultats_sim2', {})
+    sim3 = st.session_state.get('resultats_sim3', {})
 
-    if proj is None:
-        st.warning("Les résultats projetés ne sont pas encore disponibles.")
-        return
-
-    # Création des onglets
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    # Création des onglets - Récapitulatif en premier
+    tab5, tab1, tab2, tab3, tab4 = st.tabs([
+        "Récapitulatif",
         "Ratios projetés",
         "Phase 1 (Sim1)",
         "Phase 2 (Sim2)",
-        "Phase 3 (Sim3)",
-        "Récapitulatif"
+        "Phase 3 (Sim3)"
     ])
+
+    with tab5:
+        st.subheader("Comparaison des ratios")
+        
+        if not proj:
+            st.warning("Aucune donnée disponible pour le récapitulatif")
+            return
+
+        annees = [str(annee) for annee in range(2024, 2024 + horizon + 1)]
+        
+        # Tableau comparatif LCR - Années en colonnes
+        st.markdown("**Comparaison des ratios LCR (%)**")
+        lcr_data = {
+            "Scenario": ["Projeté", "Sim1", "Sim2", "Sim3"]
+        }
+        
+        for annee in annees:
+            lcr_data[annee] = [
+                f"{proj.get(int(annee), {}).get('LCR', 0)*100:.2f}%" if proj.get(int(annee), {}).get('LCR') is not None else "N/A",
+                f"{sim1.get(int(annee), {}).get('LCR', 0)*100:.2f}%" if sim1.get(int(annee), {}).get('LCR') is not None else "N/A",
+                f"{sim2.get(int(annee), {}).get('LCR', 0)*100:.2f}%" if sim2.get(int(annee), {}).get('LCR') is not None else "N/A",
+                f"{sim3.get(int(annee), {}).get('LCR', 0)*100:.2f}%" if sim3.get(int(annee), {}).get('LCR') is not None else "N/A"
+            ]
+        
+        lcr_df = pd.DataFrame(lcr_data)
+        st.dataframe(lcr_df.set_index("Scenario"), use_container_width=True)
+        
+        # Tableau comparatif NSFR - Années en colonnes
+        st.markdown("**Comparaison des ratios NSFR (%)**")
+        nsfr_data = {
+            "Scenario": ["Projeté", "Sim1", "Sim2", "Sim3"]
+        }
+        
+        for annee in annees:
+            nsfr_data[annee] = [
+                f"{proj.get(int(annee), {}).get('NSFR', 0):.2f}%" if proj.get(int(annee), {}).get('NSFR') is not None else "N/A",
+                f"{sim1.get(int(annee), {}).get('NSFR', 0):.2f}%" if sim1.get(int(annee), {}).get('NSFR') is not None else "N/A",
+                f"{sim2.get(int(annee), {}).get('NSFR', 0):.2f}%" if sim2.get(int(annee), {}).get('NSFR') is not None else "N/A",
+                f"{sim3.get(int(annee), {}).get('NSFR', 0):.2f}%" if sim3.get(int(annee), {}).get('NSFR') is not None else "N/A"
+            ]
+        
+        nsfr_df = pd.DataFrame(nsfr_data)
+        st.dataframe(nsfr_df.set_index("Scenario"), use_container_width=True)
 
     with tab1:
         st.subheader("Résultats des ratios projetés")
-        st.dataframe(formater_tableau(proj), use_container_width=True)
+        display_tab_content(proj, horizon, st)
 
     with tab2:
         st.subheader("Résultats Phase 1 (Sim1)")
-        st.dataframe(formater_tableau(sim1), use_container_width=True)
+        display_tab_content(sim1, horizon, st)
 
     with tab3:
         st.subheader("Résultats Phase 2 (Sim2)")
-        st.dataframe(formater_tableau(sim2), use_container_width=True)
+        display_tab_content(sim2, horizon, st)
 
     with tab4:
         st.subheader("Résultats Phase 3 (Sim3)")
-        st.dataframe(formater_tableau(sim3), use_container_width=True)
-
-    with tab5:
-        st.subheader("Comparaison des ratios LCR & NSFR")
-
-        recap_data = []
-        annees = list(proj.keys())
-        for annee in annees:
-            recap_data.append({
-                "Année": annee,
-                "LCR Projeté": proj[annee].get("lcr_ratio", 0),
-                "LCR Sim1": sim1[annee].get("lcr_ratio", 0),
-                "LCR Sim2": sim2[annee].get("lcr_ratio", 0),
-                "LCR Sim3": sim3[annee].get("lcr_ratio", 0),
-                "NSFR Projeté": proj[annee].get("nsfr_ratio", 0),
-                "NSFR Sim1": sim1[annee].get("nsfr_ratio", 0),
-                "NSFR Sim2": sim2[annee].get("nsfr_ratio", 0),
-                "NSFR Sim3": sim3[annee].get("nsfr_ratio", 0),
-            })
-
-        df_recap = pd.DataFrame(recap_data).set_index("Année")
-        st.dataframe(df_recap, use_container_width=True)
+        display_tab_content(sim3, horizon, st)
