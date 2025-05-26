@@ -1,3 +1,4 @@
+import copy
 import streamlit as st
 import config
 import traceback
@@ -73,7 +74,8 @@ def show_phase1():
         afficher_configuration_evenements(selected_events, scenario_type_key)
 
     if st.button("Valider la phase 1 et passer à la phase 2"):
-        st.session_state['resultats_sim1'] = st.session_state['resultats_horizon']
+        #st.session_state['resultats_sim1'] = st.session_state['resultats_horizon']
+        st.session_state['resultats_sim1'] = copy.deepcopy(st.session_state['resultats_horizon'])
 
         if not selected_events:
             st.warning("Veuillez sélectionner au moins un événement avant de continuer.")
@@ -102,7 +104,7 @@ def show_phase2():
     
 
     if st.button("Valider la phase 2 et passer à la phase 3"):
-        st.session_state['resultats_sim2'] = st.session_state['resultats_horizon']
+        st.session_state['resultats_sim2'] = copy.deepcopy(st.session_state['resultats_horizon'])
         # Combine all selected events from both phases
         st.session_state.all_selected_events = (
             st.session_state.selected_events_phase1 + 
@@ -140,7 +142,8 @@ def show_phase3():
     
 
     if st.button("Valider tous les scénarios et voir les résultats"):
-        st.session_state['resultats_sim3'] = st.session_state['resultats_horizon']
+        #st.session_state['resultats_sim3'] = st.session_state['resultats_horizon']
+        st.session_state['resultats_sim3'] = copy.deepcopy(st.session_state['resultats_horizon'])
         st.session_state.selected_page = "Résultats & Graphiques"
         st.rerun()
 
