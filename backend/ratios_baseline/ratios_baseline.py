@@ -1115,7 +1115,7 @@ def calcul_ratios_projete(annee, bilan, df_72, df_73, df_74, df_80, df_81):
     NSFR = Calcul_NSFR(ASF, RSF)
 
     return {
-        "LCR": LCR,
+        "LCR": LCR*100,
         "NSFR": NSFR,
         "HQLA": HQLA,
         "OUTFLOWS": OUTFLOWS,

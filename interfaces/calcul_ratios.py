@@ -95,7 +95,8 @@ def show():
     # Calculate ratios for all years in horizon immediately
     resultats_horizon = calcul_ratios_sur_horizon(horizon, bilan, df_72, df_73, df_74, df_80, df_81)
     st.session_state['resultats_horizon']=resultats_horizon
-    st.session_state['resultats_ratios_liquidité_projete']=resultats_horizon
+    st.session_state['resultats_ratios_liquidite_projete']=resultats_horizon
+    st.session_state['resultats_projete_liq']=resultats_horizon
 
     if 'show_ratios' not in st.session_state:
         st.session_state.show_ratios = True
@@ -124,7 +125,7 @@ def show():
                     "Inflow":f"{resultats_horizon[year]['INFLOWS']:,.2f}".replace(",", " "),
                     "Outflow": f"{resultats_horizon[year]['OUTFLOWS']:,.2f}".replace(",", " "),
                     #"Net Outflow": format_large_number(resultats_horizon[year]['OUTFLOWS'] - resultats_horizon[year]['INFLOWS']),
-                    "LCR%": f"{resultats_horizon[year]['LCR']*100:,.2f}%"
+                    "LCR%": f"{resultats_horizon[year]['LCR']:,.2f}%"
                 })
        
         lcr_table = pd.DataFrame(lcr_years)
@@ -157,7 +158,7 @@ def show():
                                         box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
                                 <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">LCR</h4>
                                 <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
-                                    {resultats_horizon[year]['LCR']*100:.2f}%
+                                    {resultats_horizon[year]['LCR']:.2f}%
                                 </p>
                             </div>
                             """,
@@ -669,13 +670,13 @@ def show():
         result_data = []
 
         # LCR and NSFR with real calculated values
-        lcr_baseline = resultats_horizon[2024]['LCR'] * 100
+        lcr_baseline = resultats_horizon[2024]['LCR']
         nsfr_baseline = resultats_horizon[2024]['NSFR']
 
         result_data.append({
             "Ratio": "LCR",
             "Valeur Baseline (2024)": f"{lcr_baseline:.2f}%",
-            **{f"Valeur Baseline Projeté Année {2024+i+1}": f"{resultats_horizon[2024+i+1]['LCR']*100:.2f}%"
+            **{f"Valeur Baseline Projeté Année {2024+i+1}": f"{resultats_horizon[2024+i+1]['LCR']:.2f}%"
             for i in range(horizon) if 2024+i+1 in resultats_horizon},
             "Conformité": "Conforme" if lcr_baseline >= 100 else "Non conforme"
         })
