@@ -76,6 +76,9 @@ def show_phase1():
     if st.button("Valider la phase 1 et passer à la phase 2"):
         #st.session_state['resultats_sim1'] = st.session_state['resultats_horizon']
         st.session_state['resultats_sim1'] = copy.deepcopy(st.session_state['resultats_horizon'])
+        if st.session_state.resultats_horizon :
+            st.session_state.resultats_horizon  = st.session_state['resultats_horizon']
+
 
         if not selected_events:
             st.warning("Veuillez sélectionner au moins un événement avant de continuer.")
@@ -384,60 +387,62 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
             "df_74": df_74
         })
 
+        # Initialize stressed data for cumulative effect
+        stressed_dfs = {
+            2025: {
+                'df_72': resultats_horizon[2025]['df_72'].copy(),
+                'df_73': resultats_horizon[2025]['df_73'].copy(),
+                'df_74': resultats_horizon[2025]['df_74'].copy()
+            },
+            2026: {
+                'df_72': resultats_horizon[2026]['df_72'].copy(),
+                'df_73': resultats_horizon[2026]['df_73'].copy(),
+                'df_74': resultats_horizon[2026]['df_74'].copy()
+            },
+            2027: {
+                'df_72': resultats_horizon[2027]['df_72'].copy(),
+                'df_73': resultats_horizon[2027]['df_73'].copy(),
+                'df_74': resultats_horizon[2027]['df_74'].copy()
+            }
+        }
+
         for annee in [2025 + i for i in range(horizon)]:
-            if annee not in resultats_horizon:
-                st.error(f"Données de base pour {annee} manquantes dans session state")
-                return None
-
-            df_72 = resultats_horizon[annee]['df_72'].copy()
-            df_73 = resultats_horizon[annee]['df_73'].copy()
-            df_74 = resultats_horizon[annee]['df_74'].copy()
-
-            # Stress cumulé des années précédentes
-           
-            for prev_year in range(2025, annee):
-                df_72 = bst.propager_retrait_depots_vers_df72(
-                    df_72, bilan_stresse, annee=prev_year,
+            # Apply current year's stress to all future years (including current)
+            for target_year in range(annee, 2028):
+                if target_year > 2027:
+                    continue
+                    
+                stressed_dfs[target_year]['df_72'] = bst.propager_retrait_depots_vers_df72(
+                    stressed_dfs[target_year]['df_72'], bilan_stresse, annee=annee,
                     pourcentage=pourcentage, horizon=horizon,
                     poids_portefeuille=poids_portefeuille
                 )
-                df_74 = bst.propager_retrait_depots_vers_df74(
-                    df_74, bilan_stresse, annee=prev_year,
+                stressed_dfs[target_year]['df_74'] = bst.propager_retrait_depots_vers_df74(
+                    stressed_dfs[target_year]['df_74'], bilan_stresse, annee=annee,
                     pourcentage=pourcentage, horizon=horizon,
                     poids_portefeuille=poids_portefeuille,
                     impact_creances=poids_creances
                 )
-                df_73 = bst.propager_retrait_depots_vers_df73(
-                    df_73, bilan_stresse, annee=prev_year,
+                stressed_dfs[target_year]['df_73'] = bst.propager_retrait_depots_vers_df73(
+                    stressed_dfs[target_year]['df_73'], bilan_stresse, annee=annee,
                     pourcentage=pourcentage, horizon=horizon,
                 )
 
-            # Stress de l'année courante
-            df_72 = bst.propager_retrait_depots_vers_df72(
-                df_72, bilan_stresse, annee=annee,
-                pourcentage=pourcentage, horizon=horizon,
-                poids_portefeuille=poids_portefeuille
-            )
-            df_74 = bst.propager_retrait_depots_vers_df74(
-                df_74, bilan_stresse, annee=annee,
-                pourcentage=pourcentage, horizon=horizon,
-                poids_portefeuille=poids_portefeuille,
-                impact_creances=poids_creances
-            )
-            df_73 = bst.propager_retrait_depots_vers_df73(
-                df_73, bilan_stresse, annee=annee,
-                pourcentage=pourcentage, horizon=horizon,
-            )
-
+        # Prepare final results for requested horizon
+        for annee in [2025 + i for i in range(3)]:
             recap_data.append({
                 "Année": annee,
-                "HQLA": calcul_HQLA(df_72),
-                "Inflows": calcul_inflow(df_74),
-                "Outflows": calcul_outflow(df_73),
-                "LCR (%)": Calcul_LCR(calcul_inflow(df_74), calcul_outflow(df_73), calcul_HQLA(df_72)) * 100,
-                "df_72": df_72,
-                "df_73": df_73,
-                "df_74": df_74
+                "HQLA": calcul_HQLA(stressed_dfs[annee]['df_72']),
+                "Inflows": calcul_inflow(stressed_dfs[annee]['df_74']),
+                "Outflows": calcul_outflow(stressed_dfs[annee]['df_73']),
+                "LCR (%)": Calcul_LCR(
+                    calcul_inflow(stressed_dfs[annee]['df_74']),
+                    calcul_outflow(stressed_dfs[annee]['df_73']),
+                    calcul_HQLA(stressed_dfs[annee]['df_72'])
+                ) * 100,
+                "df_72": stressed_dfs[annee]['df_72'],
+                "df_73": stressed_dfs[annee]['df_73'],
+                "df_74": stressed_dfs[annee]['df_74']
             })
 
         return recap_data
@@ -471,49 +476,57 @@ def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
             "Année": 2024,
             "ASF": calcul_ASF(df_81),
             "RSF": calcul_RSF(df_80),
-            "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81),calcul_RSF(df_80)),
+            "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81), calcul_RSF(df_80)),
             "df_80": df_80,
             "df_81": df_81
         })
 
+        # Initialize stressed data for cumulative effect
+        stressed_dfs = {
+            2025: {
+                'df_80': resultats_horizon[2025]['df_80'].copy(),
+                'df_81': resultats_horizon[2025]['df_81'].copy()
+            },
+            2026: {
+                'df_80': resultats_horizon[2026]['df_80'].copy(),
+                'df_81': resultats_horizon[2026]['df_81'].copy()
+            },
+            2027: {
+                'df_80': resultats_horizon[2027]['df_80'].copy(),
+                'df_81': resultats_horizon[2027]['df_81'].copy()
+            }
+        }
+
         for annee in [2025, 2026, 2027][:horizon]:
-            if annee not in resultats_horizon:
-                st.error(f"Données de base pour {annee} manquantes dans session state")
-                return None
-
-            df_80 = resultats_horizon[annee]['df_80'].copy()
-            df_81 = resultats_horizon[annee]['df_81'].copy()
-
-            # Application cumulative des stress des années précédentes
-            for prev_year in range(2025, annee+1):
-                df_80 = bst.propager_retrait_depots_vers_df80(
-                    df_80, bilan_stresse, pourcentage_retrait=pourcentage,
+            # Apply current year's stress to all future years (including current)
+            for target_year in range(annee, 2028):
+                if target_year > 2027:
+                    continue
+                    
+                stressed_dfs[target_year]['df_80'] = bst.propager_retrait_depots_vers_df80(
+                    stressed_dfs[target_year]['df_80'], bilan_stresse, 
+                    pourcentage_retrait=pourcentage,
                     poids_creances=poids_creances,
-                    annee=prev_year
+                    annee=annee
                 )
-                df_81 = bst.propager_retrait_depots_vers_df81(
-                    df_81, bilan_stresse, pourcentage_retrait=pourcentage,
-                    annee=prev_year
+                stressed_dfs[target_year]['df_81'] = bst.propager_retrait_depots_vers_df81(
+                    stressed_dfs[target_year]['df_81'], bilan_stresse,
+                    pourcentage_retrait=pourcentage,
+                    annee=annee
                 )
 
-            # Application du stress pour l’année courante
-            df_80 = bst.propager_retrait_depots_vers_df80(
-                df_80, bilan_stresse, pourcentage_retrait=pourcentage,
-                poids_creances=poids_creances,
-                annee=annee
-            )
-            df_81 = bst.propager_retrait_depots_vers_df81(
-                df_81, bilan_stresse, pourcentage_retrait=pourcentage,
-                annee=annee
-            )
-
+        # Prepare final results for requested horizon
+        for annee in [2025, 2026, 2027][:3]:
             recap_data_nsfr.append({
                 "Année": annee,
-                "ASF": calcul_ASF(df_81),
-                "RSF": calcul_RSF(df_80),
-                "NSFR (%)": Calcul_NSFR(calcul_ASF(df_81), calcul_RSF(df_80)),
-                "df_80": df_80,
-                "df_81": df_81
+                "ASF": calcul_ASF(stressed_dfs[annee]['df_81']),
+                "RSF": calcul_RSF(stressed_dfs[annee]['df_80']),
+                "NSFR (%)": Calcul_NSFR(
+                    calcul_ASF(stressed_dfs[annee]['df_81']),
+                    calcul_RSF(stressed_dfs[annee]['df_80'])
+                ),
+                "df_80": stressed_dfs[annee]['df_80'],
+                "df_81": stressed_dfs[annee]['df_81']
             })
 
         return recap_data_nsfr

@@ -95,6 +95,7 @@ def display_tab_content(resultats, horizon, tab):
             st.warning("Aucune donnée NSFR disponible")
 
 def show():
+    st.write(st.session_state.get('recap_data_lcr',{}))
     st.title("Résultats et Graphiques")
     st.write("Visualisez les résultats du test de stress et les graphiques comparatifs.")
 
