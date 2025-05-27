@@ -14,7 +14,6 @@ def create_lcr_table(resultats, horizon):
             "Liquidity Buffer (HQLA)",
             "Total Outflows",
             "Total Inflows",
-            "Net Liquidity Outflow",
             "LCR (%)"
         ]
     }
@@ -23,12 +22,9 @@ def create_lcr_table(resultats, horizon):
         year_data = resultats.get(int(annee), {})
         data[annee] = [
             year_data.get("HQLA", None),
-            year_data.get("OUTFLOWS", None),
-            year_data.get("INFLOWS", None),
-            year_data.get("OUTFLOWS", 0) - year_data.get("INFLOWS", 0) 
-            if year_data.get("OUTFLOWS") is not None and year_data.get("INFLOWS") is not None 
-            else None,
-            f"{year_data.get('LCR', 0)*100:.2f}%" if year_data.get('LCR') is not None else "N/A"
+            year_data.get("Outflows", None),
+            year_data.get("Inflows", None),
+            year_data.get('LCR (%)', 0)
         ]
     
     return pd.DataFrame(data)
@@ -48,7 +44,7 @@ def create_nsfr_table(resultats, horizon):
         data[annee] = [
             year_data.get("ASF", None),
             year_data.get("RSF", None),
-            f"{year_data.get('NSFR', 0):.2f}%" if year_data.get('NSFR') is not None else "N/A"
+            year_data.get('NSFR (%)', 0)
         ]
     
     return pd.DataFrame(data)
@@ -57,8 +53,7 @@ def display_tab_content(resultats, horizon, tab):
     if not resultats:
         tab.warning("Aucune donnée disponible")
         return
-    
-    
+
     st.subheader("Ratio LCR")
     lcr_table = create_lcr_table(resultats, horizon)
     if not lcr_table.empty:
@@ -95,81 +90,49 @@ def display_tab_content(resultats, horizon, tab):
             st.warning("Aucune donnée NSFR disponible")
 
 def show():
-    st.write(st.session_state.get('recap_data_lcr',{}))
     st.title("Résultats et Graphiques")
     st.write("Visualisez les résultats du test de stress et les graphiques comparatifs.")
 
-    # Récupération des résultats depuis le session_state
     horizon = st.session_state.get('horizon_global', 3)
     proj = st.session_state.get('resultats_ratios_liquidité_projete', {})
-    sim1 = st.session_state.get('resultats_sim1', {})
-    sim2 = st.session_state.get('resultats_sim2', {})
-    sim3 = st.session_state.get('resultats_sim3', {})
+    sim1 = st.session_state.get('resultats_phase1', {})
+    sim2 = st.session_state.get('resultats_phase2', {})
+    sim3 = st.session_state.get('resultats_phase3', {})  
 
-    # Création des onglets - Récapitulatif en premier
     tab5, tab1, tab2, tab3, tab4 = st.tabs([
         "Récapitulatif",
         "Ratios projetés",
-        "Phase 1 (Sim1)",
-        "Phase 2 (Sim2)",
-        "Phase 3 (Sim3)"
+        "Phase 1",
+        "Phase 2",
+        "Phase 3"
     ])
 
     with tab5:
-        st.subheader("Comparaison des ratios")
-        
-        if not proj:
-            st.warning("Aucune donnée disponible pour le récapitulatif")
-            return
-
+        st.subheader("Comparaison des ratios LCR (%)")
         annees = [str(annee) for annee in range(2024, 2024 + horizon + 1)]
-        
-        # Tableau comparatif LCR - Années en colonnes
-        st.markdown("**Comparaison des ratios LCR (%)**")
         lcr_data = {
-            "Scenario": ["Projeté", "Sim1", "Sim2", "Sim3"]
+            "Scenario": ["Projeté", "Phase 1", "Phase 2", "Phase 3"]
         }
-        
+
         for annee in annees:
             lcr_data[annee] = [
-                f"{proj.get(int(annee), {}).get('LCR', 0)*100:.2f}%" if proj.get(int(annee), {}).get('LCR') is not None else "N/A",
-                f"{sim1.get(int(annee), {}).get('LCR', 0)*100:.2f}%" if sim1.get(int(annee), {}).get('LCR') is not None else "N/A",
-                f"{sim2.get(int(annee), {}).get('LCR', 0)*100:.2f}%" if sim2.get(int(annee), {}).get('LCR') is not None else "N/A",
-                f"{sim3.get(int(annee), {}).get('LCR', 0)*100:.2f}%" if sim3.get(int(annee), {}).get('LCR') is not None else "N/A"
+                f"{proj.get(int(annee), {}).get('LCR (%)', 0):.2f}%" if proj.get(int(annee), {}).get('LCR (%)') is not None else "N/A",
+                f"{sim1.get(int(annee), {}).get('LCR (%)', 0):.2f}%" if sim1.get(int(annee), {}).get('LCR (%)') is not None else "N/A",
+                f"{sim2.get(int(annee), {}).get('LCR (%)', 0):.2f}%" if sim2.get(int(annee), {}).get('LCR (%)') is not None else "N/A",
+                f"{sim3.get(int(annee), {}).get('LCR (%)', 0):.2f}%" if sim3.get(int(annee), {}).get('LCR (%)') is not None else "N/A"
             ]
         
         lcr_df = pd.DataFrame(lcr_data)
-        st.dataframe(lcr_df.set_index("Scenario"), use_container_width=True)
-        
-        # Tableau comparatif NSFR - Années en colonnes
-        st.markdown("**Comparaison des ratios NSFR (%)**")
-        nsfr_data = {
-            "Scenario": ["Projeté", "Sim1", "Sim2", "Sim3"]
-        }
-        
-        for annee in annees:
-            nsfr_data[annee] = [
-                f"{proj.get(int(annee), {}).get('NSFR', 0):.2f}%" if proj.get(int(annee), {}).get('NSFR') is not None else "N/A",
-                f"{sim1.get(int(annee), {}).get('NSFR', 0):.2f}%" if sim1.get(int(annee), {}).get('NSFR') is not None else "N/A",
-                f"{sim2.get(int(annee), {}).get('NSFR', 0):.2f}%" if sim2.get(int(annee), {}).get('NSFR') is not None else "N/A",
-                f"{sim3.get(int(annee), {}).get('NSFR', 0):.2f}%" if sim3.get(int(annee), {}).get('NSFR') is not None else "N/A"
-            ]
-        
-        nsfr_df = pd.DataFrame(nsfr_data)
-        st.dataframe(nsfr_df.set_index("Scenario"), use_container_width=True)
+        st.dataframe(lcr_df, use_container_width=True)
 
     with tab1:
-        st.subheader("Résultats des ratios projetés")
-        display_tab_content(proj, horizon, st)
+        display_tab_content(proj, horizon, tab1)
 
     with tab2:
-        st.subheader("Résultats Phase 1 (Sim1)")
-        display_tab_content(sim1, horizon, st)
+        display_tab_content(sim1, horizon, tab2)
 
     with tab3:
-        st.subheader("Résultats Phase 2 (Sim2)")
-        display_tab_content(sim2, horizon, st)
+        display_tab_content(sim2, horizon, tab3)
 
     with tab4:
-        st.subheader("Résultats Phase 3 (Sim3)")
-        display_tab_content(sim3, horizon, st)
+        display_tab_content(sim3, horizon, tab4)

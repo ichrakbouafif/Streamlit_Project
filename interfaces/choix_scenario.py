@@ -50,7 +50,7 @@ def show():
 
 def show_phase1():
     st.subheader("Phase 1 : Sélection du type de scénario principal")
-
+    st.session_state['previous_event_executed'] = False
     scenario_type = st.radio(
         "Type de scénario à calibrer",
         ["Scénario idiosyncratique", "Scénario macroéconomique"],
@@ -74,11 +74,6 @@ def show_phase1():
         afficher_configuration_evenements(selected_events, scenario_type_key)
 
     if st.button("Valider la phase 1 et passer à la phase 2"):
-        #st.session_state['resultats_sim1'] = st.session_state['resultats_horizon']
-        st.session_state['resultats_sim1'] = copy.deepcopy(st.session_state['resultats_horizon'])
-        if st.session_state.resultats_horizon :
-            st.session_state.resultats_horizon  = st.session_state['resultats_horizon']
-
 
         if not selected_events:
             st.warning("Veuillez sélectionner au moins un événement avant de continuer.")
@@ -88,7 +83,7 @@ def show_phase1():
 
 def show_phase2():
     st.subheader("Phase 2 : Sélection des événements complémentaires")
-    
+    st.session_state['previous_event_executed'] = False
     # Determine the other scenario type (the one not selected in phase 1)
     other_scenario_type = "macroéconomique" if st.session_state.scenario_type == "idiosyncratique" else "idiosyncratique"
     
@@ -107,7 +102,6 @@ def show_phase2():
     
 
     if st.button("Valider la phase 2 et passer à la phase 3"):
-        st.session_state['resultats_sim2'] = copy.deepcopy(st.session_state['resultats_horizon'])
         # Combine all selected events from both phases
         st.session_state.all_selected_events = (
             st.session_state.selected_events_phase1 + 
@@ -118,7 +112,7 @@ def show_phase2():
 
 def show_phase3():
     st.subheader("Phase 3 : Synthèse des événements sélectionnés")
-    
+    st.session_state['previous_event_executed'] = False
     # Display selected events from phase 1
     st.markdown("**Événements sélectionnés en phase 1:**")
     for event in st.session_state.selected_events_phase1:
@@ -230,10 +224,14 @@ def afficher_parametres_retrait_depots():
 
 def executer_retrait_depots():
     # Use the bilan from session state
-    bilan = st.session_state.bilan
+    if 'previous_event_executed' not in st.session_state or not st.session_state['previous_event_executed']:
+        bilan = st.session_state.bilan_original.copy()
+    else:
+        bilan = st.session_state.bilan_stresse.copy()
     params = afficher_parametres_retrait_depots()
 
     if st.button("Exécuter le stress test", key="executer_stress_test", use_container_width=True):
+        st.session_state['previous_event_executed'] = True
         with st.spinner("Exécution du stress test en cours..."):
             try:
                 # Store original in session state
@@ -271,54 +269,92 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
 
+    # Initialize results storage if not exists
     if "resultats_horizon" not in st.session_state:
-            st.session_state["resultats_horizon"] = {}
+        st.session_state["resultats_horizon"] = {}
+    
+    current_phase = st.session_state.get("current_phase", 1)
+    
+    # Initialize phase results with the same structure as resultats_horizon
+    if f"resultats_phase{current_phase}" not in st.session_state:
+        st.session_state[f"resultats_phase{current_phase}"] = {}
+
     # Section LCR
     st.subheader("Impact sur la liquidité (LCR)")
     bst.show_hqla_tab()
     bst.show_outflow_tab_retrait_depots()
-    bst. show_inflow_tab_retrait_depots()
+    bst.show_inflow_tab_retrait_depots()
+    
     recap_data_lcr = afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
     if recap_data_lcr:
         for year_data in recap_data_lcr:
             year = year_data["Année"]
+            
+            # Update main results
             if year not in st.session_state["resultats_horizon"]:
                 st.session_state["resultats_horizon"][year] = {}
+            
             st.session_state["resultats_horizon"][year].update({
+                "HQLA": year_data["HQLA"],
+                "Inflows": year_data["Inflows"],
+                "Outflows": year_data["Outflows"],
+                "LCR (%)": year_data["LCR (%)"],
                 "df_72": year_data["df_72"],
                 "df_73": year_data["df_73"],
-                "df_74": year_data["df_74"],
-                "lcr_data": {
-                    "HQLA": year_data["HQLA"],
-                    "Inflows": year_data["Inflows"],
-                    "Outflows": year_data["Outflows"],
-                    "LCR (%)": year_data["LCR (%)"]
-                }
+                "df_74": year_data["df_74"]
             })
+            
+            # Update phase results with same structure
+            if year not in st.session_state[f"resultats_phase{current_phase}"]:
+                st.session_state[f"resultats_phase{current_phase}"][year] = {}
+                
+            st.session_state[f"resultats_phase{current_phase}"][year].update({
+                "HQLA": year_data["HQLA"],
+                "Inflows": year_data["Inflows"],
+                "Outflows": year_data["Outflows"],
+                "LCR (%)": year_data["LCR (%)"],
+                "df_72": year_data["df_72"],
+                "df_73": year_data["df_73"],
+                "df_74": year_data["df_74"]
+            })
+            
         afficher_tableau_recapitulatif(recap_data_lcr, "LCR")
-   
 
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
     bst.show_asf_tab_v2()
     bst.show_asf_tab_financial_customers()
-    recap_data_nsfr= afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
+    
+    recap_data_nsfr = afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
     if recap_data_nsfr:
         for year_data in recap_data_nsfr:
             year = year_data["Année"]
+            
+            # Update main results
             if year not in st.session_state["resultats_horizon"]:
                 st.session_state["resultats_horizon"][year] = {}
+                
             st.session_state["resultats_horizon"][year].update({
+                "ASF": year_data["ASF"],
+                "RSF": year_data["RSF"],
+                "NSFR (%)": year_data["NSFR (%)"],
                 "df_80": year_data["df_80"],
-                "df_81": year_data["df_81"],
-                "nsfr_data": {
-                    "ASF": year_data["ASF"],
-                    "RSF": year_data["RSF"],
-                    "NSFR (%)": year_data["NSFR (%)"]
-                }
+                "df_81": year_data["df_81"]
             })
-        afficher_tableau_recapitulatif(recap_data_nsfr, "NSFR")
-
+            
+            # Update phase results with same structure
+            if year not in st.session_state[f"resultats_phase{current_phase}"]:
+                st.session_state[f"resultats_phase{current_phase}"][year] = {}
+                
+            st.session_state[f"resultats_phase{current_phase}"][year].update({
+                "ASF": year_data["ASF"],
+                "RSF": year_data["RSF"],
+                "NSFR (%)": year_data["NSFR (%)"],
+                "df_80": year_data["df_80"],
+                "df_81": year_data["df_81"]
+            })
+            
+        afficher_tableau_recapitulatif(recap_data_nsfr, "NSFR")    
     # Section Ratio de Solvabilité
     st.subheader("Impact sur le ratio de solvabilité")
     if "resultats_solva" in st.session_state:
@@ -356,15 +392,20 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     afficher_resultats_levier(params, proj_levier)
 def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
     try:
-        if 'resultats_horizon' not in st.session_state:
-            st.error("Les résultats de base ne sont pas disponibles dans la session.")
-            return None
-
-        resultats_horizon = st.session_state['resultats_horizon']
-
-        if 2024 not in resultats_horizon:
-            st.error("Les données de l'année 2024 ne sont pas disponibles.")
-            return None
+        if 'previous_event_executed' not in st.session_state or not st.session_state['previous_event_executed']:
+            # Initialize with projected ratios if previous event not executed
+            if 'resultats_ratios_liquidité_projete' not in st.session_state:
+                st.error("Les résultats projetés ne sont pas disponibles dans la session.")
+                return None
+            resultats_horizon = st.session_state['resultats_ratios_liquidité_projete'].copy()
+            bilan_stresse = st.session_state['bilan_original'].copy()
+        else:
+            # Use existing stressed results if previous event was executed
+            if 'resultats_horizon' not in st.session_state:
+                st.error("Les résultats de base ne sont pas disponibles dans la session.")
+                return None
+            resultats_horizon = st.session_state['resultats_horizon']
+            bilan_stresse = bilan_stresse
 
         recap_data = []
         pourcentage = params["pourcentage"]
@@ -453,12 +494,20 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
 
 def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
     try:
-        if 'resultats_horizon' not in st.session_state:
-            st.error("Les résultats de base ne sont pas disponibles dans la session.")
-            return None
-
-        resultats_horizon = st.session_state['resultats_horizon']
-
+        if 'previous_event_executed' not in st.session_state or not st.session_state['previous_event_executed']:
+            # Initialize with projected ratios if previous event not executed
+            if 'resultats_ratios_liquidité_projete' not in st.session_state:
+                st.error("Les résultats projetés ne sont pas disponibles dans la session.")
+                return None
+            resultats_horizon = st.session_state['resultats_ratios_liquidité_projete'].copy()
+            bilan_stresse = st.session_state['bilan_original'].copy()
+        else:
+            # Use existing stressed results if previous event was executed
+            if 'resultats_horizon' not in st.session_state:
+                st.error("Les résultats de base ne sont pas disponibles dans la session.")
+                return None
+            resultats_horizon = st.session_state['resultats_horizon']
+            bilan_stresse = bilan_stresse
         if 2024 not in resultats_horizon:
             st.error("Les données de l'année 2024 ne sont pas disponibles.")
             return None
@@ -1310,10 +1359,14 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
 
 ############################### Evenement 2 : Tirage PNU ###############################
 def executer_tirage_pnu():
-    bilan = st.session_state.bilan
+    if 'previous_event_executed' not in st.session_state or not st.session_state['previous_event_executed']:
+        bilan = st.session_state.bilan_original.copy()
+    else:
+        bilan = st.session_state.bilan_stresse.copy()
     params = afficher_parametres_tirage_pnu()
 
     if st.button("Exécuter le stress test - Tirage PNU", key="executer_tirage_pnu", use_container_width=True):
+        st.session_state['previous_event_executed'] = True
         with st.spinner("Exécution du stress test Tirage PNU en cours..."):
             try:
                 # Store original in session state
@@ -1415,8 +1468,15 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
 
+    # Initialize results storage if not exists
     if "resultats_horizon" not in st.session_state:
         st.session_state["resultats_horizon"] = {}
+    
+    current_phase = st.session_state.get("current_phase", 1)
+    
+    # Initialize phase results with the same structure as resultats_horizon
+    if f"resultats_phase{current_phase}" not in st.session_state:
+        st.session_state[f"resultats_phase{current_phase}"] = {}
    
     # Section principale des résultats
     st.markdown("### Résultats du stress test")
@@ -1431,20 +1491,37 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     if recap_data_lcr:
         for year_data in recap_data_lcr:
             year = year_data["Année"]
+            
+            # Update main results
             if year not in st.session_state["resultats_horizon"]:
                 st.session_state["resultats_horizon"][year] = {}
+            
             st.session_state["resultats_horizon"][year].update({
+                "HQLA": year_data["HQLA"],
+                "Inflows": year_data["Inflows"],
+                "Outflows": year_data["Outflows"],
+                "LCR (%)": year_data["LCR (%)"],
                 "df_72": year_data["df_72"],
                 "df_73": year_data["df_73"],
-                "df_74": year_data["df_74"],
-                "lcr_data": {
-                    "HQLA": year_data["HQLA"],
-                    "Inflows": year_data["Inflows"],
-                    "Outflows": year_data["Outflows"],
-                    "LCR (%)": year_data["LCR (%)"]
-                }
+                "df_74": year_data["df_74"]
             })
+            
+            # Update phase results with same structure
+            if year not in st.session_state[f"resultats_phase{current_phase}"]:
+                st.session_state[f"resultats_phase{current_phase}"][year] = {}
+                
+            st.session_state[f"resultats_phase{current_phase}"][year].update({
+                "HQLA": year_data["HQLA"],
+                "Inflows": year_data["Inflows"],
+                "Outflows": year_data["Outflows"],
+                "LCR (%)": year_data["LCR (%)"],
+                "df_72": year_data["df_72"],
+                "df_73": year_data["df_73"],
+                "df_74": year_data["df_74"]
+            })
+            
         afficher_tableau_recapitulatif(recap_data_lcr, "LCR")
+        
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
 
@@ -1455,19 +1532,32 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     if recap_data_nsfr:
         for year_data in recap_data_nsfr:
             year = year_data["Année"]
+            
+            # Update main results
             if year not in st.session_state["resultats_horizon"]:
                 st.session_state["resultats_horizon"][year] = {}
+                
             st.session_state["resultats_horizon"][year].update({
+                "ASF": year_data["ASF"],
+                "RSF": year_data["RSF"],
+                "NSFR (%)": year_data["NSFR (%)"],
+                "df_80": year_data["df_80"],
+                "df_81": year_data["df_81"]
+            })
+            
+            # Update phase results with same structure
+            if year not in st.session_state[f"resultats_phase{current_phase}"]:
+                st.session_state[f"resultats_phase{current_phase}"][year] = {}
+                
+            st.session_state[f"resultats_phase{current_phase}"][year].update({
                 "df_80": year_data["df_80"],
                 "df_81": year_data["df_81"],
-                "nsfr_data": {
-                    "ASF": year_data["ASF"],
-                    "RSF": year_data["RSF"],
-                    "NSFR (%)": year_data["NSFR (%)"]
-                }
+                "ASF": year_data["ASF"],
+                "RSF": year_data["RSF"],
+                "NSFR (%)": year_data["NSFR (%)"]
             })
+            
         afficher_tableau_recapitulatif(recap_data_nsfr, "NSFR")
-
     from backend.ratios_baseline.capital_projete import simuler_solvabilite_pluriannuelle
     # Section slova
     st.subheader("Impact sur le ratio de solvabilité")
@@ -1511,12 +1601,20 @@ def afficher_ratios_tirage_pnu():
 
 def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
     try:
-        if 'resultats_horizon' not in st.session_state:
-            st.error("Les résultats de base ne sont pas disponibles dans la session.")
-            return None
-
-        resultats_horizon = st.session_state['resultats_horizon']
-       
+        if 'previous_event_executed' not in st.session_state or not st.session_state['previous_event_executed']:
+            # Initialize with projected ratios if previous event not executed
+            if 'resultats_ratios_liquidité_projete' not in st.session_state:
+                st.error("Les résultats projetés ne sont pas disponibles dans la session.")
+                return None
+            resultats_horizon = st.session_state['resultats_ratios_liquidité_projete'].copy()
+            bilan_stresse = st.session_state['bilan_original'].copy()
+        else:
+            # Use existing stressed results if previous event was executed
+            if 'resultats_horizon' not in st.session_state:
+                st.error("Les résultats de base ne sont pas disponibles dans la session.")
+                return None
+            resultats_horizon = st.session_state['resultats_horizon']
+            bilan_stresse = bilan_stresse       
         # Verify base year exists
         if 2024 not in resultats_horizon:
             st.error("Les données de l'année 2024 ne sont pas disponibles.")
@@ -1612,12 +1710,20 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
 
 def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
     try:
-        if 'resultats_horizon' not in st.session_state:
-            st.error("Les résultats de base ne sont pas disponibles dans la session.")
-            return None
-
-        resultats_horizon = st.session_state['resultats_horizon']
-       
+        if 'previous_event_executed' not in st.session_state or not st.session_state['previous_event_executed']:
+            # Initialize with projected ratios if previous event not executed
+            if 'resultats_ratios_liquidité_projete' not in st.session_state:
+                st.error("Les résultats projetés ne sont pas disponibles dans la session.")
+                return None
+            resultats_horizon = st.session_state['resultats_ratios_liquidité_projete'].copy()
+            bilan_stresse = st.session_state['bilan_original'].copy()
+        else:
+            # Use existing stressed results if previous event was executed
+            if 'resultats_horizon' not in st.session_state:
+                st.error("Les résultats de base ne sont pas disponibles dans la session.")
+                return None
+            resultats_horizon = st.session_state['resultats_horizon']
+            bilan_stresse = bilan_stresse       
         # Verify base year exists
         if 2024 not in resultats_horizon:
             st.error("Les données de l'année 2024 ne sont pas disponibles.")
