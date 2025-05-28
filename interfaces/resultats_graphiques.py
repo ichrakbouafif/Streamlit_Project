@@ -240,7 +240,7 @@ def plot_metric_comparison(df, title, threshold=None):
 
 def plot_components_comparison(proj, sim1, sim2, sim3, horizon, components, title):
     """Plot comparison of LCR/NSFR components with improved PwC colors"""
-    years = list(range(2024, 2024 + horizon + 1))
+    years = list(range(2025, 2025 + horizon))
     scenarios = ["Projeté", "Phase 1", "Phase 2", "Phase 3"]
     scenario_colors = {
         "Projeté": PWC_LIGHT_GRAY,
@@ -325,27 +325,30 @@ def display_liquidity_tab_content(resultats, horizon, tab, scenario_name):
         lcr_values = [resultats.get(year, {}).get("LCR", 0) for year in years]
         nsfr_values = [resultats.get(year, {}).get("NSFR", 0) for year in years]
 
-        # Create combined line chart
+        # Create combined bar chart
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=years, y=lcr_values, mode='lines+markers', name='LCR',
-            line=dict(color=PWC_ORANGE, width=3)
+        fig.add_trace(go.Bar(
+            x=years, y=lcr_values, name='LCR',
+            marker_color=PWC_LIGHT_BLUE
         ))
-        fig.add_trace(go.Scatter(
-            x=years, y=nsfr_values, mode='lines+markers', name='NSFR',
-            line=dict(color=PWC_DARK_GRAY, width=3)
+        fig.add_trace(go.Bar(
+            x=years, y=nsfr_values, name='NSFR',
+            marker_color=PWC_ORANGE
         ))
         fig.add_hline(y=100, line_dash="dot", line_color="red",
-                      annotation_text="Seuil minimum 100%", annotation_position="top left")
+                    annotation_text="Seuil minimum 100%", annotation_position="top left")
         fig.update_layout(
+            barmode='group',
             xaxis_title="Année",
             yaxis_title="Ratio (%)",
             plot_bgcolor='white',
             paper_bgcolor='white',
             height=350
         )
+
         st.plotly_chart(fig, use_container_width=True, key=f"lcr_nsfr_chart_{scenario_name}")
-        
+
+                
         st.subheader(f"Ratio LCR - {scenario_name}")
         lcr_table = create_lcr_table(resultats, horizon)
         if not lcr_table.empty:            
@@ -562,7 +565,18 @@ def calculate_projected_ratios(horizon):
     return calcul_ratios_sur_horizon(horizon, bilan, df_72, df_73, df_74, df_80, df_81)
 
 def show():
-    
+    a =st.session_state["resultats_solvabilite_phase2"]
+    b = st.session_state["resultats_solva_pnu_phase1"]
+    #c = st.session_state["resultats_levier_phase1"]
+    d = st.session_state["resultats_levier_phase2"]
+    st.write(a)
+    st.write(b)
+    #st.write(c)
+    st.write(d)
+
+
+
+
     apply_custom_styles()
     
     # Récupération des résultats

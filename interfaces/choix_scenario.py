@@ -89,6 +89,8 @@ def show_phase1():
             st.rerun()
 
 def show_phase2():
+
+
     st.subheader("Phase 2 : Sélection des événements complémentaires")
     st.session_state['previous_event_executed'] = False
     # Determine the other scenario type (the one not selected in phase 1)
@@ -258,9 +260,6 @@ def executer_retrait_depots():
         st.session_state['previous_event_executed'] = True
         with st.spinner("Exécution du stress test en cours..."):
             try:
-                # Store original in session state
-                #st.session_state.bilan_original = bilan.copy()
-               
                 # Apply stress
                 bilan_stresse = bst.appliquer_stress_retrait_depots(
                     bilan_df=bilan,
@@ -292,10 +291,6 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     postes_concernes = ["Depots clients (passif)", "Portefeuille", "Créances banques autres"]
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
-
-    # Initialize results storage if not exists
-    if "resultats_horizon" not in st.session_state:
-        st.session_state["resultats_horizon"] = {}
     
     current_phase = st.session_state.get("current_phase", 1)
     
@@ -387,10 +382,16 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
         # Calculer les résultats projetés si non disponibles
         from backend.ratios_baseline.capital_projete import simuler_solvabilite_pluriannuelle
         resultats_proj = simuler_solvabilite_pluriannuelle()
+        
         st.session_state["resultats_solva"] = resultats_proj
-       
-    afficher_resultats_solva(bilan_stresse, params, resultats_proj)    
-    # Section Ratio de Levier
+    
+    st.session_state.setdefault(f"ress{current_phase}", {})
+
+    ress = afficher_resultats_solva(bilan_stresse, params, resultats_proj)
+    print("ressssss", ress)
+
+
+###################""
     st.subheader("Impact sur le ratio de levier")
    # Charger les résultats projetés pour le levier depuis la session ou les calculer
     if "resultats_levier" in st.session_state:
@@ -615,11 +616,6 @@ from backend.solvabilite.calcul_ratios_capital_stressé import (
     executer_stress_event1_bloc_institutionnel_pluriannuel,
     recuperer_corep_bloc_institutionnel
 )
-from backend.solvabilite.calcul_ratios_capital_stressé import (
-    executer_stress_event1_bloc_institutionnel_pluriannuel,
-    recuperer_corep_bloc_institutionnel
-)
-
 def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
     try:
         import os
@@ -686,6 +682,7 @@ def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
                 "df_bloc_stresse": resultat["df_bloc_stresse"],
                 "blocs_pnu": blocs_pnu.get(annee, {}) if phase_actuelle == 3 else {}
             })
+        st.session_state[f"resultats_solvabilite_phase{phase_actuelle}"] = recap_data
 
         if recap_data:
             df_affiche = pd.DataFrame([{
@@ -778,7 +775,6 @@ def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
                         }.get(code, code)
                         st.markdown(f"**{label}**")
                         st.dataframe(bloc)
-
         return recap_data
 
     except Exception as e:
@@ -846,6 +842,7 @@ def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=
             annee_debut="2025",
             horizon=horizon
         )
+        phase_actuelle = st.session_state.get("current_phase", 1)
 
         recap_data = []
         for i in range(horizon):
@@ -866,6 +863,7 @@ def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=
                 "df_c4700_stresse": resultat["df_c4700_stresse"]
             })
 
+        st.session_state[f"resultats_levier_phase{phase_actuelle}"] = recap_data
         # Affichage synthétique
         if recap_data:
             df_recap = pd.DataFrame([{
@@ -1214,9 +1212,6 @@ def executer_tirage_pnu():
         st.session_state['previous_event_executed'] = True
         with st.spinner("Exécution du stress test Tirage PNU en cours..."):
             try:
-                # Store original in session state
-                #st.session_state.bilan_original = bilan.copy()
-               
                 # Apply stress
                 bilan_stresse = bst2.appliquer_tirage_pnu(
                     bilan_df=bilan,
@@ -1226,7 +1221,6 @@ def executer_tirage_pnu():
                     poids_dettes=params["impact_dettes"],
                     annee="2024"
                 )
-               
                 # Store stressed version
                 st.session_state.bilan = bilan_stresse
                 st.session_state.bilan_stresse = bilan_stresse
@@ -1234,14 +1228,11 @@ def executer_tirage_pnu():
                 afficher_resultats_tirage_pnu(bilan_stresse, params)
                 # Set the stress test executed flag
                 st.session_state.stress_test_executed = True
-               
                 return params
-               
             except Exception as e:
                 st.error(f"Erreur lors de l'exécution du stress test: {str(e)}")
                 st.session_state.stress_test_executed = False
                 return None
-
     return None
 
 def afficher_parametres_tirage_pnu():
@@ -1312,10 +1303,6 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     postes_concernes = ["Créances clientèle", "Portefeuille", "Dettes envers les établissements de crédit (passif)","Engagements de garantie donnés"]
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
-
-    # Initialize results storage if not exists
-    if "resultats_horizon" not in st.session_state:
-        st.session_state["resultats_horizon"] = {}
     
     current_phase = st.session_state.get("current_phase", 1)
     
@@ -1403,8 +1390,8 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
             })
             
         afficher_tableau_recapitulatif(recap_data_nsfr, "NSFR")
-    from backend.ratios_baseline.capital_projete import simuler_solvabilite_pluriannuelle
-    # Section slova
+
+    # Section Solvabilité
     st.subheader("Impact sur le ratio de solvabilité")
     if "resultats_solva" in st.session_state:
         resultats_proj = st.session_state["resultats_solva"]
@@ -1504,7 +1491,7 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
                     pourcentage=pourcentage, horizon=horizon,
                     poids_portefeuille=poids_portefeuille
                 )
-               
+        
                 df_74 = bst2.propager_impact_vers_df74(
                     df_74, bilan_stresse, annee=prev_year,
                     pourcentage=pourcentage, horizon=horizon
@@ -1722,6 +1709,7 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
 
                 # === Étape 4 : Construction du tableau récapitulatif pour affichage
         recap_data = []
+        phase_actuelle = st.session_state.get("current_phase", 1)
         delta_retrait = st.session_state.get("delta_rwa_event1", {})  # Contient éventuellement le stress de l'autre événement
 
         for i in range(horizon):
@@ -1748,6 +1736,8 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
                 "Ratio combiné (%)": ratio_combine,
                 "blocs_stresses": resultat["blocs_stresses"]
             })
+
+        st.session_state[f"resultats_solva_pnu_phase{phase_actuelle}"] = recap_data
 
         # === Étape 5 : Affichage du tableau récapitulatif formaté
         if recap_data:

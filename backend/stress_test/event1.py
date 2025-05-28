@@ -511,7 +511,7 @@ def propager_retrait_depots_vers_df72(df_72, bilan_df, annee="2024", pourcentage
         # Appliquer l'ajustement (négatif car retrait)
         df_72.loc[mask, "0010"] = df_72.loc[mask, "0010"] + adjustment
         
-        print(f"Applied adjustment to row {row_id}: {adjustment:,.2f} (weight: {poids:.2%})")
+        #print(f"Applied adjustment to row {row_id}: {adjustment:,.2f} (weight: {poids:.2%})")
 
     return df_72
 
@@ -552,7 +552,7 @@ def propager_retrait_depots_vers_df73(df_73, bilan_df, annee="2024", pourcentage
             continue
 
         df_73.loc[mask, "0010"] = df_73.loc[mask, "0010"] + adjustment
-        print(f"Ajouté à la ligne {row_id} : {adjustment:,.2f} (poids: {poids:.2%})")
+        #print(f"Ajouté à la ligne {row_id} : {adjustment:,.2f} (poids: {poids:.2%})")
 
     return df_73
 def propager_retrait_depots_vers_df74(df_74, bilan_df, annee="2024", pourcentage=0.15, horizon=1, poids_portefeuille=0.15, impact_creances=0.85, inflow_selections=None):
