@@ -383,9 +383,9 @@ def create_solva_table_capital(resultats, horizon):
 
         # CORRECTION : Vérifiez que ces clés correspondent à vos données
         data[annee] = [
-            year_data.get("fonds_propres", 0),  # ou "fonds_propres"
-            year_data.get("rwa", 0),            # ou "rwa" 
-            year_data.get("ratio", 0)     # ou "ratio"
+            year_data.get("Fonds propres", 0),
+            year_data.get("RWA Retrait", 0),
+            year_data.get("Ratio Retrait (%)", 0)
         ]
 
     return pd.DataFrame(data)
@@ -403,9 +403,9 @@ def create_levier_table_capital(resultats, horizon):
         #annee_int = int(annee)
         year_data = resultats.get(annee, {})
         data[annee] = [
-            year_data.get("tier1"),
-            year_data.get("total_exposure"),
-            year_data.get("ratio", 0)
+            year_data.get("Fonds propres"),
+            year_data.get("Exposition totale"),
+            year_data.get("Ratio de levier (%)", 0)
         ]
 
     return pd.DataFrame(data)
@@ -565,16 +565,6 @@ def calculate_projected_ratios(horizon):
     return calcul_ratios_sur_horizon(horizon, bilan, df_72, df_73, df_74, df_80, df_81)
 
 def show():
-    a =st.session_state["resultats_solvabilite_phase2"]
-    b = st.session_state["resultats_solva_pnu_phase1"]
-    #c = st.session_state["resultats_levier_phase1"]
-    d = st.session_state["resultats_levier_phase2"]
-    st.write(a)
-    st.write(b)
-    #st.write(c)
-    st.write(d)
-
-
 
 
     apply_custom_styles()
@@ -590,14 +580,16 @@ def show():
     sim3_liquidity = st.session_state.get('resultats_phase3', {})
     
     # Ratios de capital
-    proj_solva = st.session_state.get("resultats_solva", {})
-    proj_levier = st.session_state.get("resultats_levier", {})
-    sim1_solva = st.session_state.get("resultats_sim1_capital", {})
-    sim1_levier = st.session_state.get("resultats_sim1_levier", {})
-    sim2_solva = st.session_state.get("resultats_sim2_capital", {})
-    sim2_levier = st.session_state.get("resultats_sim2_levier", {})
-    sim3_solva = st.session_state.get("resultats_sim3_capital", {})
-    sim3_levier = st.session_state.get("resultats_sim3_levier", {})
+    proj_solva = st.session_state.get('resultats_solva', {})
+    proj_levier = st.session_state.get('resultats_levier', {})
+    sim1_solva= {item["Année"]: {k: v for k, v in item.items() if k != "Année"} for item in st.session_state["resultats_solva_pnu_phase1"]}
+    sim1_levier = {}
+    sim2_solva= {item["Année"]: {k: v for k, v in item.items() if k != "Année"} for item in st.session_state["resultats_solvabilite_phase2"]}
+    sim2_levier = {item["Année"]: {k: v for k, v in item.items() if k != "Année"} for item in st.session_state["resultats_levier_phase2"]}
+    sim3_solva= {item["Année"]: {k: v for k, v in item.items() if k != "Année"} for item in  st.session_state["resultats_solvabilite_phase3"]}
+    sim3_levier = {item["Année"]: {k: v for k, v in item.items() if k != "Année"} for item in  st.session_state["resultats_levier_phase3"]}
+
+  
 
     st.title("Résultats et Graphiques")
     st.write("Visualisez les résultats du test de stress et les graphiques comparatifs.")
@@ -709,7 +701,8 @@ def show():
             col1, col2 = st.columns(2)
             last_year = 2024 + horizon
             solva_value = sim3_solva.get(last_year, {}).get("ratio", 0)
-            levier_value = sim3_levier.get(last_year, {}).get("ratio", 0)
+            levier_value = sim3_levier.get(last_year, {}).get("Ratio de levier (%)", 0)
+            
 
             with col1:
                 st.markdown(f"""
@@ -718,7 +711,7 @@ def show():
                             border-left: 8px solid #f47721">
                     <h4 style="color:#2c2c2c; margin-bottom:10px;">Ratio de Solvabilité ({last_year})</h4>
                     <p style="font-size:26px; font-weight:bold; color:#f47721; margin:0;">
-                        {solva_value:.2f}%
+                      #  {solva_value:.2f}%
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
