@@ -516,100 +516,278 @@ def executer_stress_pnu_capital_pluriannuel(
 
 import pandas as pd
 import streamlit as st
+def appliquer_tirage_pnu_silencieux(bilan_df, params):
+    from backend.ratios_baseline.capital_projete import simuler_solvabilite_pluriannuelle
+    from backend.stress_test.capital import executer_stress_pnu_capital_pluriannuel
 
-""" def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
-    try:
-        st.markdown("## 🔍 Résultats du stress test PNU – Capital")
+    # 1. Charger ou simuler les résultats projetés de solvabilité
+    resultats_proj = st.session_state.get("resultats_solva")
+    if resultats_proj is None:
+        resultats_proj = simuler_solvabilite_pluriannuelle()
+        st.session_state["resultats_solva"] = resultats_proj
 
-        horizon = params.get("horizon", 3)
-        pourcentage = params.get("pourcentage", 0.10)
+    # 2. Extraire les paramètres
+    pourcentage = params.get("pourcentage", 0.10)
+    horizon = params.get("horizon", 3)
 
-        # === Étape 1 : Lecture du bilan
-        bilan = pd.read_excel("data/bilan.xlsx").iloc[2:].reset_index(drop=True)
-        bilan.columns = bilan.columns.fillna("Poste")
-        bilan = bilan.rename(columns={bilan.columns[0]: "Poste", bilan.columns[1]: "2024"})
+    # 3. Déterminer les montants à tirer par segment
+    tirage_par_segment = {}
 
-        # === Étape 2 : Initialisation des tirages par segment cochés
-        tirage_par_segment = {}
+    if params.get("inclure_corpo"):
+        ligne = bilan_df[bilan_df["Poste du Bilan"].str.contains("Dont Corpo", case=False, na=False)]
+        if not ligne.empty:
+            tirage_par_segment["C0700_0009_1"] = ligne["2024"].values[0] * pourcentage
 
-        if params.get("inclure_corpo", False):
-            ligne_corpo = bilan[bilan["Poste"].str.contains("Dont Corpo", case=False, na=False)]
-            if not ligne_corpo.empty:
-                valeur_corpo = ligne_corpo["2024"].values[0]
-                tirage_par_segment["C0700_0009_1"] = valeur_corpo * pourcentage
+    if params.get("inclure_retail"):
+        ligne = bilan_df[bilan_df["Poste du Bilan"].str.contains("Dont Retail", case=False, na=False)]
+        if not ligne.empty:
+            tirage_par_segment["C0700_0008_1"] = ligne["2024"].values[0] * pourcentage
 
-        if params.get("inclure_retail", False):
-            ligne_retail = bilan[bilan["Poste"].str.contains("Dont Retail", case=False, na=False)]
-            if not ligne_retail.empty:
-                valeur_retail = ligne_retail["2024"].values[0]
-                tirage_par_segment["C0700_0008_1"] = valeur_retail * pourcentage
+    if params.get("inclure_hypo"):
+        ligne = bilan_df[bilan_df["Poste du Bilan"].str.contains("Dont Hypo", case=False, na=False)]
+        if not ligne.empty:
+            tirage_par_segment["C0700_0010_1"] = ligne["2024"].values[0] * pourcentage
 
-        if params.get("inclure_hypo", False):
-            ligne_hypo = bilan[bilan["Poste"].str.contains("Dont Hypo", case=False, na=False)]
-            if not ligne_hypo.empty:
-                valeur_hypo = ligne_hypo["2024"].values[0]
-                tirage_par_segment["C0700_0010_1"] = valeur_hypo * pourcentage
+    if not tirage_par_segment:
+        st.warning("⚠️ Aucun segment PNU valide trouvé.")
+        return
 
-        if not tirage_par_segment:
-            st.warning(" Aucun segment sélectionné ou lignes 'Dont' manquantes dans le bilan.")
-            return
+    # 4. Appliquer le stress PNU (capital)
+    resultats_stress = executer_stress_pnu_capital_pluriannuel(
+        resultats_proj=resultats_proj,
+        annee_debut="2025",
+        tirages_par_segment=tirage_par_segment,
+        horizon=horizon,
+        debug=False
+    )
 
-        # === Étape 3 : Exécution du stress pluriannuel
-        resultats_stress = executer_stress_pnu_capital_pluriannuel(
-            resultats_proj=resultats_proj,
-            annee_debut="2025",
-            tirages_par_segment=tirage_par_segment,
-            horizon=horizon,
-            debug=True
-        )
+    # 5. Stocker les résultats pour combinaison future
+    st.session_state["delta_rwa_pnu"] = {
+        annee: resultat["delta_rwa_total"]
+        for annee, resultat in resultats_stress.items()
+    }
 
-        # === Étape 4 : Construction du tableau récapitulatif pour affichage
-        recap_data = []
-        for i in range(horizon):
-            annee = str(2025 + i)
-            resultat = resultats_stress.get(annee)
-            if not resultat:
-                continue
+    st.session_state["blocs_stresses_pnu"] = {
+        annee: resultat["blocs_stresses"]
+        for annee, resultat in resultats_stress.items()
+    }
+def afficher_corep_levier_detaille(df_c4700_stresse, key_prefix="corep_levier"):
+    #st.markdown("**Détails du ratio de levier COREP**")
 
-            recap_data.append({
-                "Année": annee,
-                "Fonds propres": resultats_proj[annee]["fonds_propres"],
-                "RWA total": resultat["rwa_total_stresse"],
-                "Ratio de solvabilité (%)": resultat["ratio_solva_stresse"]
-            })
+    # Mapping complet des lignes COREP C47.00 avec description
+    mapping_rows_levier = {
+        10: "SFTs: Exposure value",
+        20: "SFTs: Add-on for counterparty credit risk",
+        30: "Derogation for SFTs: Add-on (Art. 429e(5) & 222 CRR)",
+        40: "Counterparty credit risk of SFT agent transactions",
+        50: "(-) Exempted CCP leg of client-cleared SFT exposures",
+        61: "Derivatives: Replacement cost (SA-CCR)",
+        65: "(-) Collateral effect on QCCP client-cleared (SA-CCR)",
+        71: "(-) Variation margin offset (SA-CCR)",
+        81: "(-) Exempted CCP leg (SA-CCR - RC)",
+        91: "Derivatives: PFE (SA-CCR)",
+        92: "(-) Lower multiplier QCCP (SA-CCR - PFE)",
+        93: "(-) Exempted CCP leg (SA-CCR - PFE)",
+        101: "Replacement cost (simplified approach)",
+        102: "(-) Exempted CCP leg (simplified RC)",
+        103: "PFE (simplified)",
+        104: "(-) Exempted CCP leg (simplified PFE)",
+        110: "Derivatives: Original exposure method",
+        120: "(-) Exempted CCP leg (original exposure)",
+        130: "Written credit derivatives",
+        140: "(-) Purchased credit derivatives offset",
+        150: "Off-BS 10% CCF",
+        160: "Off-BS 20% CCF",
+        170: "Off-BS 50% CCF",
+        180: "Off-BS 100% CCF",
+        181: "(-) Adjustments off-BS items",
+        185: "Pending settlement: Trade date accounting",
+        186: "Pending settlement: Reverse offset (trade date)",
+        187: "(-) Settlement offset 429g(2)",
+        188: "Commitments under settlement date accounting",
+        189: "(-) Offset under 429g(3)",
+        190: "Other assets",
+        191: "(-) General credit risk adjustments (on-BS)",
+        193: "Cash pooling: accounting value",
+        194: "Cash pooling: grossing-up effect",
+        195: "Cash pooling: value (prudential)",
+        196: "Cash pooling: grossing-up effect (prudential)",
+        197: "(-) Netting (Art. 429b(2))",
+        198: "(-) Netting (Art. 429b(3))",
+        200: "Gross-up for derivatives collateral",
+        210: "(-) Receivables for cash variation margin",
+        220: "(-) Exempted CCP (initial margin)",
+        230: "Adjustments for SFT sales",
+        235: "(-) Pre-financing or intermediate loans",
+        240: "(-) Fiduciary assets",
+        250: "(-) Intragroup exposures (solo basis)",
+        251: "(-) IPS exposures",
+        252: "(-) Export credits guarantees",
+        253: "(-) Excess collateral at triparty agents",
+        254: "(-) Securitised exposures (risk transfer)",
+        255: "(-) Central bank exposures (Art. 429a(1)(n))",
+        256: "(-) Ancillary services CSD/institutions",
+        257: "(-) Ancillary services designated institutions",
+        260: "(-) Exposures exempted (Art. 429a(1)(j))",
+        261: "(-) Public sector investments (PDCI)",
+        262: "(-) Promotional loans (PDCI)",
+        263: "(-) Promotional loans by gov. entities",
+        264: "(-) Promotional loans via intermediaries",
+        265: "(-) Promotional loans by non-PDCI",
+        266: "(-) Promotional loans via non-PDCI",
+        267: "(-) Pass-through promotional loans",
+        270: "(-) Asset amount deducted - Tier 1"
+    }
 
-        # === Étape 5 : Affichage du tableau récapitulatif formaté
-        if recap_data:
-            from backend.ratios_baseline.capital_projete import format_large_number  # si tu veux formatter
+    df = df_c4700_stresse.copy()
 
-            st.markdown("## Tableau récapitulatif – PNU Capital")
-            df_recap = pd.DataFrame(recap_data)
-            df_recap["Fonds propres"] = df_recap["Fonds propres"].apply(lambda x: f"{x:,.2f}")
-            df_recap["RWA total"] = df_recap["RWA total"].apply(lambda x: f"{x:,.2f}")
-            df_recap["Ratio de solvabilité (%)"] = df_recap["Ratio de solvabilité (%)"].apply(lambda x: f"{x:.2f}%")
-            st.dataframe(df_recap, use_container_width=True)
+    if 'Row' not in df.columns or 'Amount' not in df.columns:
+        st.warning("Données de levier manquantes ou mal formatées.")
+        st.dataframe(df)
+        return
 
-        # === Étape 6 : Affichage détaillé (C0700 recalculés par bloc)
-        for annee in resultats_stress:
-            result = resultats_stress[annee]
-            with st.expander(f" Détails de l’année {annee}"):
-                st.metric("Ratio de solvabilité stressé", f"{result['ratio_solva_stresse']:.2f}%")
-                st.write(f"RWA stressé : {result['rwa_total_stresse']:,.0f}")
-                st.write(f"Δ RWA : {result['delta_rwa_total']:,.0f}")
+    # Nettoyage et mapping
+    df['Row'] = pd.to_numeric(df['Row'], errors='coerce')
+    df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
+    df["Amount"] = df["Amount"].apply(
+        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ".") if pd.notnull(x) else ""
+    )
+    df['Description'] = df['Row'].map(mapping_rows_levier)
 
-                st.markdown("### Blocs C0700 recalculés")
-                for nom_bloc, df in result["blocs_stresses"].items():
-                    nom_affiche = {
-                        "C0700_0008_1": "Retail",
-                        "C0700_0009_1": "Corporate",
-                        "C0700_0010_1": "Hypothécaire"
-                    }.get(nom_bloc, nom_bloc)
-                    st.markdown(f"**{nom_affiche}**")
-                    st.dataframe(df)
+    colonnes_affichees = ['Row', 'Amount', 'Description']
+    df_affiche =df[colonnes_affichees]
+    df_affiche['Row'] = df_affiche['Row'].apply(lambda x: f"{int(x):04d}" if pd.notna(x) else "")
 
-    except Exception as e:
-        st.error(f"Erreur dans le stress PNU capital : {e}")
-        import traceback
-        st.error(traceback.format_exc())
- """
 
+    # Fonction de style pour colorer la ligne Other assets en rouge
+    def highlight_other_assets(row):
+        if row['Row'] == '0190':
+            return ['background-color: #ffcccc'] * len(row)
+        return [''] * len(row)
+
+    # Affichage stylisé
+    st.dataframe(df_affiche.style.apply(highlight_other_assets, axis=1), use_container_width=True)
+
+    # Légende explicative
+    st.caption("🔴 La ligne 'Other assets' (ligne 190) représente la variable stressée dans le calcul du ratio de levier.")
+
+def afficher_ratios_rwa(df_bloc):
+
+    """
+
+    Affiche les ratios RWA / Exposition pour les lignes principales COREP.
+
+    """
+
+    import pandas as pd
+
+
+    st.markdown("**Ratios RWA/Exposition**")
+
+
+    lignes = {
+
+        70.0: "On-Balance Sheet",
+
+        80.0: "Off-Balance Sheet",
+
+        110.0: "Derivatives"
+
+    }
+
+
+    ratios_data = []
+
+    for row_type, label in lignes.items():
+
+        ligne = df_bloc[df_bloc["row"] == row_type]
+
+        if not ligne.empty:
+
+            exposition = ligne["0200"].values[0] if "0200" in ligne.columns and not ligne["0200"].empty else 0
+
+            rwa = ligne["0220"].values[0] if "0220" in ligne.columns and not ligne["0220"].empty else 0
+
+            if pd.notna(exposition) and exposition != 0:
+
+                ratio = rwa / exposition
+
+                ratios_data.append({
+
+                    "Type d'exposition": label,
+
+                    "Exposition": format_large_number(exposition),
+
+                    "RWA": format_large_number(rwa),
+
+                    "Ratio RWA/Exposition": f"{ratio:.4f} ({ratio*100:.2f}%)"
+
+                })
+
+
+    if ratios_data:
+
+        st.dataframe(pd.DataFrame(ratios_data), use_container_width=True)
+
+
+
+def afficher_corep_detaille(df_bloc):
+    """
+    Affiche un DataFrame de COREP (C02.00) avec descriptions claires et formatage amélioré.
+    Corrige les intitulés, inclut 0200, et respecte le flux logique d'exposition vers RWA.
+    """
+    df_affichage = df_bloc.copy()
+
+    # === Mapping conforme au flux réglementaire COREP ===
+    mapping_colonnes = {
+        "0010": "Exposition initiale",
+        "0110": "Valeur ajustée du collatéral (Cvam)",
+        "0150": "Valeur ajustée de l'exposition (E*)",  # Fully adjusted exposure value
+        "0200": "Exposition après CRM",                 # Exposure value
+        "0215": "Montant pondéré brut (avant facteur soutien PME)",
+        "0220": "Montant pondéré net après ajustements"
+    }
+    df_affichage.rename(columns={k: v for k, v in mapping_colonnes.items() if k in df_affichage.columns}, inplace=True)
+
+    # === Colonnes à afficher selon le flux logique ===
+    colonnes_flux = ["row"] + list(mapping_colonnes.values())
+    colonnes_disponibles = [col for col in colonnes_flux if col in df_affichage.columns]
+    df_affichage = df_affichage[colonnes_disponibles].copy()
+
+    # === Mapping des lignes COREP ===
+    def get_description(row_val):
+        mapping = {
+            70.0: "Expositions On-Balance Sheet",
+            80.0: "Expositions Off-Balance Sheet",
+            90.0: "Expositions sur dérivés (long settlement)",
+            100.0: "Expositions CCR nettes (non cleared CCP)",
+            110.0: "Expositions Derivatives",
+            130.0: "Total Expositions",
+            140.0: "Total RWA"
+        }
+        if pd.isna(row_val):
+            return None
+        return mapping.get(row_val, f"Ligne {int(row_val)}" if isinstance(row_val, float) else str(row_val))
+
+    df_affichage["Description"] = df_affichage["row"].map(get_description)
+    df_affichage = df_affichage[df_affichage["Description"].notna()]  # Supprime les lignes inutiles
+
+    # === Réorganisation des colonnes ===
+    colonnes_finales = ["Description"] + [col for col in df_affichage.columns if col not in ["Description", "row"]]
+    df_affichage = df_affichage[colonnes_finales]
+
+    # === Formatage des valeurs numériques ===
+    for col in df_affichage.columns[1:]:
+        df_affichage[col] = df_affichage[col].apply(lambda x: f"{x:,.2f}".replace(","," ").replace(".",".") if pd.notna(x) else "")
+
+    # === Surlignage rose de la ligne stressée (70.0) ===
+    def highlight_on_balance(row):
+        if row.get("Description") == "Expositions On-Balance Sheet":
+            return ['background-color: #ffeeee'] * len(row)
+        return [''] * len(row)
+
+    st.dataframe(df_affichage.style.apply(highlight_on_balance, axis=1), use_container_width=True)
+    st.caption("*La ligne surlignée en rose (On-Balance Sheet) est celle modifiée par le stress test.*")
+
+    # === Affichage des ratios RWA/Exposition ===
+    afficher_ratios_rwa(df_bloc)

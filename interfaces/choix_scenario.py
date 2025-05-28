@@ -19,7 +19,7 @@ from backend.nsfr.feuille_81 import calcul_ASF
 # Import additional modules for leverage and solvency
 from backend.levier.calcul_ratio_levier import executer_stress_event1_levier_pluriannuel
 
-from backend.stress_test.capital import executer_stress_pnu_capital_pluriannuel
+from backend.stress_test.capital import *
 
 def show():
     st.title("Choix des scénarios")
@@ -78,6 +78,13 @@ def show_phase1():
         if not selected_events:
             st.warning("Veuillez sélectionner au moins un événement avant de continuer.")
         else:
+            # Enregistrement des résultats de solvabilité et levier
+            if "resultats_solva" in st.session_state:
+                st.session_state['resultats_sim1_capital'] = copy.deepcopy(st.session_state['resultats_solva'])
+            if "resultats_levier" in st.session_state:
+                st.session_state['resultats_sim1_levier'] = copy.deepcopy(st.session_state['resultats_levier'])
+
+            # Passage à la phase suivante
             st.session_state.current_phase = 2
             st.rerun()
 
@@ -107,6 +114,12 @@ def show_phase2():
             st.session_state.selected_events_phase1 + 
             st.session_state.selected_events_phase2
         )
+        # Capital
+        if "resultats_solva" in st.session_state:
+                st.session_state['resultats_sim2_capital'] = copy.deepcopy(st.session_state['resultats_solva'])
+            # Levier
+        if "resultats_levier" in st.session_state:
+                st.session_state['resultats_sim2_levier'] = copy.deepcopy(st.session_state['resultats_levier'])
         st.session_state.current_phase = 3
         st.rerun()
 
@@ -123,9 +136,6 @@ def show_phase3():
     for event in st.session_state.selected_events_phase2:
         st.write(f"- {event}")
     
-    # Show configuration for all events
-    st.subheader("Configuration des événements")
-    
     # First show phase 1 events
     if st.session_state.selected_events_phase1:
         st.markdown(f"**Configuration pour le scénario {st.session_state.scenario_type}:**")
@@ -139,8 +149,12 @@ def show_phase3():
     
 
     if st.button("Valider tous les scénarios et voir les résultats"):
-        #st.session_state['resultats_sim3'] = st.session_state['resultats_horizon']
-        st.session_state['resultats_sim3'] = copy.deepcopy(st.session_state['resultats_horizon'])
+        if "resultats_solva" in st.session_state:
+            st.session_state['resultats_sim3_capital'] = copy.deepcopy(st.session_state['resultats_solva'])
+
+        if "resultats_levier" in st.session_state:
+            st.session_state['resultats_sim3_levier'] = copy.deepcopy(st.session_state['resultats_levier'])
+
         st.session_state.selected_page = "Résultats & Graphiques"
         st.rerun()
 
@@ -152,6 +166,8 @@ def afficher_configuration_evenements(selected_events, scenario_type):
         st.session_state.bilan_original = bst.charger_bilan()
 
     events_dict = config.scenarios[scenario_type]
+    current_phase = st.session_state.get("current_phase", 1)
+
 
     for event in selected_events:
         st.markdown(f"### Configuration pour: {event}")
@@ -159,7 +175,15 @@ def afficher_configuration_evenements(selected_events, scenario_type):
         if event == "Retrait massif des dépôts":
             executer_retrait_depots()
         elif event == "Tirage PNU":
-            executer_tirage_pnu()
+            # Ne pas exécuter PNU automatiquement en phase 3
+            if current_phase != 3:
+                executer_tirage_pnu()
+            else:
+                # Juste calibration silencieuse (enregistre le delta sans affichage)
+                bilan = st.session_state.bilan
+                params = afficher_parametres_tirage_pnu()
+                appliquer_tirage_pnu_silencieux(bilan, params)
+
         else:
             st.warning("Cette fonctionnalité n'est pas encore implémentée.")
 
@@ -492,7 +516,7 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
         st.error(f"Erreur lors du calcul du LCR après retrait des dépôts : {str(e)}")
         return None
 
-def afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
+def  afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
     try:
         if 'previous_event_executed' not in st.session_state or not st.session_state['previous_event_executed']:
             # Initialize with projected ratios if previous event not executed
@@ -591,6 +615,10 @@ from backend.solvabilite.calcul_ratios_capital_stressé import (
     executer_stress_event1_bloc_institutionnel_pluriannuel,
     recuperer_corep_bloc_institutionnel
 )
+from backend.solvabilite.calcul_ratios_capital_stressé import (
+    executer_stress_event1_bloc_institutionnel_pluriannuel,
+    recuperer_corep_bloc_institutionnel
+)
 
 def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
     try:
@@ -599,30 +627,20 @@ def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
         pourcentage = params.get("pourcentage", 0.10)
         poids_creances = params.get("poids_creances", 0.50)
 
-        dossier = "data"
-        bilan_path = os.path.join(dossier, "bilan.xlsx")
-
+        bilan_path = os.path.join("data", "bilan.xlsx")
         if not os.path.exists(bilan_path):
             st.error(f"Fichier de bilan non trouvé : {bilan_path}")
             return None
 
         bilan = pd.read_excel(bilan_path).iloc[2:].reset_index(drop=True)
-        if "Unnamed: 1" in bilan.columns:
-            bilan = bilan.drop(columns=["Unnamed: 1"])
-        for i, col in enumerate(bilan.columns):
-            if str(col).startswith("Unnamed: 6"):
-                bilan = bilan.iloc[:, :i]
-                break
-
         bilan.columns.values[:5] = ["Poste du Bilan", "2024", "2025", "2026", "2027"]
         bilan = bilan.dropna(how="all").reset_index(drop=True)
-        if 25 in bilan.index:
-            bilan = bilan.drop(index=25).reset_index(drop=True)
+        bilan = bilan.drop(columns=[col for col in bilan.columns if "Unnamed" in col], errors='ignore')
 
         ligne_creances = bilan[bilan["Poste du Bilan"].str.contains("Créances banques autres", case=False, na=False)]
         if ligne_creances.empty:
-            st.warning("❌ La ligne 'Créances sur les banques – autres' est introuvable dans le bilan.")
-            return None
+            st.warning("❌ Ligne 'Créances banques autres' introuvable.")
+            return
 
         valeur_reference = ligne_creances["2024"].values[0]
         montant_stress_total = valeur_reference * pourcentage * poids_creances
@@ -635,14 +653,13 @@ def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
             debug=False
         )
 
-        # ✅ Stocker delta RWA pour retrait
         st.session_state["delta_rwa_event1"] = {
-            annee: resultat["delta_rwa_total"]
-            for annee, resultat in resultats_stress.items()
+            annee: r["delta_rwa_total"] for annee, r in resultats_stress.items()
         }
 
-        # ✅ Lire delta RWA de PNU s’il existe
-        delta_pnu = st.session_state.get("delta_rwa_pnu", {})
+        phase_actuelle = st.session_state.get("current_phase", 1)
+        delta_pnu = st.session_state.get("delta_rwa_pnu", {}) if phase_actuelle == 3 else {}
+        blocs_pnu = st.session_state.get("blocs_stresses_pnu", {}) if phase_actuelle == 3 else {}
 
         recap_data = []
         for i in range(horizon):
@@ -655,9 +672,8 @@ def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
             rwa_retrait = resultat["rwa_total_stresse"]
             delta_rwa_pnu = delta_pnu.get(annee, 0)
             rwa_combine = rwa_retrait + delta_rwa_pnu
-
-            ratio_retrait = (fonds_propres / rwa_retrait) * 100 if rwa_retrait > 0 else 0
-            ratio_combine = (fonds_propres / rwa_combine) * 100 if rwa_combine > 0 else 0
+            ratio_retrait = (fonds_propres / rwa_retrait) * 100 if rwa_retrait else 0
+            ratio_combine = (fonds_propres / rwa_combine) * 100 if delta_rwa_pnu > 0 else None
 
             recap_data.append({
                 "Année": annee,
@@ -667,63 +683,111 @@ def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
                 "RWA combiné": rwa_combine,
                 "Ratio Retrait (%)": ratio_retrait,
                 "Ratio combiné (%)": ratio_combine,
-                "df_bloc_stresse": resultat["df_bloc_stresse"]
+                "df_bloc_stresse": resultat["df_bloc_stresse"],
+                "blocs_pnu": blocs_pnu.get(annee, {}) if phase_actuelle == 3 else {}
             })
 
         if recap_data:
-            st.markdown("## Tableau comparatif : Retrait seul vs Retrait + PNU")
-            df_recap = pd.DataFrame([{
+            df_affiche = pd.DataFrame([{
                 "Année": r["Année"],
                 "Fonds propres": format_large_number(r["Fonds propres"]),
                 "RWA Retrait": format_large_number(r["RWA Retrait"]),
-                "Δ RWA PNU": format_large_number(r["Δ RWA PNU"]),
-                "RWA combiné": format_large_number(r["RWA combiné"]),
+                "Δ RWA PNU": format_large_number(r["Δ RWA PNU"]) if r["Δ RWA PNU"] else "",
+                "RWA combiné": format_large_number(r["RWA combiné"]) if r["Δ RWA PNU"] else "",
                 "Ratio Retrait (%)": f"{r['Ratio Retrait (%)']:.2f}%",
-                "Ratio combiné (%)": f"{r['Ratio combiné (%)']:.2f}%"
+                "Ratio combiné (%)": f"{r['Ratio combiné (%)']:.2f}%" if r["Ratio combiné (%)"] is not None else ""
             } for r in recap_data])
-            st.dataframe(df_recap, use_container_width=True)
+            st.dataframe(df_affiche, use_container_width=True)
 
         for r in recap_data:
-            with st.expander(f"Détails pour l’année {r['Année']}"):
+            with st.expander(f"Détails pour l'année {r['Année']}"):
+
+                # Bloc visuel avec encadrés
                 col1, col2, col3 = st.columns(3)
 
+                # Ratio Retrait
                 with col1:
-                    st.markdown(f"""<div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
-                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
-                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio Retrait</h4>
-                        <p style="font-size:26px; font-weight:bold; color:{pwc_orange}; margin:0;">
-                            {r['Ratio Retrait (%)']:.2f}%
-                        </p></div>""", unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                        <h4 style="color:#333;">Ratio Retrait</h4>
+                        <p style="font-size:26px; font-weight:bold; color:{pwc_orange};">{r['Ratio Retrait (%)']:.2f}%</p>
+                    </div>
+                    """, unsafe_allow_html=True)
 
+                # Soit Ratio combiné, soit RWA Retrait si PNU absent
                 with col2:
-                    st.markdown(f"""<div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
-                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
-                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Ratio combiné</h4>
-                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
-                            {r['Ratio combiné (%)']:.2f}%
-                        </p></div>""", unsafe_allow_html=True)
+                    if r["Ratio combiné (%)"] is not None:
+                        st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                            <h4 style="color:#333;">Ratio combiné</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray};">{r['Ratio combiné (%)']:.2f}%</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                            <h4 style="color:#333;">RWA Retrait</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_orange};">{format_large_number(r['RWA Retrait'])}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
 
+                # Fonds propres
                 with col3:
-                    st.markdown(f"""<div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
-                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_brown}">
-                        <h4 style="color:{pwc_soft_black}; margin-bottom:10px;">Fonds propres</h4>
-                        <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray}; margin:0;">
-                            {format_large_number(r['Fonds propres'])}
-                        </p></div>""", unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                        <h4 style="color:#333;">Fonds propres (Tier 1)</h4>
+                        <p style="font-size:26px; font-weight:bold; color:#000;">{format_large_number(r['Fonds propres'])}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                st.markdown("### Bloc institutionnel C0700_0007_1 recalculé")
-                df_bloc_formate = r["df_bloc_stresse"].copy()
-                for col in df_bloc_formate.select_dtypes(include=["float", "int"]).columns:
-                    df_bloc_formate[col] = df_bloc_formate[col].apply(format_large_number)
-                st.dataframe(df_bloc_formate, use_container_width=True)
+                # Seconde ligne si ratio combiné dispo
+                if r["Ratio combiné (%)"] is not None:
+                    col4, col5 = st.columns(2)
+                    with col4:
+                        st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_orange}">
+                            <h4 style="color:#333;">RWA Retrait</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_orange};">{format_large_number(r['RWA Retrait'])}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    with col5:
+                        st.markdown(f"""
+                        <div style="background-color:{pwc_light_beige}; padding:20px; border-radius:15px;
+                                    box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {pwc_dark_gray}">
+                            <h4 style="color:#333;">RWA combiné</h4>
+                            <p style="font-size:26px; font-weight:bold; color:{pwc_dark_gray};">{format_large_number(r['RWA combiné'])}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                # Blocs COREP
+                st.markdown("#### Bloc C0700_0007_1 (Retrait)")
+                st.dataframe(r["df_bloc_stresse"])
+
+                if phase_actuelle == 3 and r["blocs_pnu"]:
+                    st.markdown("####  Blocs PNU recalculés")
+                    for code, bloc in r["blocs_pnu"].items():
+                        label = {
+                            "C0700_0008_1": "Retail",
+                            "C0700_0009_1": "Corporate",
+                            "C0700_0010_1": "Hypothécaire"
+                        }.get(code, code)
+                        st.markdown(f"**{label}**")
+                        st.dataframe(bloc)
 
         return recap_data
 
     except Exception as e:
-        st.error(f"Erreur lors du calcul du stress retrait dépôts : {e}")
+        st.error(f"Erreur dans afficher_resultats_solva : {e}")
         import traceback
         st.error(traceback.format_exc())
         return None
+
+
 
 def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=None):
     try:
@@ -854,7 +918,9 @@ def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=
                 st.markdown("### Bloc C47.00 après stress")
 
                 df_affiche = r["df_c4700_stresse"].copy()
-
+# Formater la colonne 'Row' avec 4 chiffres, ex: 0010, 0190
+                if "Row" in df_affiche.columns:
+                    df_affiche["Row"] = df_affiche["Row"].apply(lambda x: f"{int(x):04d}" if pd.notna(x) else "")
                 if "Row" not in df_affiche.columns:
                     st.warning("❌ Colonne 'Row' manquante dans le tableau C47.00.")
                     continue
@@ -877,227 +943,6 @@ def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=
         st.error(traceback.format_exc())
         return None
 
-
-def afficher_corep_levier_detaille(df_c4700_stresse, key_prefix="corep_levier"):
-    #st.markdown("**Détails du ratio de levier COREP**")
-
-    # Mapping complet des lignes COREP C47.00 avec description
-    mapping_rows_levier = {
-        10: "SFTs: Exposure value",
-        20: "SFTs: Add-on for counterparty credit risk",
-        30: "Derogation for SFTs: Add-on (Art. 429e(5) & 222 CRR)",
-        40: "Counterparty credit risk of SFT agent transactions",
-        50: "(-) Exempted CCP leg of client-cleared SFT exposures",
-        61: "Derivatives: Replacement cost (SA-CCR)",
-        65: "(-) Collateral effect on QCCP client-cleared (SA-CCR)",
-        71: "(-) Variation margin offset (SA-CCR)",
-        81: "(-) Exempted CCP leg (SA-CCR - RC)",
-        91: "Derivatives: PFE (SA-CCR)",
-        92: "(-) Lower multiplier QCCP (SA-CCR - PFE)",
-        93: "(-) Exempted CCP leg (SA-CCR - PFE)",
-        101: "Replacement cost (simplified approach)",
-        102: "(-) Exempted CCP leg (simplified RC)",
-        103: "PFE (simplified)",
-        104: "(-) Exempted CCP leg (simplified PFE)",
-        110: "Derivatives: Original exposure method",
-        120: "(-) Exempted CCP leg (original exposure)",
-        130: "Written credit derivatives",
-        140: "(-) Purchased credit derivatives offset",
-        150: "Off-BS 10% CCF",
-        160: "Off-BS 20% CCF",
-        170: "Off-BS 50% CCF",
-        180: "Off-BS 100% CCF",
-        181: "(-) Adjustments off-BS items",
-        185: "Pending settlement: Trade date accounting",
-        186: "Pending settlement: Reverse offset (trade date)",
-        187: "(-) Settlement offset 429g(2)",
-        188: "Commitments under settlement date accounting",
-        189: "(-) Offset under 429g(3)",
-        190: "Other assets",
-        191: "(-) General credit risk adjustments (on-BS)",
-        193: "Cash pooling: accounting value",
-        194: "Cash pooling: grossing-up effect",
-        195: "Cash pooling: value (prudential)",
-        196: "Cash pooling: grossing-up effect (prudential)",
-        197: "(-) Netting (Art. 429b(2))",
-        198: "(-) Netting (Art. 429b(3))",
-        200: "Gross-up for derivatives collateral",
-        210: "(-) Receivables for cash variation margin",
-        220: "(-) Exempted CCP (initial margin)",
-        230: "Adjustments for SFT sales",
-        235: "(-) Pre-financing or intermediate loans",
-        240: "(-) Fiduciary assets",
-        250: "(-) Intragroup exposures (solo basis)",
-        251: "(-) IPS exposures",
-        252: "(-) Export credits guarantees",
-        253: "(-) Excess collateral at triparty agents",
-        254: "(-) Securitised exposures (risk transfer)",
-        255: "(-) Central bank exposures (Art. 429a(1)(n))",
-        256: "(-) Ancillary services CSD/institutions",
-        257: "(-) Ancillary services designated institutions",
-        260: "(-) Exposures exempted (Art. 429a(1)(j))",
-        261: "(-) Public sector investments (PDCI)",
-        262: "(-) Promotional loans (PDCI)",
-        263: "(-) Promotional loans by gov. entities",
-        264: "(-) Promotional loans via intermediaries",
-        265: "(-) Promotional loans by non-PDCI",
-        266: "(-) Promotional loans via non-PDCI",
-        267: "(-) Pass-through promotional loans",
-        270: "(-) Asset amount deducted - Tier 1"
-    }
-
-    df = df_c4700_stresse.copy()
-
-    if 'Row' not in df.columns or 'Amount' not in df.columns:
-        st.warning("Données de levier manquantes ou mal formatées.")
-        st.dataframe(df)
-        return
-
-    # Nettoyage et mapping
-    df['Row'] = pd.to_numeric(df['Row'], errors='coerce')
-    df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
-    df["Amount"] = df["Amount"].apply(
-        lambda x: f"{x:,.2f}".format(x).replace(",", " ").replace(".", ".") if pd.notnull(x) else ""
-    )
-    df['Description'] = df['Row'].map(mapping_rows_levier)
-
-    colonnes_affichees = ['Row', 'Amount', 'Description']
-    df_affiche =df[colonnes_affichees]
-    df_affiche['Row'] = df_affiche['Row'].apply(lambda x: f"{int(x):04d}" if pd.notna(x) else "")
-
-
-    # Fonction de style pour colorer la ligne Other assets en rouge
-    def highlight_other_assets(row):
-        if row['Row'] == '0190':
-            return ['background-color: #ffcccc'] * len(row)
-        return [''] * len(row)
-
-    # Affichage stylisé
-    st.dataframe(df_affiche.style.apply(highlight_other_assets, axis=1), use_container_width=True)
-
-    # Légende explicative
-    st.caption("🔴 La ligne 'Other assets' (ligne 190) représente la variable stressée dans le calcul du ratio de levier.")
-
-def afficher_ratios_rwa(df_bloc):
-
-    """
-
-    Affiche les ratios RWA / Exposition pour les lignes principales COREP.
-
-    """
-
-    import pandas as pd
-
-
-    st.markdown("**Ratios RWA/Exposition**")
-
-
-    lignes = {
-
-        70.0: "On-Balance Sheet",
-
-        80.0: "Off-Balance Sheet",
-
-        110.0: "Derivatives"
-
-    }
-
-
-    ratios_data = []
-
-    for row_type, label in lignes.items():
-
-        ligne = df_bloc[df_bloc["row"] == row_type]
-
-        if not ligne.empty:
-
-            exposition = ligne["0200"].values[0] if "0200" in ligne.columns and not ligne["0200"].empty else 0
-
-            rwa = ligne["0220"].values[0] if "0220" in ligne.columns and not ligne["0220"].empty else 0
-
-            if pd.notna(exposition) and exposition != 0:
-
-                ratio = rwa / exposition
-
-                ratios_data.append({
-
-                    "Type d'exposition": label,
-
-                    "Exposition": format_large_number(exposition),
-
-                    "RWA": format_large_number(rwa),
-
-                    "Ratio RWA/Exposition": f"{ratio:.4f} ({ratio*100:.2f}%)"
-
-                })
-
-
-    if ratios_data:
-
-        st.dataframe(pd.DataFrame(ratios_data), use_container_width=True)
-
-
-
-def afficher_corep_detaille(df_bloc):
-    """
-    Affiche un DataFrame de COREP (C02.00) avec descriptions claires et formatage amélioré.
-    Corrige les intitulés, inclut 0200, et respecte le flux logique d'exposition vers RWA.
-    """
-    df_affichage = df_bloc.copy()
-
-    # === Mapping conforme au flux réglementaire COREP ===
-    mapping_colonnes = {
-        "0010": "Exposition initiale",
-        "0110": "Valeur ajustée du collatéral (Cvam)",
-        "0150": "Valeur ajustée de l'exposition (E*)",  # Fully adjusted exposure value
-        "0200": "Exposition après CRM",                 # Exposure value
-        "0215": "Montant pondéré brut (avant facteur soutien PME)",
-        "0220": "Montant pondéré net après ajustements"
-    }
-    df_affichage.rename(columns={k: v for k, v in mapping_colonnes.items() if k in df_affichage.columns}, inplace=True)
-
-    # === Colonnes à afficher selon le flux logique ===
-    colonnes_flux = ["row"] + list(mapping_colonnes.values())
-    colonnes_disponibles = [col for col in colonnes_flux if col in df_affichage.columns]
-    df_affichage = df_affichage[colonnes_disponibles].copy()
-
-    # === Mapping des lignes COREP ===
-    def get_description(row_val):
-        mapping = {
-            70.0: "Expositions On-Balance Sheet",
-            80.0: "Expositions Off-Balance Sheet",
-            90.0: "Expositions sur dérivés (long settlement)",
-            100.0: "Expositions CCR nettes (non cleared CCP)",
-            110.0: "Expositions Derivatives",
-            130.0: "Total Expositions",
-            140.0: "Total RWA"
-        }
-        if pd.isna(row_val):
-            return None
-        return mapping.get(row_val, f"Ligne {int(row_val)}" if isinstance(row_val, float) else str(row_val))
-
-    df_affichage["Description"] = df_affichage["row"].map(get_description)
-    df_affichage = df_affichage[df_affichage["Description"].notna()]  # Supprime les lignes inutiles
-
-    # === Réorganisation des colonnes ===
-    colonnes_finales = ["Description"] + [col for col in df_affichage.columns if col not in ["Description", "row"]]
-    df_affichage = df_affichage[colonnes_finales]
-
-    # === Formatage des valeurs numériques ===
-    for col in df_affichage.columns[1:]:
-        df_affichage[col] = df_affichage[col].apply(lambda x: f"{x:,.2f}".replace(","," ").replace(".",".") if pd.notna(x) else "")
-
-    # === Surlignage rose de la ligne stressée (70.0) ===
-    def highlight_on_balance(row):
-        if row.get("Description") == "Expositions On-Balance Sheet":
-            return ['background-color: #ffeeee'] * len(row)
-        return [''] * len(row)
-
-    st.dataframe(df_affichage.style.apply(highlight_on_balance, axis=1), use_container_width=True)
-    st.caption("*La ligne surlignée en rose (On-Balance Sheet) est celle modifiée par le stress test.*")
-
-    # === Affichage des ratios RWA/Exposition ===
-    afficher_ratios_rwa(df_bloc)
 pwc_orange = "#f47721"
 pwc_dark_gray = "#3d3d3d"
 pwc_light_beige = "#f5f0e6"
@@ -1869,7 +1714,7 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
             horizon=horizon,
             debug=False
         )
-        # ✅ Stocker les delta RWA de PNU pour combinaison future
+        #  Stocker les delta RWA de PNU pour combinaison future
         st.session_state["delta_rwa_pnu"] = {
             annee: resultat["delta_rwa_total"]
             for annee, resultat in resultats_stress.items()
@@ -1891,7 +1736,7 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
             rwa_combine = rwa_pnu + delta_rwa_event1
 
             ratio_pnu = (fonds_propres / rwa_pnu) * 100 if rwa_pnu > 0 else 0
-            ratio_combine = (fonds_propres / rwa_combine) * 100 if rwa_combine > 0 else 0
+            ratio_combine = (fonds_propres / rwa_combine) * 100 if delta_rwa_event1 != 0 and rwa_combine > 0 else float("nan")
 
             recap_data.append({
                 "Année": annee,
@@ -1906,7 +1751,6 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
 
         # === Étape 5 : Affichage du tableau récapitulatif formaté
         if recap_data:
-            st.markdown("##  Tableau comparatif : PNU seul vs PNU + Retrait")
 
             df_affiche = pd.DataFrame([{
                 "Année": r["Année"],
@@ -1981,3 +1825,4 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
         import traceback
         st.error(traceback.format_exc())
         return None
+

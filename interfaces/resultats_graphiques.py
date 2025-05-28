@@ -8,7 +8,9 @@ from backend.stress_test import event1 as bst
 from backend.ratios_baseline.ratios_baseline import calcul_ratios_sur_horizon
 from backend.ratios_baseline.ratios_baseline import charger_bilan
 
-# PwC Color Palette
+
+
+# Couleurs PwC
 PWC_ORANGE = "#f47721"
 PWC_DARK_GRAY = "#3d3d3d"
 PWC_LIGHT_BEIGE = "#f5f0e6"
@@ -17,8 +19,8 @@ PWC_SOFT_BLACK = "#2c2c2c"
 PWC_DARK_ORANGE = "#d04a02"
 PWC_LIGHT_BLUE = "#FFCDA8"
 PWC_LIGHT_GRAY = "#f5f0e6"
+PWC_LIGHT_BROWN = "#a65e2e"
 
-# Custom styling
 def apply_custom_styles():
     st.markdown(f"""
     <style>
@@ -89,23 +91,16 @@ def apply_custom_styles():
     """, unsafe_allow_html=True)
 
 def style_table(df, highlight_columns=None):
-    """
-    Stylise un tableau avec les couleurs PwC et formate les nombres.
-    """
-    # Couleurs PwC
-    pwc_orange = "#d04a02"
+    """Stylise un tableau avec les couleurs PwC et formate les nombres."""
     pwc_dark_blue = "#FFCDA8"
     pwc_light_gray = "#f5f0e6"
 
-    # Appliquer le format à toutes les colonnes numériques
     for col in df.columns:
         if pd.api.types.is_numeric_dtype(df[col]):
             df[col] = df[col].apply(format_large_number)
 
-    # Convertir tout en string (utile pour la sécurité de l'affichage HTML)
     df = df.astype(str)
 
-    # Style de base du tableau
     table_styles = [
         {"selector": "thead th", "props": f"background-color: {pwc_dark_blue}; color: black; font-weight: bold; text-align: center; padding: 8px;"},
         {"selector": "tbody td", "props": "padding: 6px; text-align: right;"},
@@ -116,20 +111,17 @@ def style_table(df, highlight_columns=None):
         {"selector": "th, td", "props": "border: 1px solid #ddd;"}
     ]
 
-    # Appliquer les styles
     styled_df = df.style.set_table_styles(table_styles)
 
-    # Mettre en évidence les colonnes spécifiées
     if highlight_columns:
         for col in highlight_columns:
             if col in df.columns:
                 styled_df = styled_df.set_properties(**{
                     'font-weight': 'bold',
-                    'color': pwc_orange
+                    'color': PWC_ORANGE
                 }, subset=[col])
 
     return styled_df
-
 
 def format_number(x):
     """Format numbers without thousands separator and with 2 decimals"""
@@ -137,7 +129,7 @@ def format_number(x):
         return "N/A"
     return f"{x:,.2f}".replace(",", " ")
 
-
+# Fonctions pour les ratios de liquidité
 def create_lcr_table(resultats, horizon):
     annees = [str(2024 + i) for i in range(horizon + 1)]
     data = {
@@ -246,15 +238,9 @@ def plot_metric_comparison(df, title, threshold=None):
     
     return fig
 
-# Couleurs PwC alternatives
-PWC_ORANGE = "#f47721"
-PWC_DARK_ORANGE = "#c74b0e"
-PWC_LIGHT_GRAY = "#bfbfbf"      # Remplace le dark gray
-PWC_LIGHT_BROWN = "#a65e2e"     # Remplace le brown
-
 def plot_components_comparison(proj, sim1, sim2, sim3, horizon, components, title):
     """Plot comparison of LCR/NSFR components with improved PwC colors"""
-    years = list(range(2025, 2025 + horizon))
+    years = list(range(2024, 2024 + horizon + 1))
     scenarios = ["Projeté", "Phase 1", "Phase 2", "Phase 3"]
     scenario_colors = {
         "Projeté": PWC_LIGHT_GRAY,
@@ -273,8 +259,7 @@ def plot_components_comparison(proj, sim1, sim2, sim3, horizon, components, titl
                     "Année": year,
                     "Scénario": scenario,
                     "Composant": component,
-                    "Valeur": year_data.get(component, 0),
-                    "Couleur": scenario_colors[scenario]
+                    "Valeur": year_data.get(component, 0)
                 })
     
     df = pd.DataFrame(data)
@@ -294,10 +279,7 @@ def plot_components_comparison(proj, sim1, sim2, sim3, horizon, components, titl
     )
     
     return fig
-
-
-
-def display_tab_content(resultats, horizon, tab, scenario_name):
+def display_liquidity_tab_content(resultats, horizon, tab, scenario_name):
     if not resultats:
         tab.warning("Aucune donnée disponible")
         return
@@ -309,33 +291,33 @@ def display_tab_content(resultats, horizon, tab, scenario_name):
             last_year = str(2024 + horizon)
             lcr_value = resultats.get(int(last_year), {}).get("LCR", 0)
             st.markdown(
-                                f"""
-                                <div style="background-color:{PWC_LIGHT_BEIGE}; padding:20px; border-radius:15px;
-                                            box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {PWC_ORANGE}">
-                                    <h4 style="color:{PWC_SOFT_BLACK}; margin-bottom:10px;">LCR Final ({last_year})</h4>
-                                    <p style="font-size:26px; font-weight:bold; color:{PWC_ORANGE}; margin:0;">
-                                        {lcr_value:.2f}%
-                                    </p>
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
+                f"""
+                <div style="background-color:{PWC_LIGHT_BEIGE}; padding:20px; border-radius:15px;
+                            box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {PWC_ORANGE}">
+                    <h4 style="color:{PWC_SOFT_BLACK}; margin-bottom:10px;">LCR Final ({last_year})</h4>
+                    <p style="font-size:26px; font-weight:bold; color:{PWC_ORANGE}; margin:0;">
+                        {lcr_value:.2f}%
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
         
         with col2:
             nsfr_value = resultats.get(int(last_year), {}).get("NSFR", 0)
             st.markdown(
-                                f"""
-                                <div style="background-color:{PWC_LIGHT_BEIGE}; padding:20px; border-radius:15px;
-                                            box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {PWC_ORANGE}">
-                                    <h4 style="color:{PWC_SOFT_BLACK}; margin-bottom:10px;">NSFR Final ({last_year})</h4>
-                                    <p style="font-size:26px; font-weight:bold; color:{PWC_ORANGE}; margin:0;">
-                                        {nsfr_value:.2f}%
-                                    </p>
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
-        st.subheader(f"  ")
+                f"""
+                <div style="background-color:{PWC_LIGHT_BEIGE}; padding:20px; border-radius:15px;
+                            box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center; border-left: 8px solid {PWC_ORANGE}">
+                    <h4 style="color:{PWC_SOFT_BLACK}; margin-bottom:10px;">NSFR Final ({last_year})</h4>
+                    <p style="font-size:26px; font-weight:bold; color:{PWC_ORANGE}; margin:0;">
+                        {nsfr_value:.2f}%
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        
         st.subheader(f"Évolution des ratios LCR et NSFR - {scenario_name}")
 
         # Prepare data for combined chart
@@ -362,12 +344,11 @@ def display_tab_content(resultats, horizon, tab, scenario_name):
             paper_bgcolor='white',
             height=350
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key=f"lcr_nsfr_chart_{scenario_name}")
         
         st.subheader(f"Ratio LCR - {scenario_name}")
         lcr_table = create_lcr_table(resultats, horizon)
         if not lcr_table.empty:            
-            # Display styled LCR table
             lcr_df = style_table(lcr_table, highlight_columns=[" "])
             st.markdown(lcr_df.to_html(), unsafe_allow_html=True)
         else:
@@ -376,13 +357,202 @@ def display_tab_content(resultats, horizon, tab, scenario_name):
         st.subheader(f"Ratio NSFR - {scenario_name}")
         nsfr_table = create_nsfr_table(resultats, horizon)
         if not nsfr_table.empty:
-            # Display styled NSFR table
             nsfr_df = style_table(nsfr_table, highlight_columns=[" "])
             st.markdown(nsfr_df.to_html(index=False), unsafe_allow_html=True)
         else:
             st.warning("Aucune donnée NSFR disponible")
+            
+# Fonctions pour les ratios de capital
+def create_solva_table_capital(resultats, horizon):
+    """CORRECTION : Utilisation des bonnes clés pour solvabilité"""
+    annees = [str(2024 + i) for i in range(horizon + 1)]
+    data = {
+        " ": [
+            "Fonds propres réglementaires",
+            "RWA (actifs pondérés)",
+            "Ratio de solvabilité (%)"
+        ]
+    }
 
+    for annee in annees:
+        #annee_int = int(annee)
+        year_data = resultats.get(annee, {})
 
+        # CORRECTION : Vérifiez que ces clés correspondent à vos données
+        data[annee] = [
+            year_data.get("fonds_propres", 0),  # ou "fonds_propres"
+            year_data.get("rwa", 0),            # ou "rwa" 
+            year_data.get("ratio", 0)     # ou "ratio"
+        ]
+
+    return pd.DataFrame(data)
+def create_levier_table_capital(resultats, horizon):
+    annees = [str(2024 + i) for i in range(horizon + 1)]
+    data = {
+        " ": [
+            "Fonds propres Tier 1",
+            "Exposition au levier",
+            "Ratio de levier (%)"
+        ]
+    }
+
+    for annee in annees:
+        #annee_int = int(annee)
+        year_data = resultats.get(annee, {})
+        data[annee] = [
+            year_data.get("tier1"),
+            year_data.get("total_exposure"),
+            year_data.get("ratio", 0)
+        ]
+
+    return pd.DataFrame(data)
+
+def create_comparison_data_capital(proj, sim1, sim2, sim3, horizon, ratio_type):
+    """
+    CORRECTION : Fonction spécialisée par type de ratio
+    ratio_type: "Solvabilité" ou "Levier"
+    """
+    years = list(range(2024, 2024 + horizon + 1))
+    data = []
+
+    for year in years:
+        # Utilisation des bonnes clés selon le type de ratio
+        data.append({"Year": year, "Scenario": "Projeté", "Value": proj.get(year, {}).get(ratio_type, 0)})
+        data.append({"Year": year, "Scenario": "Phase 1", "Value": sim1.get(year, {}).get(ratio_type, 0)})
+        data.append({"Year": year, "Scenario": "Phase 2", "Value": sim2.get(year, {}).get(ratio_type, 0)})
+        data.append({"Year": year, "Scenario": "Phase 3", "Value": sim3.get(year, {}).get(ratio_type, 0)})
+
+    return pd.DataFrame(data)
+def plot_components_comparison_capital(proj, sim1, sim2, sim3, horizon, components, title):
+    """Affiche un graphique en barres groupées pour les composantes des ratios de capital"""
+    years = list(range(2024, 2024 + horizon + 1))
+    scenarios = ["Projeté", "Phase 1", "Phase 2", "Phase 3"]
+    scenario_colors = {
+        "Projeté": PWC_LIGHT_GRAY,
+        "Phase 1": PWC_ORANGE,
+        "Phase 2": PWC_DARK_ORANGE,
+        "Phase 3": PWC_LIGHT_BROWN
+    }
+
+    data = []
+
+    for scenario, results in zip(scenarios, [proj, sim1, sim2, sim3]):
+        for year in years:
+            year_data = results.get(year, {})
+            for component in components:
+                data.append({
+                    "Année": year,
+                    "Scénario": scenario,
+                    "Composant": component,
+                    "Valeur": year_data.get(component, 0)
+                })
+
+    df = pd.DataFrame(data)
+
+    fig = px.bar(
+        df, 
+        x="Année", 
+        y="Valeur", 
+        color="Scénario",
+        facet_col="Composant",
+        title=title,
+        template="plotly_white",
+        color_discrete_map=scenario_colors,
+        barmode="group"
+    )
+
+    fig.update_layout(
+        height=400,
+        showlegend=True,
+        xaxis_title="Année",
+        yaxis_title="Valeur"
+    )
+
+    return fig
+
+def display_capital_tab_content(resultats_solva, resultats_levier, horizon, tab, scenario_name):
+    if not resultats_solva or not resultats_levier:
+        tab.warning("Aucune donnée disponible")
+        return
+
+    with tab:
+        st.subheader(f"Ratios réglementaires - {scenario_name}")
+        col1, col2 = st.columns(2)
+
+        # --- Cartes Résumé ---
+        last_year = 2024 + horizon
+        # CORRECTION : Utilisation cohérente des clés
+        solva_value = resultats_solva.get(last_year, {}).get("ratio", 0)
+        levier_value = resultats_levier.get(last_year, {}).get("ratio", 0)
+
+        # DEBUG : Ajout de logs pour diagnostiquer
+        st.write(f"DEBUG - {scenario_name} - Année {last_year}")
+        st.write(f"DEBUG - Données solvabilité: {resultats_solva.get(last_year, {})}")
+        st.write(f"DEBUG - Données levier: {resultats_levier.get(last_year, {})}")
+        st.write(f"DEBUG - Valeur solvabilité: {solva_value}")
+        st.write(f"DEBUG - Valeur levier: {levier_value}")
+
+        with col1:
+            st.markdown(f"""
+            <div style="background-color:#f5f0e6; padding:20px; border-radius:15px;
+                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center;
+                        border-left: 8px solid #f47721">
+                <h4 style="color:#2c2c2c; margin-bottom:10px;">Ratio de Solvabilité ({last_year})</h4>
+                <p style="font-size:26px; font-weight:bold; color:#f47721; margin:0;">
+                    {solva_value:.2f}%
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown(f"""
+            <div style="background-color:#f5f0e6; padding:20px; border-radius:15px;
+                        box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center;
+                        border-left: 8px solid #f47721">
+                <h4 style="color:#2c2c2c; margin-bottom:10px;">Ratio de Levier ({last_year})</h4>
+                <p style="font-size:26px; font-weight:bold; color:#f47721; margin:0;">
+                    {levier_value:.2f}%
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # --- Graphe combiné ---
+        st.subheader(f"Évolution des ratios - {scenario_name}")
+        annees = list(range(2024, 2024 + horizon + 1))
+        solva_vals = [resultats_solva.get(a, {}).get("ratio", 0) for a in annees]
+        levier_vals = [resultats_levier.get(a, {}).get("ratio", 0) for a in annees]
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=annees, y=solva_vals, mode='lines+markers', name='Solvabilité',
+            line=dict(color=PWC_ORANGE, width=3)
+        ))
+        fig.add_trace(go.Scatter(
+            x=annees, y=levier_vals, mode='lines+markers', name='Levier',
+            line=dict(color=PWC_DARK_GRAY, width=3)
+        ))
+        fig.add_hline(y=8, line_dash="dot", line_color="red",
+                      annotation_text="Seuil Solvabilité: 8%", annotation_position="top left")
+        fig.add_hline(y=3, line_dash="dot", line_color="red",
+                      annotation_text="Seuil Levier: 3%", annotation_position="bottom right")
+        fig.update_layout(
+            height=350,
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            xaxis_title="Année",
+            yaxis_title="Ratio (%)"
+        )
+        st.plotly_chart(fig, use_container_width=True, key=f"combined_chart_capital_{scenario_name}")
+
+        # --- Tableau Solvabilité ---
+        st.subheader(f"Composantes du ratio de solvabilité - {scenario_name}")
+        df_solva = create_solva_table_capital(resultats_solva, horizon)
+        st.markdown(style_table(df_solva, highlight_columns=[" "]).to_html(), unsafe_allow_html=True)
+
+        # --- Tableau Levier ---
+        st.subheader(f"Composantes du ratio de levier - {scenario_name}")
+        df_levier = create_levier_table_capital(resultats_levier, horizon)
+        st.markdown(style_table(df_levier, highlight_columns=[" "]).to_html(), unsafe_allow_html=True)
 
 def calculate_projected_ratios(horizon):
     """Recalculate projected liquidity ratios"""
@@ -392,106 +562,188 @@ def calculate_projected_ratios(horizon):
     return calcul_ratios_sur_horizon(horizon, bilan, df_72, df_73, df_74, df_80, df_81)
 
 def show():
-
-
-
+    
     apply_custom_styles()
+    
+    # Récupération des résultats
+    horizon = st.session_state.get('horizon_global', 3)
+    proj_liquidity = calculate_projected_ratios(horizon)
+    
+    # Ratios de liquidité
+    #proj_liquidity = st.session_state.get('resultats_ratios_liquidite_projete', calculate_projected_ratios(horizon))
+    sim1_liquidity = st.session_state.get('resultats_phase1', {})
+    sim2_liquidity = st.session_state.get('resultats_phase2', {})
+    sim3_liquidity = st.session_state.get('resultats_phase3', {})
+    
+    # Ratios de capital
+    proj_solva = st.session_state.get("resultats_solva", {})
+    proj_levier = st.session_state.get("resultats_levier", {})
+    sim1_solva = st.session_state.get("resultats_sim1_capital", {})
+    sim1_levier = st.session_state.get("resultats_sim1_levier", {})
+    sim2_solva = st.session_state.get("resultats_sim2_capital", {})
+    sim2_levier = st.session_state.get("resultats_sim2_levier", {})
+    sim3_solva = st.session_state.get("resultats_sim3_capital", {})
+    sim3_levier = st.session_state.get("resultats_sim3_levier", {})
+
     st.title("Résultats et Graphiques")
     st.write("Visualisez les résultats du test de stress et les graphiques comparatifs.")
 
-    horizon = st.session_state.get('horizon_global', 3)
-    
-    # Recalculate projected ratios if not available or invalid
-    st.session_state['resultats_ratios_liquidite_projete'] = calculate_projected_ratios(horizon)
-    
-    # Get all results
-    proj = st.session_state.get('resultats_ratios_liquidite_projete', {})
-    sim1 = st.session_state.get('resultats_phase1', {})
-    sim2 = st.session_state.get('resultats_phase2', {})
-    sim3 = st.session_state.get('resultats_phase3', {})  
+    # Création des onglets
+    tab_liquidity, tab_capital = st.tabs(["Ratios de Liquidité", "Ratios de Capital"])
 
-    tab5, tab1, tab2, tab3, tab4 = st.tabs([
-        "Récapitulatif",
-        "Ratios projetés",
-        "Phase 1",
-        "Phase 2",
-        "Phase 3"
-    ])
+    with tab_liquidity:
+        # Onglets pour les scénarios de liquidité
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "Récapitulatif",
+            "Ratios projetés",
+            "Phase 1",
+            "Phase 2",
+            "Phase 3"
+        ])
 
-    # TAB 5 — Récapitulatif
-    with tab5:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("Comparaison des ratios LCR (%)")
-            annees = [str(annee) for annee in range(2024, 2024 + horizon + 1)]
-            lcr_data = {
-                "Scenario": ["Projeté", "Phase 1", "Phase 2", "Phase 3"]
-            }
+        # TAB 1 — Récapitulatif
+        with tab1:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("Comparaison des ratios LCR (%)")
+                annees = [str(annee) for annee in range(2024, 2024 + horizon + 1)]
+                lcr_data = {
+                    "Scenario": ["Projeté", "Phase 1", "Phase 2", "Phase 3"]
+                }
 
-            for annee in annees:
-                lcr_data[annee] = [
-                    f"{proj.get(int(annee), {}).get('LCR', 0):.2f}%" if proj.get(int(annee), {}).get('LCR') is not None else "N/A",
-                    f"{sim1.get(int(annee), {}).get('LCR', 0):.2f}%" if sim1.get(int(annee), {}).get('LCR') is not None else "N/A",
-                    f"{sim2.get(int(annee), {}).get('LCR', 0):.2f}%" if sim2.get(int(annee), {}).get('LCR') is not None else "N/A",
-                    f"{sim3.get(int(annee), {}).get('LCR', 0):.2f}%" if sim3.get(int(annee), {}).get('LCR') is not None else "N/A"
-                ]
+                for annee in annees:
+                    lcr_data[annee] = [
+                        f"{proj_liquidity.get(int(annee), {}).get('LCR', 0):.2f}%" if proj_liquidity.get(int(annee), {}).get('LCR') is not None else "N/A",
+                        f"{sim1_liquidity.get(int(annee), {}).get('LCR', 0):.2f}%" if sim1_liquidity.get(int(annee), {}).get('LCR') is not None else "N/A",
+                        f"{sim2_liquidity.get(int(annee), {}).get('LCR', 0):.2f}%" if sim2_liquidity.get(int(annee), {}).get('LCR') is not None else "N/A",
+                        f"{sim3_liquidity.get(int(annee), {}).get('LCR', 0):.2f}%" if sim3_liquidity.get(int(annee), {}).get('LCR') is not None else "N/A"
+                    ]
+                
+                lcr_df = pd.DataFrame(lcr_data)
+                lcr_df = style_table(lcr_df, highlight_columns=["Scenario"])
+                st.markdown(lcr_df.to_html(), unsafe_allow_html=True)
+
+            with col2:
+                st.subheader("Comparaison des ratios NSFR (%)")
+                annees = [str(annee) for annee in range(2024, 2024 + horizon + 1)]
+                nsfr_data = {
+                    "Scenario": ["Projeté", "Phase 1", "Phase 2", "Phase 3"]
+                }
+                for annee in annees:
+                    nsfr_data[annee] = [
+                        f"{proj_liquidity.get(int(annee), {}).get('NSFR', 0):.2f}%" if proj_liquidity.get(int(annee), {}).get('NSFR') is not None else "N/A",
+                        f"{sim1_liquidity.get(int(annee), {}).get('NSFR', 0):.2f}%" if sim1_liquidity.get(int(annee), {}).get('NSFR') is not None else "N/A",
+                        f"{sim2_liquidity.get(int(annee), {}).get('NSFR', 0):.2f}%" if sim2_liquidity.get(int(annee), {}).get('NSFR') is not None else "N/A",
+                        f"{sim3_liquidity.get(int(annee), {}).get('NSFR', 0):.2f}%" if sim3_liquidity.get(int(annee), {}).get('NSFR') is not None else "N/A"
+                    ]
+                
+                nsfr_df = pd.DataFrame(nsfr_data)
+                nsfr_df = style_table(nsfr_df, highlight_columns=["Scenario"])
+                st.markdown(nsfr_df.to_html(), unsafe_allow_html=True)
+
+            st.subheader("Comparaison visuelle des scénarios")
+            col1, col2 = st.columns(2)
+            with col1:
+                # LCR Comparison
+                lcr_df = create_comparison_data(proj_liquidity, sim1_liquidity, sim2_liquidity, sim3_liquidity, horizon, "LCR")
+                st.plotly_chart(plot_metric_comparison(lcr_df, "Comparaison des ratios LCR par scénario", 100),
+                          use_container_width=True)
+            with col2:
+                # NSFR Comparison
+                nsfr_df = create_comparison_data(proj_liquidity, sim1_liquidity, sim2_liquidity, sim3_liquidity, horizon, "NSFR")
+                st.plotly_chart(plot_metric_comparison(nsfr_df, "Comparaison des ratios NSFR par scénario", 100),
+                            use_container_width=True)
             
-            lcr_df = pd.DataFrame(lcr_data)
-            lcr_df = style_table(lcr_df, highlight_columns=["Scenario"])
-            st.markdown(lcr_df.to_html(), unsafe_allow_html=True)
-
-        with col2:
-            st.subheader("Comparaison des ratios NSFR (%)")
-            annees = [str(annee) for annee in range(2024, 2024 + horizon + 1)]
-            nsfr_data = {
-                "Scenario": ["Projeté", "Phase 1", "Phase 2", "Phase 3"]
-            }
-            for annee in annees:
-                nsfr_data[annee] = [
-                    f"{proj.get(int(annee), {}).get('NSFR', 0):.2f}%" if proj.get(int(annee), {}).get('NSFR') is not None else "N/A",
-                    f"{sim1.get(int(annee), {}).get('NSFR', 0):.2f}%" if sim1.get(int(annee), {}).get('NSFR') is not None else "N/A",
-                    f"{sim2.get(int(annee), {}).get('NSFR', 0):.2f}%" if sim2.get(int(annee), {}).get('NSFR') is not None else "N/A",
-                    f"{sim3.get(int(annee), {}).get('NSFR', 0):.2f}%" if sim3.get(int(annee), {}).get('NSFR') is not None else "N/A"
-                ]
+            # Components Analysis
+            st.subheader("Analyse des composantes")
             
-            nsfr_df = pd.DataFrame(nsfr_data)
-            nsfr_df = style_table(nsfr_df, highlight_columns=["Scenario"])
-            st.markdown(nsfr_df.to_html(), unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+            with col1:
+                st.plotly_chart(plot_components_comparison(
+                    proj_liquidity, sim1_liquidity, sim2_liquidity, sim3_liquidity, horizon,
+                    ["HQLA", "OUTFLOWS", "INFLOWS"],
+                    "Composantes du LCR par scénario"
+                ), use_container_width=True)
+            
+            with col2:
+                st.plotly_chart(plot_components_comparison(
+                    proj_liquidity, sim1_liquidity, sim2_liquidity, sim3_liquidity, horizon,
+                    ["ASF", "RSF"],
+                    "Composantes du NSFR par scénario"
+                ), use_container_width=True)
 
+        # Other tabs for liquidity
+        display_liquidity_tab_content(proj_liquidity, horizon, tab2, "Scénario Projeté")
+        display_liquidity_tab_content(sim1_liquidity, horizon, tab3, "Phase 1")
+        display_liquidity_tab_content(sim2_liquidity, horizon, tab4, "Phase 2")
+        display_liquidity_tab_content(sim3_liquidity, horizon, tab5, "Phase 3")
+    with tab_capital:
+    # Onglets pour les scénarios de capital
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "Récapitulatif",
+            "Projeté",
+            "Phase 1",
+            "Phase 2",
+            "Phase 3"
+        ])
 
-        st.subheader("Comparaison visuelle des scénarios")
-        col1, col2 = st.columns(2)
-        with col1:
-            # LCR Comparison
-            lcr_df = create_comparison_data(proj, sim1, sim2, sim3, horizon, "LCR")
-            st.plotly_chart(plot_metric_comparison(lcr_df, "Comparaison des ratios LCR par scénario", 100),
-                      use_container_width=True)
-        with col2:
-        # NSFR Comparison
-            nsfr_df = create_comparison_data(proj, sim1, sim2, sim3, horizon, "NSFR")
-            st.plotly_chart(plot_metric_comparison(nsfr_df, "Comparaison des ratios NSFR par scénario", 100),
-                        use_container_width=True)
-        
-        # Components Analysis
-        st.subheader("Analyse des composantes")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.plotly_chart(plot_components_comparison(
-                proj, sim1, sim2, sim3, horizon,
-                ["HQLA", "OUTFLOWS", "INFLOWS"],
-                "Composantes du LCR par scénario"
-            ), use_container_width=True)
-        
-        with col2:
-            st.plotly_chart(plot_components_comparison(
-                proj, sim1, sim2, sim3, horizon,
-                ["ASF", "RSF"],
-                "Composantes du NSFR par scénario"
-            ), use_container_width=True)
+        # TAB 1 — Récapitulatif
+        with tab1:
+            st.subheader("Comparaison des ratios de solvabilité et de levier")
 
-    # Other tabs
-    display_tab_content(proj, horizon, tab1, "Scénario Projeté")
-    display_tab_content(sim1, horizon, tab2, "Phase 1")
-    display_tab_content(sim2, horizon, tab3, "Phase 2")
-    display_tab_content(sim3, horizon, tab4, "Phase 3")
+            # --- Cartes Résumé ---
+            col1, col2 = st.columns(2)
+            last_year = 2024 + horizon
+            solva_value = sim3_solva.get(last_year, {}).get("ratio", 0)
+            levier_value = sim3_levier.get(last_year, {}).get("ratio", 0)
+
+            with col1:
+                st.markdown(f"""
+                <div style="background-color:#f5f0e6; padding:20px; border-radius:15px;
+                            box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center;
+                            border-left: 8px solid #f47721">
+                    <h4 style="color:#2c2c2c; margin-bottom:10px;">Ratio de Solvabilité ({last_year})</h4>
+                    <p style="font-size:26px; font-weight:bold; color:#f47721; margin:0;">
+                        {solva_value:.2f}%
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col2:
+                st.markdown(f"""
+                <div style="background-color:#f5f0e6; padding:20px; border-radius:15px;
+                            box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center;
+                            border-left: 8px solid #f47721">
+                    <h4 style="color:#2c2c2c; margin-bottom:10px;">Ratio de Levier ({last_year})</h4>
+                    <p style="font-size:26px; font-weight:bold; color:#f47721; margin:0;">
+                        {levier_value:.2f}%
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.subheader("Comparaison visuelle des ratios réglementaires")
+
+            # --- Graphique Solvabilité ---
+            solva_df = create_comparison_data_capital(proj_solva, sim1_solva, sim2_solva, sim3_solva, horizon, "Solvabilité")
+            st.plotly_chart(plot_metric_comparison(solva_df, "Évolution du ratio de solvabilité (%)", threshold=8),
+                use_container_width=True, key="chart_solva_compare")
+
+            # --- Graphique Levier ---
+            levier_df = create_comparison_data_capital(proj_levier, sim1_levier, sim2_levier, sim3_levier, horizon, "Levier")
+            st.plotly_chart(plot_metric_comparison(levier_df, "Évolution du ratio de levier (%)", threshold=3),
+                use_container_width=True, key="chart_levier_compare")
+
+            # --- Graphe des composantes ---
+            st.subheader("Analyse des composantes des ratios")
+            st.plotly_chart(plot_components_comparison_capital(
+                proj_levier, sim1_levier, sim2_levier, sim3_levier,
+                horizon,
+                ["Fonds propres", "RWA", "Tier1", "Exposition levier"],
+                "Composantes du capital et levier par scénario"
+            ), use_container_width=True,key="chart_capital_components")
+
+        # Other tabs for capital
+        display_capital_tab_content(proj_solva, proj_levier, horizon, tab2, "Scenario Projeté")
+        display_capital_tab_content(sim1_solva, sim1_levier, horizon, tab3, "Phase 1")
+        display_capital_tab_content(sim2_solva, sim2_levier, horizon, tab4, "Phase 2")
+        display_capital_tab_content(sim3_solva, sim3_levier, horizon, tab5, "Phase 3")  # Utilisation de tab5 ici
