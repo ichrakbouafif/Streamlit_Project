@@ -55,30 +55,24 @@ def somme_sans_nan(row, cols):
     return sum(row.get(c, 0) for c in cols if pd.notna(row.get(c, 0)))
 def executer_stress_event1_levier_pluriannuel(
     resultats_proj: dict,
-    resultats_solva: dict, 
+    resultats_solva: dict,
     annee_debut: str,
     montant_stress_total: float,
     horizon: int,
     debug: bool = False
 ) -> dict:
-    """
-    Applique un stress sur la ligne 190 (Other assets) du levier (C47.00)
-    sur plusieurs années, avec recalcul manuel du ratio de levier.
-    """
     resultats_stress = {}
     montant_annuel = montant_stress_total / horizon
 
+    df_c4700_base = resultats_proj.get(annee_debut, {}).get("df_c4700", pd.DataFrame()).copy()
+
     for i in range(horizon):
         annee = str(int(annee_debut) + i)
-        donnees_levier = resultats_proj.get(annee, {})
         donnees_solva = resultats_solva.get(annee, {})
 
-        df_c4700 = donnees_levier.get("df_c4700", pd.DataFrame())
-        
-        # Récupération des fonds propres depuis resultats_solva
+        # Fonds propres
         fonds_propres = donnees_solva.get("fonds_propres", 0)
         if fonds_propres == 0:
-            # Fallback: récupérer depuis df_c01 si disponible
             df_c01 = donnees_solva.get("df_c01", pd.DataFrame())
             if not df_c01.empty and "row" in df_c01.columns and "0010" in df_c01.columns:
                 ligne_tier1 = df_c01[df_c01["row"] == 10.0]
@@ -86,27 +80,22 @@ def executer_stress_event1_levier_pluriannuel(
                     valeur = ligne_tier1["0010"].values[0]
                     fonds_propres = 0 if pd.isna(valeur) else float(valeur)
 
-        if df_c4700.empty:
+        if df_c4700_base.empty:
             st.warning(f"⚠️ Tableau C47.00 introuvable pour l'année {annee}")
             continue
 
         if debug:
-            st.write(f"🔍 Traitement de l'année {annee}")
-            st.write(f"➡️ Montant annuel de stress : {montant_annuel:,.0f} DZD")
-            st.write(f"➡️ Fonds propres : {fonds_propres:,.0f} DZD")
+            st.write(f"🔍 Année {annee}")
+            st.write(f"➡️ Montant annuel : {montant_annuel:,.0f}")
+            st.write(f"➡️ Fonds propres : {fonds_propres:,.0f}")
 
-        # Appliquer le stress
-        df_c4700_stresse = appliquer_stress_montant_sur_c4700(df_c4700, montant_annuel, debug)
+        # Appliquer le stress sur la version précédente
+        df_c4700_stresse = appliquer_stress_montant_sur_c4700(df_c4700_base, montant_annuel, debug)
 
         # Recalcul de l’exposition totale
         total_exposure_stresse, df_c4700_final = calcul_total_exposure(df_c4700_stresse)
 
-        # Ratio stressé
         ratio_levier_stresse = (fonds_propres / total_exposure_stresse) * 100 if total_exposure_stresse > 0 else 0
-
-        if debug:
-            st.write(f"✅ Exposition totale : {total_exposure_stresse:,.0f}")
-            st.write(f"✅ Ratio levier stressé : {ratio_levier_stresse:.2f}%")
 
         # Stockage
         resultats_stress[annee] = {
@@ -115,5 +104,8 @@ def executer_stress_event1_levier_pluriannuel(
             "tier1": fonds_propres,
             "ratio_levier_stresse": round(ratio_levier_stresse, 2)
         }
+
+        # ⏭️ Propagation à l’année suivante
+        df_c4700_base = df_c4700_stresse.copy()
 
     return resultats_stress

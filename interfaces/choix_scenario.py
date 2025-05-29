@@ -387,8 +387,7 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     
     st.session_state.setdefault(f"ress{current_phase}", {})
 
-    ress = afficher_resultats_solva(bilan_stresse, params, resultats_proj)
-    print("ressssss", ress)
+    afficher_resultats_solva(bilan_stresse, params, resultats_proj)
 
 
 ###################""

@@ -92,8 +92,6 @@ def apply_custom_styles():
 
 def style_table(df, highlight_columns=None):
     """Stylise un tableau avec les couleurs PwC et formate les nombres."""
-    pwc_dark_blue = "#FFCDA8"
-    pwc_light_gray = "#f5f0e6"
 
     for col in df.columns:
         if pd.api.types.is_numeric_dtype(df[col]):
@@ -102,9 +100,9 @@ def style_table(df, highlight_columns=None):
     df = df.astype(str)
 
     table_styles = [
-        {"selector": "thead th", "props": f"background-color: {pwc_dark_blue}; color: black; font-weight: bold; text-align: center; padding: 8px;"},
+        {"selector": "thead th", "props": f"background-color: {PWC_LIGHT_BLUE}; color: black; font-weight: bold; text-align: center; padding: 8px;"},
         {"selector": "tbody td", "props": "padding: 6px; text-align: right;"},
-        {"selector": "tbody tr:nth-child(odd) td", "props": f"background-color: {pwc_light_gray};"},
+        {"selector": "tbody tr:nth-child(odd) td", "props": f"background-color: {PWC_LIGHT_BEIGE};"},
         {"selector": "tbody td:first-child", "props": "text-align: center; font-weight: bold;"},
         {"selector": "tbody td:nth-child(2)", "props": "text-align: left;"},
         {"selector": "table", "props": "width: 100%; border-collapse: collapse; font-size: 14px;"},
@@ -243,9 +241,9 @@ def plot_components_comparison(proj, sim1, sim2, sim3, horizon, components, titl
     years = list(range(2025, 2025 + horizon))
     scenarios = ["Projeté", "Phase 1", "Phase 2", "Phase 3"]
     scenario_colors = {
-        "Projeté": PWC_LIGHT_GRAY,
+        "Projeté": PWC_DARK_ORANGE,
         "Phase 1": PWC_ORANGE,
-        "Phase 2": PWC_DARK_ORANGE,
+        "Phase 2": PWC_LIGHT_BLUE,
         "Phase 3": PWC_LIGHT_BROWN
     }
     
@@ -383,9 +381,9 @@ def create_solva_table_capital(resultats, horizon):
 
         # CORRECTION : Vérifiez que ces clés correspondent à vos données
         data[annee] = [
-            year_data.get("Fonds propres", 0),
-            year_data.get("RWA Retrait", 0),
-            year_data.get("Ratio Retrait (%)", 0)
+            year_data.get("fonds_propres", 0),  # ou "fonds_propres"
+            year_data.get("rwa", 0),            # ou "rwa" 
+            year_data.get("ratio", 0)     # ou "ratio"
         ]
 
     return pd.DataFrame(data)
@@ -403,9 +401,9 @@ def create_levier_table_capital(resultats, horizon):
         #annee_int = int(annee)
         year_data = resultats.get(annee, {})
         data[annee] = [
-            year_data.get("Fonds propres"),
-            year_data.get("Exposition totale"),
-            year_data.get("Ratio de levier (%)", 0)
+            year_data.get("tier1"),
+            year_data.get("total_exposure"),
+            year_data.get("ratio", 0)
         ]
 
     return pd.DataFrame(data)
@@ -565,8 +563,6 @@ def calculate_projected_ratios(horizon):
     return calcul_ratios_sur_horizon(horizon, bilan, df_72, df_73, df_74, df_80, df_81)
 
 def show():
-
-
     apply_custom_styles()
     
     # Récupération des résultats
@@ -580,16 +576,14 @@ def show():
     sim3_liquidity = st.session_state.get('resultats_phase3', {})
     
     # Ratios de capital
-    proj_solva = st.session_state.get('resultats_solva', {})
-    proj_levier = st.session_state.get('resultats_levier', {})
-    sim1_solva= {item["Année"]: {k: v for k, v in item.items() if k != "Année"} for item in st.session_state["resultats_solva_pnu_phase1"]}
-    sim1_levier = {}
-    sim2_solva= {item["Année"]: {k: v for k, v in item.items() if k != "Année"} for item in st.session_state["resultats_solvabilite_phase2"]}
-    sim2_levier = {item["Année"]: {k: v for k, v in item.items() if k != "Année"} for item in st.session_state["resultats_levier_phase2"]}
-    sim3_solva= {item["Année"]: {k: v for k, v in item.items() if k != "Année"} for item in  st.session_state["resultats_solvabilite_phase3"]}
-    sim3_levier = {item["Année"]: {k: v for k, v in item.items() if k != "Année"} for item in  st.session_state["resultats_levier_phase3"]}
-
-  
+    proj_solva = st.session_state.get("resultats_solva", {})
+    proj_levier = st.session_state.get("resultats_levier", {})
+    sim1_solva = st.session_state.get("resultats_sim1_capital", {})
+    sim1_levier = st.session_state.get("resultats_sim1_levier", {})
+    sim2_solva = st.session_state.get("resultats_sim2_capital", {})
+    sim2_levier = st.session_state.get("resultats_sim2_levier", {})
+    sim3_solva = st.session_state.get("resultats_sim3_capital", {})
+    sim3_levier = st.session_state.get("resultats_sim3_levier", {})
 
     st.title("Résultats et Graphiques")
     st.write("Visualisez les résultats du test de stress et les graphiques comparatifs.")
@@ -684,7 +678,7 @@ def show():
         display_liquidity_tab_content(sim2_liquidity, horizon, tab4, "Phase 2")
         display_liquidity_tab_content(sim3_liquidity, horizon, tab5, "Phase 3")
     with tab_capital:
-    # Onglets pour les scénarios de capital
+        # Onglets pour les scénarios de capital (on garde les autres noms d'onglets mais on affiche seulement Projeté)
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
             "Récapitulatif",
             "Projeté",
@@ -692,65 +686,274 @@ def show():
             "Phase 2",
             "Phase 3"
         ])
+    # Remplacez la section du tab1 par ce code corrigé :
 
-        # TAB 1 — Récapitulatif
         with tab1:
-            st.subheader("Comparaison des ratios de solvabilité et de levier")
+            st.markdown("### Comparaison des ratios de capital (%)", unsafe_allow_html=True)
 
-            # --- Cartes Résumé ---
+            # Définition des phases à afficher
+            phases = ["Projeté", "Phase 1", "Phase 2", "Phase 3"]
+            annees = ["2024", "2025", "2026", "2027"]
+
+            # Mapping des resultats dans session_state
+            mapping_solva = {
+                "Projeté": "resultats_solva_projete",
+                "Phase 1": "resultats_solvabilite_phase1",
+                "Phase 2": "resultats_solvabilite_phase2",
+                "Phase 3": "resultats_solvabilite_phase3",
+            }
+
+            mapping_levier = {
+                "Projeté": "resultats_levier_projete",
+                "Phase 1": "resultats_levier_phase1",
+                "Phase 2": "resultats_levier_phase2",
+                "Phase 3": "resultats_levier_phase3",
+            }
+
+            # Fonction inspirée de votre generer_tableau_comparatif_ratios
+            def get_ratio_unifie(phase, resultats, annee, type_ratio):
+                """
+                Récupère le ratio d'une année donnée selon le format de données
+                """
+                if phase == "Projeté":
+                    # Pour les données projetées : format dictionnaire par année
+                    if isinstance(resultats, dict) and annee in resultats:
+                        ratio_val = resultats[annee].get("ratio", 0)
+                        if isinstance(ratio_val, (int, float)) and not pd.isna(ratio_val):
+                            return f"{ratio_val:.2f}%"
+                else:
+                    # Pour les phases 1,2,3 : format liste comme dans vos autres fonctions
+                    if isinstance(resultats, list):
+                        cles_possibles = []
+                        if type_ratio == "solvabilite":
+                            cles_possibles = [
+                                "Ratio combiné (%)",
+                                "Ratio Retrait (%)", 
+                                "Ratio PNU (%)",
+                                "Solvabilité (%)"
+                            ]
+                        else:  # levier
+                            cles_possibles = [
+                                "Ratio de levier (%)",
+                                "Levier (%)"
+                            ]
+                        
+                        for r in resultats:
+                            if str(r.get("Année")) == annee:
+                                for cle in cles_possibles:
+                                    if cle in r:
+                                        ratio = r[cle]
+                                        if not pd.isna(ratio):
+                                            return f"{float(ratio):.2f}%"
+                                        break
+                return "N/A"
+
+            # Construction du tableau Solvabilité
+            tableau_solva = []
+            for phase in phases:
+                ligne = {"Scénario": phase}
+                resultats = st.session_state.get(mapping_solva.get(phase), [])
+                for annee in annees:
+                    ligne[annee] = get_ratio_unifie(phase, resultats, annee, "solvabilite")
+                tableau_solva.append(ligne)
+            df_solva = pd.DataFrame(tableau_solva)
+
+            # Construction du tableau Levier
+            tableau_levier = []
+            for phase in phases:
+                ligne = {"Scénario": phase}
+                resultats = st.session_state.get(mapping_levier.get(phase), [])
+                for annee in annees:
+                    ligne[annee] = get_ratio_unifie(phase, resultats, annee, "levier")
+                tableau_levier.append(ligne)
+            df_levier = pd.DataFrame(tableau_levier)
+
+            # Affichage côte à côte
             col1, col2 = st.columns(2)
-            last_year = 2024 + horizon
-            solva_value = sim3_solva.get(last_year, {}).get("ratio", 0)
-            levier_value = sim3_levier.get(last_year, {}).get("Ratio de levier (%)", 0)
-            
 
             with col1:
-                st.markdown(f"""
-                <div style="background-color:#f5f0e6; padding:20px; border-radius:15px;
-                            box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center;
-                            border-left: 8px solid #f47721">
-                    <h4 style="color:#2c2c2c; margin-bottom:10px;">Ratio de Solvabilité ({last_year})</h4>
-                    <p style="font-size:26px; font-weight:bold; color:#f47721; margin:0;">
-                      #  {solva_value:.2f}%
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("### Comparaison des ratios de solvabilité", unsafe_allow_html=True)
+                #st.dataframe(df_solva, use_container_width=True)
+                df_solva = style_table(df_solva, highlight_columns=["Scénario"])
+                st.markdown(df_solva.to_html(index=False), unsafe_allow_html=True)
 
             with col2:
-                st.markdown(f"""
-                <div style="background-color:#f5f0e6; padding:20px; border-radius:15px;
-                            box-shadow:0 4px 8px rgba(0,0,0,0.1); text-align:center;
-                            border-left: 8px solid #f47721">
-                    <h4 style="color:#2c2c2c; margin-bottom:10px;">Ratio de Levier ({last_year})</h4>
-                    <p style="font-size:26px; font-weight:bold; color:#f47721; margin:0;">
-                        {levier_value:.2f}%
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("### Comparaison des ratios de levier", unsafe_allow_html=True)
+                df_levier = style_table(df_levier, highlight_columns=["Scénario"])
+                st.markdown(df_levier.to_html(index=False), unsafe_allow_html=True)
 
-            st.subheader("Comparaison visuelle des ratios réglementaires")
+                # Onglet TAB 2 — Projeté
+                with tab2:
+                    st.subheader("Ratios projetés – Solvabilité et Levier")
+                    
+                    # Appel de ta fonction personnalisée
+                    afficher_ratios_solva_levier_projete(proj_solva, proj_levier, horizon)
+        with tab3:
+            st.subheader("Résultats du ratio de solvabilité - Phase 1")
 
-            # --- Graphique Solvabilité ---
-            solva_df = create_comparison_data_capital(proj_solva, sim1_solva, sim2_solva, sim3_solva, horizon, "Solvabilité")
-            st.plotly_chart(plot_metric_comparison(solva_df, "Évolution du ratio de solvabilité (%)", threshold=8),
-                use_container_width=True, key="chart_solva_compare")
+            # Mapping des événements à leurs résultats
+            recap_key_map = {
+                "Retrait massif des dépôts": "resultats_solvabilite_phase1",
+                "Tirage PNU": "resultats_solva_pnu_phase1"
+            }
 
-            # --- Graphique Levier ---
-            levier_df = create_comparison_data_capital(proj_levier, sim1_levier, sim2_levier, sim3_levier, horizon, "Levier")
-            st.plotly_chart(plot_metric_comparison(levier_df, "Évolution du ratio de levier (%)", threshold=3),
-                use_container_width=True, key="chart_levier_compare")
+            recap_levier_key_map = {
+                "Retrait massif des dépôts": "resultats_levier_phase1"
+                # Ajoute d'autres événements si nécessaire
+            }
 
-            # --- Graphe des composantes ---
-            st.subheader("Analyse des composantes des ratios")
-            st.plotly_chart(plot_components_comparison_capital(
-                proj_levier, sim1_levier, sim2_levier, sim3_levier,
-                horizon,
-                ["Fonds propres", "RWA", "Tier1", "Exposition levier"],
-                "Composantes du capital et levier par scénario"
-            ), use_container_width=True,key="chart_capital_components")
+            for event in st.session_state.get("selected_events_phase1", []):
+                key_solva = recap_key_map.get(event)
+                key_levier = recap_levier_key_map.get(event)
 
-        # Other tabs for capital
-        display_capital_tab_content(proj_solva, proj_levier, horizon, tab2, "Scenario Projeté")
-        display_capital_tab_content(sim1_solva, sim1_levier, horizon, tab3, "Phase 1")
-        display_capital_tab_content(sim2_solva, sim2_levier, horizon, tab4, "Phase 2")
-        display_capital_tab_content(sim3_solva, sim3_levier, horizon, tab5, "Phase 3")  # Utilisation de tab5 ici
+                if key_solva and key_solva in st.session_state:
+                    recap = st.session_state[key_solva]
+                    afficher_tableau_recapitulatif(recap, ratio_type="Solvabilité")
+                else:
+                    st.info(f"Aucun résultat de solvabilité pour l'événement : {event}")
+
+                if key_levier and key_levier in st.session_state:
+                    st.markdown(f"**Impact sur le ratio de levier : {event}**")
+                    recap_levier = st.session_state[key_levier]
+                    afficher_tableau_recapitulatif_levier(recap_levier)
+
+        with tab4:
+            st.subheader("Résultats – Phase 2")
+
+            # --- Solvabilité ---
+            recap_solva_phase2 = st.session_state.get("resultats_solvabilite_phase2", [])
+            if recap_solva_phase2:
+                st.markdown("### Ratio de Solvabilité – Phase 2")
+                afficher_tableau_recapitulatif(recap_solva_phase2, ratio_type="Solvabilité")
+            else:
+                st.info("Aucun résultat de solvabilité disponible pour la phase 2.")
+
+            st.markdown("---")
+
+            # --- Levier ---
+            recap_levier_phase2 = st.session_state.get("resultats_levier_phase2", [])
+            if recap_levier_phase2:
+                st.markdown("### Ratio de Levier – Phase 2")
+                afficher_tableau_recapitulatif_levier(recap_levier_phase2)
+            else:
+                st.info("Aucun résultat de levier disponible pour la phase 2.")
+        with tab5:
+            st.subheader("Résultats – Phase 3 (Simulation combinée)")
+
+            # --- Solvabilité combinée ---
+            recap_solva_phase3 = st.session_state.get("resultats_solvabilite_phase3", [])
+            if recap_solva_phase3:
+                st.markdown("### Ratio de Solvabilité – Phase 3")
+                afficher_tableau_recapitulatif(recap_solva_phase3, ratio_type="Solvabilité")
+            else:
+                st.info("Aucun résultat de solvabilité combiné disponible pour la phase 3.")
+
+            st.markdown("---")
+
+            # --- Levier combiné ---
+            recap_levier_phase3 = st.session_state.get("resultats_levier_phase3", [])
+            if recap_levier_phase3:
+                st.markdown("### Ratio de Levier – Phase 3")
+                afficher_tableau_recapitulatif_levier(recap_levier_phase3)
+            else:
+                st.info("Aucun résultat de levier combiné disponible pour la phase 3.")
+
+####new 
+def afficher_ratios_solva_levier_projete(resultats_solva, resultats_levier, horizon):
+
+    annees = [str(2024 + i) for i in range(horizon + 1)]
+
+    # -------- TABLEAU SOLVABILITÉ --------
+    st.markdown("### Ratio Solvabilité – Scénario Projeté")
+
+    data_solva = {
+        "Fonds Propres": [],
+        "RWA": [],
+        "Solvabilité (%)": []
+    }
+
+    for annee in annees:
+        resultat = resultats_solva.get(annee, {})
+        data_solva["Fonds Propres"].append(resultat.get("fonds_propres", 0))
+        data_solva["RWA"].append(resultat.get("rwa", 0))
+        data_solva["Solvabilité (%)"].append(round(resultat.get("ratio", 0), 2))
+
+    df_solva = pd.DataFrame(data_solva, index=annees).T
+
+    df_solva= style_table(df_solva, highlight_columns=[" "])
+    st.markdown(df_solva.to_html(index=False), unsafe_allow_html=True)
+
+    # -------- TABLEAU LEVIER --------
+    st.markdown("### Ratio Levier – Scénario Projeté")
+
+    data_levier = {
+        "Tier 1": [],
+        "Exposition Totale": [],
+        "Levier (%)": []
+    }
+
+    for annee in annees:
+        resultat = resultats_levier.get(annee, {})
+        data_levier["Tier 1"].append(resultat.get("tier1", 0))
+        data_levier["Exposition Totale"].append(resultat.get("total_exposure", 0))
+        data_levier["Levier (%)"].append(round(resultat.get("ratio", 0), 2))
+
+    df_levier = pd.DataFrame(data_levier, index=annees).T
+    df_levier= style_table(df_levier, highlight_columns=[" "])
+    st.markdown(df_levier.to_html(index=False), unsafe_allow_html=True)
+
+def afficher_tableau_recapitulatif(recap_data, ratio_type):
+    if not isinstance(recap_data, list) or not all(isinstance(x, dict) for x in recap_data):
+        st.error("Les données de récapitulatif ne sont pas au bon format.")
+        return
+
+    df = pd.DataFrame([{
+        "Année": x.get("Année"),
+        "Fonds propres": f"{x.get('Fonds propres', 0):,.2f}".replace(',', ' '),
+        "RWA total": f"{x.get('RWA total') or x.get('RWA Retrait') or x.get('RWA total PNU') or 0:,.2f}".replace(',', ' ') if x.get("RWA total") or x.get("RWA Retrait") or x.get("RWA total PNU") else "",
+        "RWA combiné": f"{x.get('RWA combiné') or 0:,.2f}".replace(','," ") if x.get("RWA combiné") else "",
+        "Ratio (%)": f"{x.get('Ratio Retrait (%)') or x.get('Ratio PNU (%)') or 0:.2f}%",
+        "Ratio combiné (%)": f"{x.get('Ratio combiné (%)', ''):.2f}%" if x.get("Ratio combiné (%)") is not None else ""
+    } for x in recap_data])
+
+    df= style_table(df, highlight_columns=[" "])
+    st.markdown(df.to_html(index=False), unsafe_allow_html=True)
+
+def afficher_tableau_recapitulatif_levier(recap_data):
+    if not recap_data:
+        st.warning("Aucune donnée disponible pour le ratio de levier.")
+        return
+
+    df_affiche = pd.DataFrame([{
+        "Année": r["Année"],
+        "Fonds propres": format_large_number(r["Fonds propres"]),
+        "Exposition totale": format_large_number(r["Exposition totale"]),
+        "Ratio de levier (%)": f"{r['Ratio de levier (%)']:.2f}%"
+    } for r in recap_data])
+
+    df_affiche= style_table(df_affiche, highlight_columns=[" "])
+    st.markdown(df_affiche.to_html(index=False), unsafe_allow_html=True)
+
+def generer_tableau_comparatif_ratios(resultats_dict: dict, cle_possibles: list) -> pd.DataFrame:
+    annees = ["2024", "2025", "2026", "2027"]
+    tableau = []
+
+    for scenario, resultats in resultats_dict.items():
+        ligne = {"Scénario": scenario}
+        for annee in annees:
+            valeur = "N/A"
+            for r in resultats:
+                if str(r.get("Année")) == annee:
+                    for cle in cle_possibles:
+                        if cle in r:
+                            ratio = r[cle]
+                            if pd.isna(ratio):
+                                valeur = "N/A"
+                            else:
+                                valeur = f"{float(ratio):.2f}%"
+                            break
+                    break
+            ligne[annee] = valeur
+        tableau.append(ligne)
+
+    return pd.DataFrame(tableau)
