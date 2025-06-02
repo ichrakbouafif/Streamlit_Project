@@ -1313,7 +1313,7 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     st.markdown("### Résultats du stress test")
    
     # Afficher les ratios dans des cartes
-    afficher_ratios_tirage_pnu()
+    #afficher_ratios_tirage_pnu()
    
     # Section LCR - Correction de l'appel de fonction en passant params comme second argument
     st.subheader("Impact sur la liquidité (LCR)")

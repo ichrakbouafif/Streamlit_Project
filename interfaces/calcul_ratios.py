@@ -382,7 +382,7 @@ def show():
             st.session_state.last_changed = "retail"
 
         # Affichage
-        st.markdown("#### Répartition du Capital Planning sur les Créances Clientèle")
+        st.markdown("#### Répartition du Capital Planning sur les Créances Clientèles")
 
         col1, col2, col3 = st.columns([1, 1, 1])
 

@@ -73,6 +73,7 @@ scenarios = {
         "Augmentation soudaine des exigences en capital": ["Capital social", "Emprunts et ressources spéciales"]
     },
     "macroéconomique": {
+        "Tirage PNU": ["Créances clientèle"],
         "Détérioration portefeuille d’investissement": ["Portefeuille-titres commercial"],
         "Effondrement du marché immobilier": ["Valeurs immobilisées", "Créances sur la clientèle", "Portefeuille d’investissement immobilier"],
         "Retrait massif des dépôts": ["Dépôts et avoirs de la clientèle"]

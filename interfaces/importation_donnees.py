@@ -63,7 +63,7 @@ def show():
     # Bouton suivant
 """     if st.button("Suivant"):
         if bilan and all(expected_files.values()):
-            st.session_state.selected_page = "Calcul des Ratios Baseline"
+            st.session_state.selected_page = "Calcul des Ratios Basel   ine"
         else:
             st.error("Erreur : Veuillez importer tous les fichiers requis avant de continuer.") """
 
