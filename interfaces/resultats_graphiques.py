@@ -568,9 +568,9 @@ def create_solva_table_capital(resultats, horizon):
 
         # CORRECTION : Vérifiez que ces clés correspondent à vos données
         data[annee] = [
-            year_data.get("fonds_propres", 0),  # ou "fonds_propres"
-            year_data.get("rwa", 0),            # ou "rwa" 
-            year_data.get("ratio", 0)     # ou "ratio"
+            format_millions(year_data.get("fonds_propres", 0)),  # ou "fonds_propres"
+            format_millions(year_data.get("rwa", 0)),            # ou "rwa" 
+            year_data.get("ratio", 0)   # ou "ratio"
         ]
 
     return pd.DataFrame(data)
@@ -588,8 +588,8 @@ def create_levier_table_capital(resultats, horizon):
         #annee_int = int(annee)
         year_data = resultats.get(annee, {})
         data[annee] = [
-            year_data.get("tier1"),
-            year_data.get("total_exposure"),
+            format_millions(year_data.get("tier1")),
+            format_millions(year_data.get("total_exposure")),
             year_data.get("ratio", 0)
         ]
 
@@ -605,21 +605,21 @@ def create_comparison_data_capital(proj, sim1, sim2, sim3, horizon, ratio_type):
 
     for year in years:
         # Utilisation des bonnes clés selon le type de ratio
-        data.append({"Year": year, "Scenario": "Projeté", "Value": proj.get(year, {}).get(ratio_type, 0)})
-        data.append({"Year": year, "Scenario": "Phase 1", "Value": sim1.get(year, {}).get(ratio_type, 0)})
-        data.append({"Year": year, "Scenario": "Phase 2", "Value": sim2.get(year, {}).get(ratio_type, 0)})
-        data.append({"Year": year, "Scenario": "Phase 3", "Value": sim3.get(year, {}).get(ratio_type, 0)})
+        data.append({"Year": year, "Scenario": "Scénario Baseline", "Value": proj.get(year, {}).get(ratio_type, 0)})
+        data.append({"Year": year, "Scenario": "Scénario Idiosyncratique", "Value": sim1.get(year, {}).get(ratio_type, 0)})
+        data.append({"Year": year, "Scenario": "Scénario Macroéconomique", "Value": sim2.get(year, {}).get(ratio_type, 0)})
+        data.append({"Year": year, "Scenario": "Scénario Combiné", "Value": sim3.get(year, {}).get(ratio_type, 0)})
 
     return pd.DataFrame(data)
 def plot_components_comparison_capital(proj, sim1, sim2, sim3, horizon, components, title):
     """Affiche un graphique en barres groupées pour les composantes des ratios de capital"""
     years = list(range(2024, 2024 + horizon + 1))
-    scenarios = ["Projeté", "Phase 1", "Phase 2", "Phase 3"]
+    scenarios = ["Scénario Baseline", "Scénario Idiosyncratique", "Scénario Macroéconomique", "Scénario Combiné"]
     scenario_colors = {
-        "Projeté": PWC_LIGHT_GRAY,
-        "Phase 1": PWC_ORANGE,
-        "Phase 2": PWC_DARK_ORANGE,
-        "Phase 3": PWC_LIGHT_BROWN
+        "Scénario Baseline": PWC_LIGHT_GRAY,
+        "Scénario Idiosyncratique": PWC_ORANGE,
+        "Scénario Macroéconomique": PWC_DARK_ORANGE,
+        "Scénario Combiné": PWC_LIGHT_BROWN
     }
 
     data = []
@@ -911,7 +911,7 @@ def show():
 
                 # Onglet TAB 2 — Projeté
     with tab2:
-            st.subheader("Ratios projetés – Solvabilité et Levier")
+            #st.subheader("Ratios projetés – Solvabilité et Levier")
 
             df_proj_solva, df_proj_levier = afficher_ratios_solva_levier_projete(proj_solva, proj_levier, horizon)
             st.session_state["df_solva_projete"] = df_proj_solva
@@ -953,7 +953,7 @@ def show():
             # --- Solvabilité ---
             recap_solva_phase2 = st.session_state.get("resultats_solvabilite_phase2", [])
             if recap_solva_phase2:
-                st.markdown("### Ratio de Solvabilité – Phase 2")
+                st.markdown("### Ratio de Solvabilité – Scénario Macroéconomique")
                 df2 = afficher_tableau_recapitulatif(recap_solva_phase2, ratio_type="Solvabilité")
                 st.session_state["df_solva_phase2"] = df2
 
@@ -965,36 +965,36 @@ def show():
             # --- Levier ---
             recap_levier_phase2 = st.session_state.get("resultats_levier_phase2", [])
             if recap_levier_phase2:
-                st.markdown("### Ratio de Levier – Phase 2")
+                st.markdown("### Ratio de Levier – Scénario Macroéconomique")
                 df2_lev = afficher_tableau_recapitulatif_levier(recap_levier_phase2)
                 st.session_state["df_levier_phase2"] = df2_lev
 
             else:
-                st.info("Aucun résultat de levier disponible pour la phase 2.")
+                st.info("Aucun résultat de levier disponible pour le Scénario Macroéconomique.")
     with tab5:
-            st.subheader("Résultats – Phase 3 (Simulation combinée)")
+            #st.subheader("Résultats – (Simulation combinée)")
 
             # --- Solvabilité combinée ---
             recap_solva_phase3 = st.session_state.get("resultats_solvabilite_phase3", [])
             if recap_solva_phase3:
-                st.markdown("### Ratio de Solvabilité – Phase 3")
+                st.markdown("### Ratio de Solvabilité – Scénario Combiné")
                 df3 = afficher_tableau_recapitulatif(recap_solva_phase3, ratio_type="Solvabilité")
                 st.session_state["df_solva_phase3"] = df3
 
             else:
-                st.info("Aucun résultat de solvabilité combiné disponible pour la phase 3.")
+                st.info("Aucun résultat de solvabilité combiné disponible pour Scénario Combiné.")
 
             st.markdown("---")
 
             # --- Levier combiné ---
             recap_levier_phase3 = st.session_state.get("resultats_levier_phase3", [])
             if recap_levier_phase3:
-                st.markdown("### Ratio de Levier – Phase 3")
+                st.markdown("### Ratio de Levier – Scénario Combiné")
                 df3_lev = afficher_tableau_recapitulatif_levier(recap_levier_phase3)
                 st.session_state["df_levier_phase3"] = df3_lev
 
             else:
-                st.info("Aucun résultat de levier combiné disponible pour la phase 3.")
+                st.info("Aucun résultat de levier combiné disponible pour Scénario Combiné.")
 
 ####new 
 def afficher_ratios_solva_levier_projete(resultats_solva, resultats_levier, horizon):
@@ -1002,9 +1002,10 @@ def afficher_ratios_solva_levier_projete(resultats_solva, resultats_levier, hori
     annees = [str(2024 + i) for i in range(horizon + 1)]
 
     # -------- TABLEAU SOLVABILITÉ --------
-    st.markdown("### Ratio Solvabilité – Scénario Projeté")
+    st.markdown("### Ratio Solvabilité – Scénario Baseline")
 
     data_solva = {
+        "Année": [],
         "Fonds Propres": [],
         "RWA": [],
         "Solvabilité (%)": []
@@ -1012,19 +1013,21 @@ def afficher_ratios_solva_levier_projete(resultats_solva, resultats_levier, hori
 
     for annee in annees:
         resultat = resultats_solva.get(annee, {})
-        data_solva["Fonds Propres"].append(resultat.get("fonds_propres", 0))
-        data_solva["RWA"].append(resultat.get("rwa", 0))
+        data_solva["Année"].append(annee)
+        data_solva["Fonds Propres"].append(format_millions(resultat.get("fonds_propres", 0)))
+        data_solva["RWA"].append(format_millions(resultat.get("rwa", 0)))
         data_solva["Solvabilité (%)"].append(round(resultat.get("ratio", 0), 2))
 
-    df_solva = pd.DataFrame(data_solva, index=annees).T
-
+    df_solva = pd.DataFrame(data_solva)
+    #st.dataframe(df_solva, use_container_width=True)
     df_solva= style_table(df_solva, highlight_columns=[" "])
-    st.markdown(df_solva.to_html(index=False), unsafe_allow_html=True)
+    st.markdown(df_solva.to_html(), unsafe_allow_html=True)
 
     # -------- TABLEAU LEVIER --------
-    st.markdown("### Ratio Levier – Scénario Projeté")
+    st.markdown("### Ratio Levier – Scénario Baseline")
 
     data_levier = {
+        "Année": [],
         "Tier 1": [],
         "Exposition Totale": [],
         "Levier (%)": []
@@ -1032,11 +1035,12 @@ def afficher_ratios_solva_levier_projete(resultats_solva, resultats_levier, hori
 
     for annee in annees:
         resultat = resultats_levier.get(annee, {})
-        data_levier["Tier 1"].append(resultat.get("tier1", 0))
-        data_levier["Exposition Totale"].append(resultat.get("total_exposure", 0))
+        data_levier["Année"].append(annee)
+        data_levier["Tier 1"].append(format_millions(resultat.get("tier1", 0)))
+        data_levier["Exposition Totale"].append(format_millions(resultat.get("total_exposure", 0)))
         data_levier["Levier (%)"].append(round(resultat.get("ratio", 0), 2))
 
-    df_levier = pd.DataFrame(data_levier, index=annees).T
+    df_levier = pd.DataFrame(data_levier)
     df_levier= style_table(df_levier, highlight_columns=[" "])
     st.markdown(df_levier.to_html(index=False), unsafe_allow_html=True)
     st.session_state["df_solva_projete"] = df_solva
@@ -1047,15 +1051,18 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
     if not isinstance(recap_data, list) or not all(isinstance(x, dict) for x in recap_data):
         st.error("Les données de récapitulatif ne sont pas au bon format.")
         return
-
+    
     df = pd.DataFrame([{
         "Année": x.get("Année"),
-        "Fonds propres": f"{x.get('Fonds propres', 0):,.2f}".replace(',', ' '),
-        "RWA total": f"{x.get('RWA total') or x.get('RWA Retrait') or x.get('RWA total PNU') or 0:,.2f}".replace(',', ' ') if x.get("RWA total") or x.get("RWA Retrait") or x.get("RWA total PNU") else "",
-        "RWA combiné": f"{x.get('RWA combiné') or 0:,.2f}".replace(','," ") if x.get("RWA combiné") else "",
+        "Fonds propres": format_millions(x.get('Fonds propres', 0)),
+        "RWA total": format_millions(
+            x.get('RWA total') or x.get('RWA Retrait') or x.get('RWA total PNU') or 0
+        ) if x.get("RWA total") or x.get("RWA Retrait") or x.get("RWA total PNU") else "",
+        "RWA combiné": format_millions(x.get('RWA combiné') or 0) if x.get("RWA combiné") else "",
         "Ratio (%)": f"{x.get('Ratio Retrait (%)') or x.get('Ratio PNU (%)') or 0:.2f}%",
-        "Ratio combiné (%)": f"{x.get('Ratio combiné (%)', ''):.2f}%" if x.get("Ratio combiné (%)") is not None else ""
+        "Ratio combiné (%)": f"{x.get('Ratio combiné (%)', 0):.2f}%" if x.get("Ratio combiné (%)") is not None else ""
     } for x in recap_data])
+
 
     df= style_table(df, highlight_columns=[" "])
     st.markdown(df.to_html(index=False), unsafe_allow_html=True)
@@ -1068,8 +1075,8 @@ def afficher_tableau_recapitulatif_levier(recap_data):
 
     df_affiche = pd.DataFrame([{
         "Année": r["Année"],
-        "Fonds propres": format_large_number(r["Fonds propres"]),
-        "Exposition totale": format_large_number(r["Exposition totale"]),
+        "Fonds propres": format_millions(r["Fonds propres"]),
+        "Exposition totale": format_millions(r["Exposition totale"]),
         "Ratio de levier (%)": f"{r['Ratio de levier (%)']:.2f}%"
     } for r in recap_data])
 
