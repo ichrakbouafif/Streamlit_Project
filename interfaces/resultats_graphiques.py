@@ -46,8 +46,8 @@ def format_millions(value):
     if pd.isna(value) or value is None:
         return "N/A"
     if value == 0:
-        return "0.00 M$"
-    return f"{value / 1_000_000:.2f} M$"
+        return "0.00 M€"
+    return f"{value / 1_000_000:.2f} M€"
 
 
 def apply_custom_styles():
@@ -775,7 +775,7 @@ def show():
     sim3_levier = st.session_state.get("resultats_sim3_levier", {})
 
     st.title("Résultats et Graphiques")
-    st.write("Visualisez les résultats du test de stress et les graphiques comparatifs.")
+    st.write("Visualisez les résultats du stress test et les graphiques comparatifs.")
 
     # Création des onglets
     tab_liquidity, tab_capital = st.tabs(["Ratios de Liquidité", "Ratios de Capital"])
@@ -938,39 +938,137 @@ def show():
 
                 if key_solva and key_solva in st.session_state:
                     recap = st.session_state[key_solva]
-                    df1 = afficher_tableau_recapitulatif(recap, ratio_type="Solvabilité")
+                    df1 = afficher_tableau_recapitulatif(recap, ratio_type="Solvabilité",    drop_combined=True
+)
                     st.session_state["df_solva_phase1"] = df1
 
-                else:
-                    st.info(f"Aucun résultat de solvabilité pour l'événement : {event}")
+                        # 2) Histogramme à partir de la liste `recap`
+# 2) Histogramme Solvabilité – Idiosyncratique
+                    if recap:
+                        df_temp = pd.DataFrame(recap).set_index("Année")
+                        # Cherche dynamiquement la colonne RWA
+                        rwa_col = next((c for c in ("RWA total", "RWA Retrait", "RWA total PNU") if c in df_temp), None)
+                        if rwa_col:
+                            # Prépare les séries en M€
+                            fonds = df_temp["Fonds propres"].astype(float).div(1e6)
+                            rwas  = df_temp[rwa_col].astype(float).div(1e6)
 
+                            # Deux colonnes pour afficher côte-à-côte
+                            col1, col2 = st.columns(2)
+
+                            with col1:
+                                fig1 = px.bar(
+                                    x=fonds.index,
+                                    y=fonds.values,
+                                    labels={"x":"Année", "y":"Fonds Propres (M€)"},
+                                    title="Fonds Propres – Idiosyncratique",
+                                    color_discrete_sequence=[PWC_ORANGE]
+                                )
+                                st.plotly_chart(fig1, use_container_width=True)
+
+                            with col2:
+                                fig2 = px.bar(
+                                    x=rwas.index,
+                                    y=rwas.values,
+                                    labels={"x":"Année", "y":"RWA (M€)"},
+                                    title="RWA – Idiosyncratique",
+                                    color_discrete_sequence=[PWC_LIGHT_BLUE]
+                                )
+                                st.plotly_chart(fig2, use_container_width=True)
+
+                        else:
+                            st.warning("Impossible de trouver la colonne RWA pour l'histogramme.")
+                    else:
+                        st.warning("Pas de données de solvabilité à tracer.")
                 if key_levier and key_levier in st.session_state:
                     recap_levier = st.session_state[key_levier]
                     df1_lev = afficher_tableau_recapitulatif_levier(recap_levier)
                     st.session_state["df_levier_phase1"] = df1_lev
 
     with tab4:
-            # --- Solvabilité ---
-            recap_solva_phase2 = st.session_state.get("resultats_solvabilite_phase2", [])
-            if recap_solva_phase2:
-                st.markdown("### Ratio de Solvabilité – Scénario Macroéconomique")
-                df2 = afficher_tableau_recapitulatif(recap_solva_phase2, ratio_type="Solvabilité")
-                st.session_state["df_solva_phase2"] = df2
+        # --- Solvabilité ---
+        recap_solva_phase2 = st.session_state.get("resultats_solvabilite_phase2", [])
+        if recap_solva_phase2:
+            st.markdown("### Ratio de Solvabilité – Scénario Macroéconomique")
+            df2 = afficher_tableau_recapitulatif(
+                recap_solva_phase2,
+                ratio_type="Solvabilité",
+                drop_combined=True
+            )
+            st.session_state["df_solva_phase2"] = df2
 
+            # ─── Histogrammes Solvabilité Macro ───
+            df_temp = pd.DataFrame(recap_solva_phase2).set_index("Année")
+            rwa_col = next((c for c in ("RWA total", "RWA Retrait", "RWA total PNU") if c in df_temp), None)
+            if rwa_col:
+                fonds2 = df_temp["Fonds propres"].astype(float).div(1e6)
+                rwas2  = df_temp[rwa_col].astype(float).div(1e6)
+                y_max = max(fonds2.max(), rwas2.max())
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    fig_fp2 = px.bar(
+                        x=fonds2.index, y=fonds2.values,
+                        labels={"x": "Année", "y": "Fonds Propres (M€)"},
+                        title="Fonds Propres – Macroéconomique",
+                        color_discrete_sequence=[PWC_ORANGE],
+                        range_y=[0, y_max]
+                    )
+                    st.plotly_chart(fig_fp2, use_container_width=True)
+                with col2:
+                    fig_rwa2 = px.bar(
+                        x=rwas2.index, y=rwas2.values,
+                        labels={"x": "Année", "y": "RWA (M€)"},
+                        title="RWA – Macroéconomique",
+                        color_discrete_sequence=[PWC_LIGHT_BLUE],
+                        range_y=[0, y_max]
+                    )
+                    st.plotly_chart(fig_rwa2, use_container_width=True)
             else:
-                st.info("Aucun résultat de solvabilité disponible pour la phase 2.")
+                st.warning("Colonne RWA introuvable pour l'histogramme de solvabilité Macro.")
+        else:
+            st.info("Aucun résultat de solvabilité disponible pour la phase 2.")
 
-            st.markdown("---")
+        st.markdown("---")
 
-            # --- Levier ---
-            recap_levier_phase2 = st.session_state.get("resultats_levier_phase2", [])
-            if recap_levier_phase2:
-                st.markdown("### Ratio de Levier – Scénario Macroéconomique")
-                df2_lev = afficher_tableau_recapitulatif_levier(recap_levier_phase2)
-                st.session_state["df_levier_phase2"] = df2_lev
+        # --- Levier ---
+        recap_levier_phase2 = st.session_state.get("resultats_levier_phase2", [])
+        if recap_levier_phase2:
+            st.markdown("### Ratio de Levier – Scénario Macroéconomique")
+            df2_lev = afficher_tableau_recapitulatif_levier(recap_levier_phase2)
+            st.session_state["df_levier_phase2"] = df2_lev
 
+            # ─── Histogrammes Levier Macro ───
+            df_temp2 = pd.DataFrame(recap_levier_phase2).set_index("Année")
+            if {"Fonds propres", "Exposition totale"}.issubset(df_temp2.columns):
+                tier2 = df_temp2["Fonds propres"].astype(float).div(1e6)
+                expo2 = df_temp2["Exposition totale"].astype(float).div(1e6)
+                y_max2 = max(tier2.max(), expo2.max())
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    fig_tier2 = px.bar(
+                        x=tier2.index, y=tier2.values,
+                        labels={"x": "Année", "y": "Tier 1 (M€)"},
+                        title="Tier 1 – Macroéconomique",
+                        color_discrete_sequence=[PWC_ORANGE],
+                        range_y=[0, y_max2]
+                    )
+                    st.plotly_chart(fig_tier2, use_container_width=True)
+                with col2:
+                    fig_expo2 = px.bar(
+                        x=expo2.index, y=expo2.values,
+                        labels={"x": "Année", "y": "Exposition (M€)"},
+                        title="Exposition – Macroéconomique",
+                        color_discrete_sequence=[PWC_LIGHT_BLUE],
+                        range_y=[0, y_max2]
+                    )
+                    st.plotly_chart(fig_expo2, use_container_width=True)
             else:
-                st.info("Aucun résultat de levier disponible pour le Scénario Macroéconomique.")
+                st.warning("Colonnes Fonds propres/Exposition manquantes pour l'histogramme Levier Macro.")
+        else:
+            st.info("Aucun résultat de levier disponible pour la phase 2.")
+
     with tab5:
             #st.subheader("Résultats – (Simulation combinée)")
 
@@ -1022,6 +1120,26 @@ def afficher_ratios_solva_levier_projete(resultats_solva, resultats_levier, hori
     #st.dataframe(df_solva, use_container_width=True)
     df_solva= style_table(df_solva, highlight_columns=[" "])
     st.markdown(df_solva.to_html(), unsafe_allow_html=True)
+    # --- Histogramme Solvabilité ---
+# Reconstruire un DF numérique pour le graphique
+# —– Graphique Composantes Solvabilité —–
+# Reconstruction d’un mini-DF numérique
+    solva_chart = pd.DataFrame({
+        "Année": data_solva["Année"],
+        "Fonds Propres (M€)": [resultats_solva.get(a, {}).get("fonds_propres",0)/1e6 for a in data_solva["Année"]],
+        "RWA (M€)":            [resultats_solva.get(a, {}).get("rwa",0)/1e6           for a in data_solva["Année"]],
+    })
+    # Bar chart groupé avec orange fluo et orange clair
+    fig_solva = px.bar(
+        solva_chart,
+        x="Année",
+        y=["Fonds Propres (M€)", "RWA (M€)"],
+        barmode="group",
+        color_discrete_sequence=[PWC_ORANGE, PWC_LIGHT_BLUE],
+        title="Composantes du Ratio de Solvabilité (en M€)"
+    )
+    st.plotly_chart(fig_solva, use_container_width=True)
+
 
     # -------- TABLEAU LEVIER --------
     st.markdown("### Ratio Levier – Scénario Baseline")
@@ -1043,11 +1161,27 @@ def afficher_ratios_solva_levier_projete(resultats_solva, resultats_levier, hori
     df_levier = pd.DataFrame(data_levier)
     df_levier= style_table(df_levier, highlight_columns=[" "])
     st.markdown(df_levier.to_html(index=False), unsafe_allow_html=True)
+    # —– Graphique Composantes Levier —–
+    levier_chart = pd.DataFrame({
+        "Année": data_levier["Année"],
+        "Tier 1 (M€)":     [resultats_levier.get(a, {}).get("tier1",0)/1e6         for a in data_levier["Année"]],
+        "Exposition (M€)": [resultats_levier.get(a, {}).get("total_exposure",0)/1e6 for a in data_levier["Année"]],
+    })
+    fig_levier = px.bar(
+        levier_chart,
+        x="Année",
+        y=["Tier 1 (M€)", "Exposition (M€)"],
+        barmode="group",
+        color_discrete_sequence=[PWC_ORANGE, PWC_LIGHT_BLUE],
+        title="Composantes du Ratio de Levier (en M€)"
+    )
+    st.plotly_chart(fig_levier, use_container_width=True)
+
     st.session_state["df_solva_projete"] = df_solva
     st.session_state["df_levier_projete"] = df_levier
     return df_solva, df_levier
 
-def afficher_tableau_recapitulatif(recap_data, ratio_type):
+def afficher_tableau_recapitulatif(recap_data, ratio_type, drop_combined=False):
     if not isinstance(recap_data, list) or not all(isinstance(x, dict) for x in recap_data):
         st.error("Les données de récapitulatif ne sont pas au bon format.")
         return
@@ -1062,7 +1196,9 @@ def afficher_tableau_recapitulatif(recap_data, ratio_type):
         "Ratio (%)": f"{x.get('Ratio Retrait (%)') or x.get('Ratio PNU (%)') or 0:.2f}%",
         "Ratio combiné (%)": f"{x.get('Ratio combiné (%)', 0):.2f}%" if x.get("Ratio combiné (%)") is not None else ""
     } for x in recap_data])
-
+ # si on est en idiosyncratique, on enlève les deux colonnes combinées
+    if drop_combined:
+       df = df.drop(columns=["RWA combiné", "Ratio combiné (%)"], errors="ignore")
 
     df= style_table(df, highlight_columns=[" "])
     st.markdown(df.to_html(index=False), unsafe_allow_html=True)

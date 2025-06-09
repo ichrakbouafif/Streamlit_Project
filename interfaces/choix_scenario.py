@@ -18,8 +18,10 @@ from backend.nsfr.feuille_80 import calcul_RSF
 from backend.nsfr.feuille_81 import calcul_ASF
 # Import additional modules for leverage and solvency
 from backend.levier.calcul_ratio_levier import executer_stress_event1_levier_pluriannuel
+from backend.stress_test.capital import executer_stress_pnu_levier_pluriannuel
 
 from backend.stress_test.capital import *
+
 
 def show():
     st.title("Choix des scénarios")
@@ -39,11 +41,11 @@ def show():
     # Phase 1: Select scenario type (macroeconomic or idiosyncratic)
     if st.session_state.current_phase == 1:
         show_phase1()
-    
+   
     # Phase 2: Select events from the other scenario type
     elif st.session_state.current_phase == 2:
         show_phase2()
-    
+   
     # Phase 3: Show all selected events and results
     elif st.session_state.current_phase == 3:
         show_phase3()
@@ -95,25 +97,25 @@ def show_phase2():
     st.session_state['previous_event_executed'] = False
     # Determine the other scenario type (the one not selected in phase 1)
     other_scenario_type = "macroéconomique" if st.session_state.scenario_type == "idiosyncratique" else "idiosyncratique"
-    
+   
     available_events = list(config.scenarios[other_scenario_type].keys())
-    
+   
     selected_events = st.multiselect(
         "Événements disponibles",
         available_events,
         key="events_multiselect_phase2"
     )
-    
+   
     st.session_state.selected_events_phase2 = selected_events
-    
+   
     if selected_events:
         afficher_configuration_evenements(selected_events, other_scenario_type)
-    
+   
 
     if st.button("Valider la phase 2 et passer à la phase 3"):
         # Combine all selected events from both phases
         st.session_state.all_selected_events = (
-            st.session_state.selected_events_phase1 + 
+            st.session_state.selected_events_phase1 +
             st.session_state.selected_events_phase2
         )
         # Capital
@@ -132,23 +134,23 @@ def show_phase3():
     st.markdown("**Événements sélectionnés en phase 1:**")
     for event in st.session_state.selected_events_phase1:
         st.write(f"- {event}")
-    
+   
     # Display selected events from phase 2
     st.markdown("**Événements sélectionnés en phase 2:**")
     for event in st.session_state.selected_events_phase2:
         st.write(f"- {event}")
-    
+   
     # First show phase 1 events
     if st.session_state.selected_events_phase1:
         st.markdown(f"**Configuration pour le scénario {st.session_state.scenario_type}:**")
         afficher_configuration_evenements(st.session_state.selected_events_phase1, st.session_state.scenario_type)
-    
+   
     # Then show phase 2 events
     if st.session_state.selected_events_phase2:
         other_scenario_type = "macroéconomique" if st.session_state.scenario_type == "idiosyncratique" else "idiosyncratique"
         st.markdown(f"**Configuration pour le scénario {other_scenario_type}:**")
         afficher_configuration_evenements(st.session_state.selected_events_phase2, other_scenario_type)
-    
+   
 
     if st.button("Valider tous les scénarios et voir les résultats"):
         if "resultats_solva" in st.session_state:
@@ -185,9 +187,7 @@ def afficher_configuration_evenements(selected_events, scenario_type):
                 bilan = st.session_state.bilan
                 params = afficher_parametres_tirage_pnu()
                 appliquer_tirage_pnu_silencieux(bilan, params)
-
-        else:
-            st.warning("Cette fonctionnalité n'est pas encore implémentée.")
+     
 
 def afficher_parametres_retrait_depots():
 
@@ -291,9 +291,9 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     postes_concernes = ["Depots clients (passif)", "Portefeuille", "Créances banques autres"]
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
-    
+   
     current_phase = st.session_state.get("current_phase", 1)
-    
+   
     # Initialize phase results with the same structure as resultats_horizon
     if f"resultats_phase{current_phase}" not in st.session_state:
         st.session_state[f"resultats_phase{current_phase}"] = {}
@@ -303,16 +303,16 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
     bst.show_hqla_tab()
     bst.show_outflow_tab_retrait_depots()
     bst.show_inflow_tab_retrait_depots()
-    
+   
     recap_data_lcr = afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
     if recap_data_lcr:
         for year_data in recap_data_lcr:
             year = year_data["Année"]
-            
+           
             # Update main results
             if year not in st.session_state["resultats_horizon"]:
                 st.session_state["resultats_horizon"][year] = {}
-            
+           
             st.session_state["resultats_horizon"][year].update({
                 "LCR": year_data["LCR (%)"],
                 "HQLA": year_data["HQLA"],
@@ -322,11 +322,11 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
                 "df_73": year_data["df_73"],
                 "df_74": year_data["df_74"]
             })
-            
+           
             # Update phase results with same structure
             if year not in st.session_state[f"resultats_phase{current_phase}"]:
                 st.session_state[f"resultats_phase{current_phase}"][year] = {}
-                
+               
             st.session_state[f"resultats_phase{current_phase}"][year].update({
                 "LCR": year_data["LCR (%)"],
                 "HQLA": year_data["HQLA"],
@@ -336,23 +336,23 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
                 "df_73": year_data["df_73"],
                 "df_74": year_data["df_74"]
             })
-            
+           
         afficher_tableau_recapitulatif(recap_data_lcr, "LCR")
 
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
     bst.show_asf_tab_v2()
     bst.show_asf_tab_financial_customers()
-    
+   
     recap_data_nsfr = afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=params['horizon'])
     if recap_data_nsfr:
         for year_data in recap_data_nsfr:
             year = year_data["Année"]
-            
+           
             # Update main results
             if year not in st.session_state["resultats_horizon"]:
                 st.session_state["resultats_horizon"][year] = {}
-                
+               
             st.session_state["resultats_horizon"][year].update({
                 "NSFR": year_data["NSFR (%)"],
                 "ASF": year_data["ASF"],
@@ -360,11 +360,11 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
                 "df_80": year_data["df_80"],
                 "df_81": year_data["df_81"]
             })
-            
+           
             # Update phase results with same structure
             if year not in st.session_state[f"resultats_phase{current_phase}"]:
                 st.session_state[f"resultats_phase{current_phase}"][year] = {}
-                
+               
             st.session_state[f"resultats_phase{current_phase}"][year].update({
                 "NSFR": year_data["NSFR (%)"],
                 "ASF": year_data["ASF"],
@@ -372,7 +372,7 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
                 "df_80": year_data["df_80"],
                 "df_81": year_data["df_81"]
             })
-            
+           
         afficher_tableau_recapitulatif(recap_data_nsfr, "NSFR")    
     # Section Ratio de Solvabilité
     st.subheader("Impact sur le ratio de solvabilité")
@@ -382,9 +382,9 @@ def afficher_resultats_retrait_depots(bilan_stresse, params):
         # Calculer les résultats projetés si non disponibles
         from backend.ratios_baseline.capital_projete import simuler_solvabilite_pluriannuelle
         resultats_proj = simuler_solvabilite_pluriannuelle()
-        
+       
         st.session_state["resultats_solva"] = resultats_proj
-    
+   
     st.session_state.setdefault(f"ress{current_phase}", {})
 
     afficher_resultats_solva(bilan_stresse, params, resultats_proj)
@@ -476,7 +476,7 @@ def afficher_resultats_lcr_retrait_depots(bilan_stresse, params, horizon=1):
             for target_year in range(annee, 2028):
                 if target_year > 2027:
                     continue
-                    
+                   
                 stressed_dfs[target_year]['df_72'] = bst.propager_retrait_depots_vers_df72(
                     stressed_dfs[target_year]['df_72'], bilan_stresse, annee=annee,
                     pourcentage=pourcentage, horizon=horizon,
@@ -575,9 +575,9 @@ def  afficher_resultats_nsfr_retrait_depots(bilan_stresse, params, horizon=3):
             for target_year in range(annee, 2028):
                 if target_year > 2027:
                     continue
-                    
+                   
                 stressed_dfs[target_year]['df_80'] = bst.propager_retrait_depots_vers_df80(
-                    stressed_dfs[target_year]['df_80'], bilan_stresse, 
+                    stressed_dfs[target_year]['df_80'], bilan_stresse,
                     pourcentage_retrait=pourcentage,
                     poids_creances=poids_creances,
                     annee=annee
@@ -785,6 +785,7 @@ def afficher_resultats_solva(bilan_stresse, params, resultats_proj):
 
 
 def afficher_resultats_levier(params, resultats_projete_levier, resultats_solva=None):
+   
     try:
         resultats_solva = st.session_state.get("resultats_solva", {}) if resultats_solva is None else resultats_solva
 
@@ -1302,9 +1303,9 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     postes_concernes = ["Créances clientèle", "Portefeuille", "Dettes envers les établissements de crédit (passif)","Engagements de garantie donnés"]
     bilan_filtre = bst.afficher_postes_concernes(bilan_stresse, postes_concernes, horizon=params['horizon'])
     st.dataframe(bilan_filtre)
-    
+   
     current_phase = st.session_state.get("current_phase", 1)
-    
+   
     # Initialize phase results with the same structure as resultats_horizon
     if f"resultats_phase{current_phase}" not in st.session_state:
         st.session_state[f"resultats_phase{current_phase}"] = {}
@@ -1322,11 +1323,11 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     if recap_data_lcr:
         for year_data in recap_data_lcr:
             year = year_data["Année"]
-            
+           
             # Update main results
             if year not in st.session_state["resultats_horizon"]:
                 st.session_state["resultats_horizon"][year] = {}
-            
+           
             st.session_state["resultats_horizon"][year].update({
                 "LCR": year_data["LCR (%)"],
                 "HQLA": year_data["HQLA"],
@@ -1336,11 +1337,11 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
                 "df_73": year_data["df_73"],
                 "df_74": year_data["df_74"]
             })
-            
+           
             # Update phase results with same structure
             if year not in st.session_state[f"resultats_phase{current_phase}"]:
                 st.session_state[f"resultats_phase{current_phase}"][year] = {}
-                
+               
             st.session_state[f"resultats_phase{current_phase}"][year].update({
                 "LCR": year_data["LCR (%)"],
                 "HQLA": year_data["HQLA"],
@@ -1350,9 +1351,9 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
                 "df_73": year_data["df_73"],
                 "df_74": year_data["df_74"]
             })
-            
+           
         afficher_tableau_recapitulatif(recap_data_lcr, "LCR")
-        
+       
     # Section NSFR
     st.subheader("Impact sur le ratio NSFR")
 
@@ -1363,11 +1364,11 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
     if recap_data_nsfr:
         for year_data in recap_data_nsfr:
             year = year_data["Année"]
-            
+           
             # Update main results
             if year not in st.session_state["resultats_horizon"]:
                 st.session_state["resultats_horizon"][year] = {}
-                
+               
             st.session_state["resultats_horizon"][year].update({
                 "NSFR": year_data["NSFR (%)"],
                 "ASF": year_data["ASF"],
@@ -1375,11 +1376,11 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
                 "df_80": year_data["df_80"],
                 "df_81": year_data["df_81"]
             })
-            
+           
             # Update phase results with same structure
             if year not in st.session_state[f"resultats_phase{current_phase}"]:
                 st.session_state[f"resultats_phase{current_phase}"][year] = {}
-                
+               
             st.session_state[f"resultats_phase{current_phase}"][year].update({
                 "NSFR": year_data["NSFR (%)"],
                 "ASF": year_data["ASF"],
@@ -1387,7 +1388,7 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
                 "df_80": year_data["df_80"],
                 "df_81": year_data["df_81"]
             })
-            
+           
         afficher_tableau_recapitulatif(recap_data_nsfr, "NSFR")
 
     # Section Solvabilité
@@ -1399,6 +1400,15 @@ def afficher_resultats_tirage_pnu(bilan_stresse, params):
         st.warning("Résultats de solvabilité non disponibles.")
     recap_data = afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj)
 
+  # Impact sur le ratio de levier PNU
+    st.subheader("Impact sur le ratio de levier (Tirage PNU)")
+    proj_levier = st.session_state.get("resultats_levier")
+    if proj_levier:
+      resultats_proj_solvabilite = st.session_state["resultats_solva"]
+
+      afficher_resultats_levier_tirage_pnu(bilan_stresse, params, proj_levier, resultats_proj_solvabilite)
+    else:
+        st.warning("⚠️ Projections de levier introuvables : exécutez d'abord le calcul du levier de base.")
 
 def afficher_ratios_tirage_pnu():
     col1, col2, col3 = st.columns(3)
@@ -1445,7 +1455,7 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
                 st.error("Les résultats de base ne sont pas disponibles dans la session.")
                 return None
             resultats_horizon = st.session_state['resultats_horizon']
-            bilan_stresse = bilan_stresse       
+            bilan_stresse = bilan_stresse      
         # Verify base year exists
         if 2024 not in resultats_horizon:
             st.error("Les données de l'année 2024 ne sont pas disponibles.")
@@ -1490,7 +1500,7 @@ def afficher_resultats_lcr_tirage_pnu(bilan_stresse, params, horizon=3):
                     pourcentage=pourcentage, horizon=horizon,
                     poids_portefeuille=poids_portefeuille
                 )
-        
+       
                 df_74 = bst2.propager_impact_vers_df74(
                     df_74, bilan_stresse, annee=prev_year,
                     pourcentage=pourcentage, horizon=horizon
@@ -1554,7 +1564,7 @@ def afficher_resultats_nsfr_tirage_pnu(bilan_stresse, params, horizon=3):
                 st.error("Les résultats de base ne sont pas disponibles dans la session.")
                 return None
             resultats_horizon = st.session_state['resultats_horizon']
-            bilan_stresse = bilan_stresse       
+            bilan_stresse = bilan_stresse      
         # Verify base year exists
         if 2024 not in resultats_horizon:
             st.error("Les données de l'année 2024 ne sont pas disponibles.")
@@ -1815,3 +1825,358 @@ def afficher_resultats_solva_tirage_pnu(bilan_stresse, params, resultats_proj):
         st.error(traceback.format_exc())
         return None
 
+import pandas as pd
+import streamlit as st
+
+# Couleurs PwC (à adapter si besoin)
+pwc_orange = "#f47721"
+pwc_dark_gray = "#3d3d3d"
+pwc_light_beige = "#f5f0e6"
+pwc_soft_black = "#333333"
+import os
+import pandas as pd
+import streamlit as st
+
+# Couleurs PwC (à adapter si besoin)
+pwc_orange      = "#f47721"
+pwc_dark_gray   = "#3d3d3d"
+pwc_light_beige = "#f5f0e6"
+pwc_soft_black  = "#333333"
+def afficher_resultats_levier_tirage_pnu(bilan_stresse, params, resultats_proj_levier, resultats_proj_solvabilite):
+    """
+    Affiche les résultats du stress PNU sur le ratio de levier,
+    dans le même style que la fonction solvabilité PNU.
+
+    Args:
+        bilan_stresse (DataFrame): non utilisé ici (compatibilité interface).
+        params (dict): paramètres PNU, doit contenir 'horizon', 'pourcentage',
+                       'inclure_corpo', 'inclure_retail', 'inclure_hypo'.
+        resultats_proj_levier (dict): projections de levier avant stress (df_c4700, tier1).
+        resultats_proj_solvabilite (dict): projections de solvabilité (blocs C0700).
+    Returns:
+        list of dict: recap_data pour contrôle ou tests.
+    """
+    try:
+        import os
+        horizon    = params.get("horizon", 3)
+        pourcentage = params.get("pourcentage", 0.10)
+
+        bilan_path = os.path.join("data", "bilan.xlsx")
+        if not os.path.exists(bilan_path):
+            st.error(f"Fichier de bilan non trouvé : {bilan_path}")
+            return None
+
+        bilan = pd.read_excel(bilan_path).iloc[2:].reset_index(drop=True)
+        if "Unnamed: 1" in bilan.columns:
+            bilan = bilan.drop(columns=["Unnamed: 1"])
+        for i, col in enumerate(bilan.columns):
+            if str(col).startswith("Unnamed: 6"):
+                bilan = bilan.iloc[:, :i]
+                break
+        bilan.columns.values[0] = "Poste du Bilan"
+        bilan.columns.values[1:5] = ["2024", "2025", "2026", "2027"]
+        bilan = bilan.dropna(how="all").reset_index(drop=True)
+        if 25 in bilan.index:
+            bilan = bilan.drop(index=25).reset_index(drop=True)
+
+        # Tirages par segment
+        tirage_par_segment = {}
+        if params.get("inclure_corpo", False):
+            m = bilan["Poste du Bilan"].str.contains("Dont Corpo", case=False, na=False)
+            if m.any():
+                tirage_par_segment["C0700_0009_1"] = float(bilan.loc[m, "2024"].iloc[0]) * pourcentage
+        if params.get("inclure_retail", False):
+            m = bilan["Poste du Bilan"].str.contains("Dont Retail", case=False, na=False)
+            if m.any():
+                tirage_par_segment["C0700_0008_1"] = float(bilan.loc[m, "2024"].iloc[0]) * pourcentage
+        if params.get("inclure_hypo", False):
+            m = bilan["Poste du Bilan"].str.contains("Dont Hypo", case=False, na=False)
+            if m.any():
+                tirage_par_segment["C0700_0010_1"] = float(bilan.loc[m, "2024"].iloc[0]) * pourcentage
+
+        if not tirage_par_segment:
+            st.warning("Aucun segment sélectionné ou lignes 'Dont ...' manquantes.")
+            return None
+
+        # ✅ Appel mis à jour avec resultats_proj_solvabilite
+        resultats_levier_pnu = executer_stress_pnu_levier_pluriannuel(
+            resultats_projete_levier  = resultats_proj_levier,
+            resultats_projete_solvabilite = resultats_proj_solvabilite,
+            annee_debut               = "2025",
+            pourcentage_pnu           = pourcentage,
+            montant_garanties_donnees = sum(tirage_par_segment.values()),
+            horizon                   = horizon,
+            debug                     = True
+        )
+
+        st.session_state["delta_expo_pnu"] = {
+            annee: res["variation_0190"]
+            for annee, res in resultats_levier_pnu.items()
+        }
+
+        recap_data = []
+        phase_actuelle = st.session_state.get("current_phase", 1)
+        delta_event1 = st.session_state.get("delta_expo_event1", {})
+
+        for i in range(horizon):
+            annee = str(2025 + i)
+            res   = resultats_levier_pnu.get(annee)
+            if not res:
+                continue
+
+            tier1         = resultats_proj_levier[annee]["tier1"]
+            expo_pnu      = res["total_exposure_stresse"]
+            delta_ev1     = delta_event1.get(annee, 0.0)
+            expo_combine  = expo_pnu + delta_ev1
+
+            ratio_pnu     = (tier1 / expo_pnu) * 100 if expo_pnu > 0 else 0.0
+            ratio_combine = (tier1 / expo_combine) * 100 if expo_combine > 0 else float("nan")
+
+            recap_data.append({
+                "Année": annee,
+                "Tier1": tier1,
+                "Exposition PNU": expo_pnu,
+                "Δ Exposition Event1": delta_ev1,
+                "Exposition combinée": expo_combine,
+                "Ratio PNU (%)": ratio_pnu,
+                "Ratio combiné (%)": ratio_combine,
+                "blocs_stresses": res["expositions_80"]
+            })
+
+        st.session_state[f"resultats_levier_pnu_phase{phase_actuelle}"] = recap_data
+
+        if recap_data:
+            df_affiche = pd.DataFrame([{
+                "Année": r["Année"],
+                "Tier1": f"{r['Tier1']:,.0f}",
+                "Expos PNU": f"{r['Exposition PNU']:,.0f}",
+                "Δ Expo ": f"{r['Δ Exposition Event1']:,.0f}",
+                "Expo comb.": f"{r['Exposition combinée']:,.0f}",
+                "Ratio PNU (%)": f"{r['Ratio PNU (%)']:.2f}%",
+                "Ratio comb. (%)": f"{r['Ratio combiné (%)']:.2f}%"
+            } for r in recap_data])
+            st.dataframe(df_affiche, use_container_width=True)
+
+        for r in recap_data:
+            an = r["Année"]
+            res = resultats_levier_pnu[an]
+            df_c4700 = res["df_c4700_stresse"].copy()
+
+            with st.expander(f"Détails Levier PNU – Année {an}"):
+                col1, col2, col3 = st.columns(3)
+
+                # Exposition PNU
+                with col1:
+                    st.markdown(f"""
+                        <div style="
+                            background-color:{pwc_light_beige};
+                            padding:20px;
+                            border-radius:15px;
+                            box-shadow:0 4px 8px rgba(0,0,0,0.1);
+                            text-align:center;
+                            border-left: 8px solid {pwc_orange};
+                        ">
+                        <h4 style="margin-bottom:10px;">Exposition PNU</h4>
+                        <p style="
+                            font-size:26px;
+                            font-weight:bold;
+                            color:{pwc_orange};
+                            margin:0;
+                        ">
+                            {r['Exposition PNU']:,.0f}
+                        </p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                # Tier 1
+                with col2:
+                    st.markdown(f"""
+                        <div style="
+                            background-color:{pwc_light_beige};
+                            padding:20px;
+                            border-radius:15px;
+                            box-shadow:0 4px 8px rgba(0,0,0,0.1);
+                            text-align:center;
+                            border-left: 8px solid {pwc_dark_gray};
+                        ">
+                        <h4 style="margin-bottom:10px;">Tier 1</h4>
+                        <p style="
+                            font-size:26px;
+                            font-weight:bold;
+                            color:{pwc_dark_gray};
+                            margin:0;
+                        ">
+                            {r['Tier1']:,.0f}
+                        </p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                # Ratio PNU
+                with col3:
+                    st.markdown(f"""
+                        <div style="
+                            background-color:{pwc_light_beige};
+                            padding:20px;
+                            border-radius:15px;
+                            box-shadow:0 4px 8px rgba(0,0,0,0.1);
+                            text-align:center;
+                            border-left: 8px solid {pwc_orange};
+                        ">
+                        <h4 style="margin-bottom:10px;">Ratio PNU (%)</h4>
+                        <p style="
+                            font-size:26px;
+                            font-weight:bold;
+                            color:{pwc_orange};
+                            margin:0;
+                        ">
+                            {r['Ratio PNU (%)']:.2f}%
+                        </p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                st.markdown("#### Tableau C47.00 après stress")
+                st.dataframe(
+                    df_c4700.style.format({"0010": "{:,.0f}"}),
+                    use_container_width=True
+                    )
+        if phase_actuelle == 3:
+            afficher_lever_combine_phase3(
+                annee,
+                resultats_levier_pnu,
+                st.session_state.get("delta_expo_event1", {}),
+                pwc_light_beige,
+                pwc_orange,
+                pwc_dark_gray
+        )
+
+        return recap_data
+
+    except Exception as e:
+        st.error(f"Erreur dans afficher_resultats_levier_tirage_pnu : {e}")
+        import traceback
+        st.error(traceback.format_exc())
+        return None
+
+
+def afficher_lever_combine_phase3(
+    annee: str,
+    resultats_levier_pnu: dict,
+    delta_expo_event1: dict,
+    pwc_light_beige: str,
+    pwc_orange: str,
+    pwc_dark_gray: str
+):
+    """
+    Affiche, en phase 3, le ratio de levier combiné :
+     - on part de df_c4700_stresse (PNU déjà appliqué)
+     - on y injecte en plus Δ Expo Event1 sur la ligne 190
+     - puis on recalcule expo + ratio
+    """
+    res = resultats_levier_pnu.get(annee)
+    if not res:
+        st.error(f"Aucun résultat PNU pour l'année {annee}")
+        return
+
+    # 1) Récupérer Tier1 & expo PNU
+    tier1    = res["tier1"]
+    expo_pnu = res["total_exposure_stresse"]
+    df_pnu   = res["df_c4700_stresse"].copy()
+
+    # 2) Injecter Δ Expo Event1 sur la ligne 190
+    delta1 = delta_expo_event1.get(annee, 0.0)
+    if delta1 and "Row" in df_pnu.columns:
+        idx190 = df_pnu[df_pnu["Row"] == 190].index
+        if not idx190.empty:
+            df_pnu.loc[idx190[0], "0010"] += delta1
+        else:
+            df_pnu = pd.concat([
+                df_pnu,
+                pd.DataFrame([{"Row": 190, "0010": delta1}])
+            ], ignore_index=True)
+    expo_combine = expo_pnu + delta1
+
+    # 3) Calcul du ratio combiné
+    ratio_combine = round((tier1 / expo_combine)*100, 2) if expo_combine > 0 else 0.0
+
+    # 4) Affichage au template Solva/Levier
+    with st.expander(f"Détails Levier combiné – Année {annee}"):
+        col1, col2, col3 = st.columns(3)
+
+        # Exposition combinée
+        with col1:
+            st.markdown(f"""
+                <div style="
+                    background-color:{pwc_light_beige};
+                    padding:20px;
+                    border-radius:15px;
+                    box-shadow:0 4px 8px rgba(0,0,0,0.1);
+                    text-align:center;
+                    border-left: 8px solid {pwc_orange};
+                ">
+                  <h4 style="margin-bottom:10px;">Exposition combinée</h4>
+                  <p style="
+                      font-size:26px;
+                      font-weight:bold;
+                      color:{pwc_orange};
+                      margin:0;
+                  ">
+                    {expo_combine:,.0f}
+                  </p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # Tier 1
+        with col2:
+            st.markdown(f"""
+                <div style="
+                    background-color:{pwc_light_beige};
+                    padding:20px;
+                    border-radius:15px;
+                    box-shadow:0 4px 8px rgba(0,0,0,0.1);
+                    text-align:center;
+                    border-left: 8px solid {pwc_dark_gray};
+                ">
+                  <h4 style="margin-bottom:10px;">Tier 1</h4>
+                  <p style="
+                      font-size:26px;
+                      font-weight:bold;
+                      color:{pwc_dark_gray};
+                      margin:0;
+                  ">
+                    {tier1:,.0f}
+                  </p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # Ratio combiné
+        with col3:
+            st.markdown(f"""
+                <div style="
+                    background-color:{pwc_light_beige};
+                    padding:20px;
+                    border-radius:15px;
+                    box-shadow:0 4px 8px rgba(0,0,0,0.1);
+                    text-align:center;
+                    border-left: 8px solid {pwc_orange};
+                ">
+                  <h4 style="margin-bottom:10px;">Ratio combiné (%)</h4>
+                  <p style="
+                      font-size:26px;
+                      font-weight:bold;
+                      color:{pwc_orange};
+                      margin:0;
+                  ">
+                    {ratio_combine:.2f}%
+                  </p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # Tableau C47.00 après les deux chocs
+        st.markdown("#### Tableau C47.00 – combiné")
+        df = df_pnu.copy()
+        if "Row" in df.columns:
+            df["Row"] = (
+                pd.to_numeric(df["Row"], errors="coerce")
+                  .fillna(0).astype(int)
+                  .astype(str).str.zfill(4)
+            )
+        st.dataframe(df.style.format({"0010": "{:,.0f}"}), use_container_width=True)

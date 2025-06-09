@@ -1,5 +1,161 @@
 import numpy as np
 import pandas as pd
+from config import format_large_number
+import pandas as pd
+import streamlit as st
+
+def somme_sans_nan(row, columns):
+    """
+    Somme les valeurs des colonnes spécifiées en ignorant les NaN.
+    """
+    return sum(row[col] for col in columns if pd.notna(row[col]))
+
+import pandas as pd
+
+import pandas as pd
+
+def calcul_total_exposure(
+    df_c4700: pd.DataFrame,
+    valeur_stressee_0170: float = None,
+    valeur_stressee_0190: float = None
+):
+    """
+    Calcule l'exposition totale pour le ratio de levier, en tenant compte :
+      - de la variation à injecter sur la ligne 0170 (si fournie)
+      - de la variation à injecter sur la ligne 190 (si fournie)
+      - du périmètre réglementaire des lignes à inclure (tableau C47.00).
+    """
+    rows_a_inclure = [
+        10, 20, 30, 40, 50, 61, 65, 71, 81, 91, 92, 93,
+        101, 102, 103, 104, 110, 120, 130, 140, 150, 160, 170, 180,
+        181, 185, 186, 187, 188, 189, 190, 191, 193, 194, 195, 196,
+        197, 198, 200, 210, 220, 230, 235, 240, 250, 251, 252, 253,
+        254, 255, 256, 257, 260, 261, 262, 263, 264, 265, 266, 267, 270
+    ]
+    df_temp = df_c4700.copy()
+
+    # Injection de la variation sur la ligne 0170
+    if valeur_stressee_0170 is not None:
+        idx170 = df_temp[df_temp['Row'] == 170].index
+        if not idx170.empty:
+            # Ajout de la variation à la valeur existante
+            df_temp.loc[idx170[0], '0010'] += valeur_stressee_0170
+        else:
+            new_row = pd.DataFrame([{'Row': 170, '0010': valeur_stressee_0170}])
+            df_temp = pd.concat([df_temp, new_row], ignore_index=True)
+
+    # Injection de la variation sur la ligne 190
+    if valeur_stressee_0190 is not None:
+        idx190 = df_temp[df_temp['Row'] == 190].index
+        if not idx190.empty:
+            df_temp.loc[idx190[0], '0010'] += valeur_stressee_0190
+        else:
+            new_row = pd.DataFrame([{'Row': 190, '0010': valeur_stressee_0190}])
+            df_temp = pd.concat([df_temp, new_row], ignore_index=True)
+
+    # Somme de l'exposition réglementaire
+    total_exposure = (
+        df_temp[df_temp['Row'].isin(rows_a_inclure)]['0010']
+        .apply(lambda x: pd.to_numeric(x, errors='coerce')).fillna(0)
+        .sum()
+    )
+    return total_exposure, df_temp
+
+def calculer_ratio_levier(tier1: float, total_exposure: float) -> float:
+    """
+    Calcule le ratio de levier réglementaire (en %), arrondi à 2 décimales.
+    """
+    return round((tier1 / total_exposure) * 100, 2) if total_exposure > 0 else 0.0
+
+import pandas as pd
+
+
+def executer_stress_pnu_levier_pluriannuel(
+    resultats_projete_levier: dict,
+    resultats_projete_solvabilite: dict,
+    annee_debut: str,
+    pourcentage_pnu: float,
+    montant_garanties_donnees: float,
+    horizon: int,
+    debug=True
+) -> dict:
+    """
+    Applique un stress PNU multi-annuel sur le ratio de levier,
+    en combinant les COREP projetés de solvabilité (C0700) avec le levier (C4700),
+    et calcule l'exposition réglementaire après injection des deux chocs via calcul_total_exposure.
+
+    - valeur_stressee_0170 : variation calculée pour la ligne 170 (propagation COREP)
+    - valeur_stressee_0190 : variation calculée pour la ligne 190 (pourcentage PNU sur garanties)
+    """
+    résultats = {}
+    for i in range(horizon):
+        annee = str(int(annee_debut) + i)
+        if debug:
+            print(f"🔄 Stress PNU levier - Année {annee}")
+
+        # 1. Charger le DataFrame C47.00 projeté (levier)
+        df_c4700 = resultats_projete_levier.get(annee, {}).get("df_c4700", pd.DataFrame()).copy()
+        if "Row" in df_c4700.columns:
+            df_c4700["Row"] = (
+                pd.to_numeric(df_c4700["Row"], errors='coerce')
+                  .fillna(0)
+                  .astype(int)
+            )
+
+        # 2. Récupérer blocs C0700 (solvabilité) pour le calcul de Δ0170
+        corep_solva = recuperer_corep_principal_projete(resultats_projete_solvabilite, annee)
+        expositions_80 = {}
+        for bloc in ["C0700_0008_1", "C0700_0009_1", "C0700_0010_1"]:
+            df_bloc = corep_solva.get(bloc, pd.DataFrame())
+            val80 = 0.0
+            if not df_bloc.empty and "row" in df_bloc.columns and "0010" in df_bloc.columns:
+                sel80 = df_bloc[df_bloc["row"] == 80.0]
+                if not sel80.empty:
+                    val80 = float(sel80.iloc[0]["0010"])
+            expositions_80[bloc] = val80
+        if debug:
+            print(f"   Expos80: {expositions_80}")
+
+        # 3. Tier1 depuis le résultat levier
+        tier1 = resultats_projete_levier.get(annee, {}).get("tier1", 0.0)
+
+        # 4. Calcul des variations
+        poids = {
+            "C0700_0009_1": 0.1*0.2 + 0.9*0.5,
+            "C0700_0008_1": 0.2*0.02 + 0.98*0.5,
+            "C0700_0010_1": 0.03*0.2 + 0.97*0.5
+        }
+        variation_0170 = sum(expositions_80[b] * poids[b] for b in poids)
+        variation_0190 = pourcentage_pnu * montant_garanties_donnees
+        if debug:
+            print(f"   Δ0170={variation_0170:.2f}, Δ0190={variation_0190:.2f}")
+
+        # 5. Calcul réglementaire d'exposition et injection des deux chocs
+        total_exposure, df_c4700_stresse = calcul_total_exposure(
+            df_c4700,
+            valeur_stressee_0170=variation_0170,
+            valeur_stressee_0190=variation_0190
+        )
+
+        # 6. Calcul unique du ratio après injections 0170 + 0190
+        ratio_levier = calculer_ratio_levier(tier1, total_exposure)
+        if debug:
+            print(f"   Exposition totale (réglementaire) = {total_exposure:.2f}")
+            print(f"   Ratio levier = {ratio_levier}%")
+
+        résultats[annee] = {
+            "df_c4700_stresse": df_c4700_stresse,
+            "tier1": tier1,
+            "expositions_80": expositions_80,
+            "variation_0170": variation_0170,
+            "variation_0190": variation_0190,
+            "total_exposure_stresse": total_exposure,
+            "ratio_levier_stresse": ratio_levier
+        }
+
+    return résultats
+
+
 def recuperer_corep_principal_projete(resultats, annee: str):
     """
     Récupère les tableaux COREP principaux projetés pour une année donnée.

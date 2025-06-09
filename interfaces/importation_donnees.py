@@ -56,14 +56,14 @@ def show():
                 st.warning(f"Fichier non reconnu : {uploaded_file.name}")
 
     st.markdown("---")
-    if st.button("Suivant"):
-        st.session_state.selected_page = "Calcul des Ratios Baseline"
+    #if st.button("Suivant"):
+       # st.session_state.selected_page = "Calcul des Ratios Baseline"
             
 
     # Bouton suivant
-"""     if st.button("Suivant"):
+    if st.button("Suivant"):
         if bilan and all(expected_files.values()):
-            st.session_state.selected_page = "Calcul des Ratios Basel   ine"
+            st.session_state.selected_page = "Calcul des Ratios Baseline"
         else:
-            st.error("Erreur : Veuillez importer tous les fichiers requis avant de continuer.") """
+            st.error("Erreur : Veuillez importer tous les fichiers requis avant de continuer.") 
 
